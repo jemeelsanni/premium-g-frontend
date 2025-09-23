@@ -1,41 +1,30 @@
 import apiClient from './client';
-import { 
-  ApiResponse, 
-  PaginatedResponse,
-  DistributionOrder,
-  Product,
-  Location
-} from '../types';
+
+interface OrderItem {
+  productId: string;
+  pallets: number;
+  packs: number;
+}
 
 interface CreateOrderData {
+  customerId: string;
   locationId: string;
-  items: Array<{
-    productId: string;
-    packs: number;
-    unitPrice: number;
-  }>;
-  paymentMethod: string;
-  transportCost?: number;
-  deliveryDate?: string;
-  notes?: string;
+  orderItems: OrderItem[];
+  remark?: string;
 }
 
 interface UpdateOrderData {
   status?: string;
-  deliveryDate?: string;
-  notes?: string;
-}
-
-interface PriceAdjustmentData {
-  amount: number;
-  reason: string;
-  type: 'increase' | 'decrease';
+  transporterCompany?: string;
+  driverNumber?: string;
+  remark?: string;
 }
 
 interface OrderFilters {
   page?: number;
   limit?: number;
   status?: string;
+  customerId?: string;
   locationId?: string;
   startDate?: string;
   endDate?: string;
@@ -48,18 +37,18 @@ export const distributionApi = {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value.toString());
+        if (value !== undefined) params.append(key, value.toString());
       });
     }
     
-    const { data } = await apiClient.get<PaginatedResponse<DistributionOrder>>(
+    const { data } = await apiClient.get(
       `/distribution/orders?${params.toString()}`
     );
     return data;
   },
 
   createOrder: async (orderData: CreateOrderData) => {
-    const { data } = await apiClient.post<ApiResponse<{ order: DistributionOrder }>>(
+    const { data } = await apiClient.post(
       '/distribution/orders',
       orderData
     );
@@ -67,14 +56,14 @@ export const distributionApi = {
   },
 
   getOrderById: async (id: string) => {
-    const { data } = await apiClient.get<ApiResponse<{ order: DistributionOrder }>>(
+    const { data } = await apiClient.get(
       `/distribution/orders/${id}`
     );
     return data;
   },
 
   updateOrder: async (id: string, updateData: UpdateOrderData) => {
-    const { data } = await apiClient.put<ApiResponse<{ order: DistributionOrder }>>(
+    const { data } = await apiClient.put(
       `/distribution/orders/${id}`,
       updateData
     );
@@ -82,20 +71,17 @@ export const distributionApi = {
   },
 
   deleteOrder: async (id: string) => {
-    const { data } = await apiClient.delete<ApiResponse<null>>(
+    const { data } = await apiClient.delete(
       `/distribution/orders/${id}`
     );
     return data;
   },
 
-  // Price Adjustments
-  createPriceAdjustment: async (orderId: string, adjustmentData: PriceAdjustmentData) => {
-    const { data } = await apiClient.post(
-      `/distribution/orders/${orderId}/price-adjustments`,
-      adjustmentData
-    );
-    return data;
-  },
+  // Products - Get distribution-specific products
+  getProducts: async () => {
+  const { data } = await apiClient.get('/distribution/products');
+  return data;
+},
 
   // Analytics
   getAnalytics: async (startDate?: string, endDate?: string) => {
@@ -105,22 +91,6 @@ export const distributionApi = {
     
     const { data } = await apiClient.get(
       `/distribution/analytics/summary?${params.toString()}`
-    );
-    return data;
-  },
-
-  // Products
-  getProducts: async () => {
-    const { data } = await apiClient.get<ApiResponse<{ products: Product[] }>>(
-      '/distribution/products'
-    );
-    return data;
-  },
-
-  // Locations
-  getLocations: async () => {
-    const { data } = await apiClient.get<ApiResponse<{ locations: Location[] }>>(
-      '/distribution/locations'
     );
     return data;
   },

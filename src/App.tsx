@@ -3,6 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Login } from './pages/auth/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole } from './types';
+import { DashboardLayout } from './components/layout/DashboardLayout';
+import { Dashboard } from './pages/dashboard/Dashboard';
+import { DistributionRoutes } from './pages/distribution/DistributionRoutes';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -14,9 +17,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-import { DashboardLayout } from './components/layout/DashboardLayout';
-import { Dashboard } from './pages/dashboard/Dashboard';
 
 const Unauthorized = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -61,7 +61,7 @@ function App() {
                 ]}
               >
                 <DashboardLayout>
-                  <div>Distribution Module - Coming Soon</div>
+                  <DistributionRoutes />
                 </DashboardLayout>
               </ProtectedRoute>
             }

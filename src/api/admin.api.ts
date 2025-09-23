@@ -8,6 +8,17 @@ import {
   AuditLog
 } from '../types';
 
+interface Customer {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const adminApi = {
   // User Management
   getUsers: async (filters?: {
@@ -72,7 +83,7 @@ export const adminApi = {
       });
     }
     
-    const { data } = await apiClient.get<PaginatedResponse<Product>>(
+    const { data } = await apiClient.get(
       `/admin/products?${params.toString()}`
     );
     return data;
@@ -82,8 +93,8 @@ export const adminApi = {
     productNo: string;
     name: string;
     description?: string;
-    unitPrice: number;
-    unitsPerPack: number;
+    packsPerPallet: number;
+    pricePerPack: number;
   }) => {
     const { data } = await apiClient.post<ApiResponse<{ product: Product }>>(
       '/admin/products',
@@ -107,6 +118,54 @@ export const adminApi = {
     return data;
   },
 
+  // Customer Management
+  getCustomers: async (filters?: {
+    page?: number;
+    limit?: number;
+    isActive?: boolean;
+    search?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined) params.append(key, value.toString());
+      });
+    }
+    
+    const { data } = await apiClient.get(
+      `/admin/customers?${params.toString()}`
+    );
+    return data;
+  },
+
+  createCustomer: async (customerData: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  }) => {
+    const { data } = await apiClient.post<ApiResponse<{ customer: Customer }>>(
+      '/admin/customers',
+      customerData
+    );
+    return data;
+  },
+
+  updateCustomer: async (id: string, customerData: Partial<Customer>) => {
+    const { data } = await apiClient.put<ApiResponse<{ customer: Customer }>>(
+      `/admin/customers/${id}`,
+      customerData
+    );
+    return data;
+  },
+
+  deleteCustomer: async (id: string) => {
+    const { data } = await apiClient.delete<ApiResponse<null>>(
+      `/admin/customers/${id}`
+    );
+    return data;
+  },
+
   // Location Management
   getLocations: async (filters?: {
     page?: number;
@@ -121,7 +180,7 @@ export const adminApi = {
       });
     }
     
-    const { data } = await apiClient.get<PaginatedResponse<Location>>(
+    const { data } = await apiClient.get(
       `/admin/locations?${params.toString()}`
     );
     return data;
@@ -129,9 +188,9 @@ export const adminApi = {
 
   createLocation: async (locationData: {
     name: string;
-    address: string;
-    contactPerson?: string;
-    contactPhone?: string;
+    address?: string;
+    fuelAdjustment?: number;
+    driverWagesPerTrip?: number;
   }) => {
     const { data } = await apiClient.post<ApiResponse<{ location: Location }>>(
       '/admin/locations',
