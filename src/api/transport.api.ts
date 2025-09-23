@@ -2,44 +2,54 @@ import apiClient from './client';
 import { 
   ApiResponse, 
   PaginatedResponse,
-  TransportOrder
+  TransportOrder,
+  TransportAnalytics
 } from '../types';
 
-interface CreateTransportOrderData {
+export interface CreateTransportOrderData {
   distributionOrderId?: string;
-  driverId: string;
-  vehicleNumber: string;
-  origin: string;
-  destination: string;
-  cost: number;
-  distance?: number;
-  departureDate: string;
-  notes?: string;
+  orderNumber: string;
+  invoiceNumber?: string;
+  locationId: string;
+  truckId?: string;
+  totalOrderAmount: number;
+  fuelRequired: number;
+  fuelPricePerLiter: number;
+  driverDetails?: string;
 }
 
-interface UpdateTransportOrderData {
-  status?: string;
-  arrivalDate?: string;
-  notes?: string;
+export interface UpdateTransportOrderData {
+  deliveryStatus?: string;
+  deliveryDate?: string;
+  driverDetails?: string;
 }
 
-interface TransportFilters {
+export interface UpdateTruckExpensesData {
+  fuelRequired?: number;
+  fuelPricePerLiter?: number;
+  serviceChargeExpense?: number;
+  driverWages?: number;
+  truckExpenses?: number;
+}
+
+export interface TransportFilters {
   page?: number;
   limit?: number;
-  status?: string;
-  driverId?: string;
+  deliveryStatus?: string;
+  locationId?: string;
   startDate?: string;
   endDate?: string;
   search?: string;
 }
 
 export const transportApi = {
-  // Transport Orders
   getOrders: async (filters?: TransportFilters) => {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value.toString());
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
       });
     }
     
@@ -50,7 +60,16 @@ export const transportApi = {
   },
 
   createOrder: async (orderData: CreateTransportOrderData) => {
-    const { data } = await apiClient.post<ApiResponse<{ order: TransportOrder }>>(
+    const { data } = await apiClient.post<ApiResponse<{ 
+      order: TransportOrder;
+      financialSummary: {
+        revenue: number;
+        totalExpenses: number;
+        grossProfit: number;
+        netProfit: number;
+        profitMargin: number;
+      }
+    }>>(
       '/transport/orders',
       orderData
     );
@@ -72,21 +91,41 @@ export const transportApi = {
     return data;
   },
 
-  deleteOrder: async (id: string) => {
-    const { data } = await apiClient.delete<ApiResponse<null>>(
-      `/transport/orders/${id}`
+  updateTruckExpenses: async (id: string, expensesData: UpdateTruckExpensesData) => {
+    const { data } = await apiClient.put<ApiResponse<{ 
+      order: TransportOrder;
+      updatedCalculations: {
+        totalExpenses: number;
+        grossProfit: number;
+        netProfit: number;
+        profitMargin: number;
+      }
+    }>>(
+      `/transport/orders/${id}/expenses`,
+      expensesData
     );
     return data;
   },
 
-  // Analytics
   getAnalytics: async (startDate?: string, endDate?: string) => {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     
-    const { data } = await apiClient.get(
+    const { data } = await apiClient.get<ApiResponse<TransportAnalytics>>(
       `/transport/analytics/summary?${params.toString()}`
+    );
+    return data;
+  },
+
+  getProfitAnalysis: async (startDate?: string, endDate?: string, locationId?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (locationId) params.append('locationId', locationId);
+    
+    const { data } = await apiClient.get(
+      `/transport/analytics/profit-analysis?${params.toString()}`
     );
     return data;
   },

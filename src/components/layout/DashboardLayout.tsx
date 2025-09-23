@@ -74,6 +74,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             });
         }
 
+        // Add after Transport Module section
+        if (user?.role && [UserRole.SUPER_ADMIN, UserRole.TRANSPORT_ADMIN].includes(user.role)) {
+            items.push({
+                name: 'Trucks',
+                href: '/transport/trucks',
+                icon: Truck,
+                roles: [UserRole.SUPER_ADMIN, UserRole.TRANSPORT_ADMIN],
+            });
+        }
+
         // Warehouse Module
         if (user?.role && [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN, UserRole.WAREHOUSE_SALES_OFFICER, UserRole.CASHIER].includes(user.role)) {
             items.push({

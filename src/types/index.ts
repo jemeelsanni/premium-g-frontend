@@ -173,22 +173,82 @@ export type TransportStatus = "SCHEDULED" | "IN_TRANSIT" | "DELIVERED" | "CANCEL
 
 export interface TransportOrder {
   id: string;
-  orderNumber: string;
   distributionOrderId?: string;
-  distributionOrder?: DistributionOrder;
-  driverId: string;
-  driver?: User;
-  vehicleNumber: string;
-  origin: string;
-  destination: string;
-  status: TransportStatus;
-  cost: number;
-  distance?: number;
-  departureDate: string;
-  arrivalDate?: string;
-  notes?: string;
+  orderNumber: string;
+  invoiceNumber?: string;
+  locationId: string;
+  truckId?: string;
+  
+  // Revenue
+  totalOrderAmount: number;
+  
+  // Expenses breakdown
+  fuelRequired: number;
+  fuelPricePerLiter: number;
+  totalFuelCost: number;
+  serviceChargeExpense: number;
+  driverWages: number;
+  truckExpenses: number;
+  
+  // Profit calculation
+  totalExpenses: number;
+  grossProfit: number;
+  netProfit: number;
+  profitMargin: number;
+  
+  // Driver and status
+  driverDetails?: string;
+  deliveryStatus: OrderStatus;
+  deliveryDate?: string;
+  
+  // Metadata
+  createdBy: string;
   createdAt: string;
   updatedAt: string;
+  
+  // Relations
+  location?: Location;
+  truck?: TruckCapacity;
+  distributionOrder?: DistributionOrder;
+  createdByUser?: User;
+}
+
+export interface TruckCapacity {
+  id: string;
+  truckId: string;
+  maxPallets: number;
+  currentLoad: number;
+  availableSpace: number;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface TransportAnalytics {
+  totalOrders: number;
+  financialSummary: {
+    totalRevenue: number;
+    totalExpenses: number;
+    grossProfit: number;
+    netProfit: number;
+    averageMargin: number;
+    overallMargin: number;
+  };
+  expenseBreakdown: {
+    fuel: number;
+    driverWages: number;
+    serviceCharges: number;
+    truckExpenses: number;
+  };
+  statusBreakdown: Array<{
+    deliveryStatus: string;
+    _count: number;
+  }>;
+  locationStats: Array<{
+    location: Location;
+    trips: number;
+    revenue: number;
+    profit: number;
+  }>;
 }
 
 // Target & Performance Types

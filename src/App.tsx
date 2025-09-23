@@ -6,14 +6,14 @@ import { UserRole } from './types';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { Dashboard } from './pages/dashboard/Dashboard';
 import { DistributionRoutes } from './pages/distribution/DistributionRoutes';
+import { TransportRoutes } from './pages/transport/TransportRoutes';
 
-// Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
     },
   },
 });
@@ -33,11 +33,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-          {/* Protected Routes */}
           <Route
             path="/dashboard"
             element={
@@ -49,7 +47,6 @@ function App() {
             }
           />
 
-          {/* Distribution Routes */}
           <Route
             path="/distribution/*"
             element={
@@ -67,7 +64,6 @@ function App() {
             }
           />
 
-          {/* Transport Routes */}
           <Route
             path="/transport/*"
             element={
@@ -79,13 +75,12 @@ function App() {
                 ]}
               >
                 <DashboardLayout>
-                  <div>Transport Module - Coming Soon</div>
+                  <TransportRoutes />
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
-          {/* Warehouse Routes */}
           <Route
             path="/warehouse/*"
             element={
@@ -98,29 +93,17 @@ function App() {
                 ]}
               >
                 <DashboardLayout>
-                  <div>Warehouse Module - Coming Soon</div>
+                  <div className="text-center py-12">
+                    <h2 className="text-2xl font-bold text-gray-900">Warehouse Module</h2>
+                    <p className="text-gray-600 mt-2">Coming Soon</p>
+                  </div>
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
 
-          {/* Admin Routes */}
-          <Route
-            path="/admin/*"
-            element={
-              <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
-                <DashboardLayout>
-                  <div>Admin Module - Coming Soon</div>
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Default redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-          {/* 404 */}
-          <Route path="*" element={<div className="p-8">404 - Page not found</div>} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
