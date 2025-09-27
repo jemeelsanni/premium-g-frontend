@@ -1,244 +1,298 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Truck, DollarSign, TrendingUp, Package, Fuel, Users } from 'lucide-react';
-import { transportApi } from '../../api/transport.api';
 import { Link } from 'react-router-dom';
+import {
+    Truck,
+    Package,
+    TrendingUp,
+    DollarSign,
+    Plus,
+    ArrowRight,
+    AlertCircle,
+} from 'lucide-react';
+import { transportService } from '../../services/transportService';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Button } from '../../components/ui/Button';
+import { Table } from '../../components/ui/Table';
+import { TransportOrder } from '../../types/transport';
 
-export const TransportDashboard = () => {
-    const { data, isLoading, error } = useQuery({
-        queryKey: ['transport-analytics'],
-        queryFn: () => transportApi.getAnalytics(),
+export const TransportDashboard: React.FC = () => {
+    const { data: stats, isLoading, error } = useQuery({
+        queryKey: ['transport-dashboard'],
+        queryFn: () => transportService.getDashboardStats(),
     });
 
-    // Debug: Log the entire response
-    console.log('Transport Analytics Response:', data);
+    const { data: recentOrders } = useQuery({
+        queryKey: ['transport-orders', 1, 5],
+        queryFn: () => transportService.getOrders(1, 5),
+    });
 
-    // Safely extract analytics data
-    const analyticsData = data?.data;
-
-    const stats = [
-        {
-            title: 'Total Orders',
-            value: String(analyticsData?.totalOrders || 0),
-            icon: Package,
-            color: 'bg-blue-500',
-        },
-        {
-            title: 'Total Revenue',
-            value: `₦${Number(analyticsData?.financialSummary?.totalRevenue || 0).toLocaleString()}`,
-            icon: DollarSign,
-            color: 'bg-green-500',
-        },
-        {
-            title: 'Net Profit',
-            value: `₦${Number(analyticsData?.financialSummary?.netProfit || 0).toLocaleString()}`,
-            icon: TrendingUp,
-            color: 'bg-indigo-500',
-        },
-        {
-            title: 'Profit Margin',
-            value: `${Number(analyticsData?.financialSummary?.overallMargin || 0).toFixed(2)}%`,
-            icon: TrendingUp,
-            color: 'bg-purple-500',
-        },
-    ];
+    const { data: trucks } = useQuery({
+        queryKey: ['transport-trucks'],
+        queryFn: () => transportService.getTrucks(),
+    });
 
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">Loading dashboard...</div>
+                <LoadingSpinner size="lg" />
             </div>
         );
     }
 
     if (error) {
-        console.error('Transport Analytics Error:', error);
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-red-500">Error loading dashboard data</div>
+                <div className="text-center">
+                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-gray-600">Failed to load dashboard data</p>
+                </div>
             </div>
         );
     }
 
+    const statCards = [
+        {
+            title: 'Active Trips',
+            value: stats?.activeTrips || 0,
+            icon: Truck,
+            color: 'blue',
+            change: '+15%'
+        },
+        {
+            title: 'Total Revenue',
+            value: `₦${(stats?.totalRevenue || 0).toLocaleString()}`,
+            icon: DollarSign,
+            color: 'green',
+            change: '+12%'
+        },
+        {
+            title: 'Fleet Size',
+            value: trucks?.length || 0,
+            icon: Package,
+            color: 'purple',
+            change: '+2%'
+        },
+        {
+            title: 'Monthly Growth',
+            value: `${stats?.monthlyGrowth || 0}%`,
+            icon: TrendingUp,
+            color: 'orange',
+            change: '+3%'
+        }
+    ];
+
+    const orderColumns = [
+        {
+            key: 'orderNumber',
+            title: 'Order #',
+            render: (value: string, record: TransportOrder) => (
+                <Link
+                    to={`/transport/orders/${record.id}`}
+                    className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                    {value}
+                </Link>
+            )
+        },
+        {
+            key: 'clientName',
+            title: 'Client',
+        },
+        {
+            key: 'pickupLocation',
+            title: 'Pickup',
+            render: (value: string) => (
+                <div className="max-w-32 truncate" title={value}>
+                    {value}
+                </div>
+            )
+        },
+        {
+            key: 'deliveryLocation',
+            title: 'Delivery',
+            render: (value: string) => (
+                <div className="max-w-32 truncate" title={value}>
+                    {value}
+                </div>
+            )
+        },
+        {
+            key: 'totalOrderAmount',
+            title: 'Amount',
+            render: (value: number) => `₦${value.toLocaleString()}`
+        },
+        {
+            key: 'deliveryStatus',
+            title: 'Status',
+            render: (value: string) => (
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${value === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                        value === 'IN_TRANSIT' ? 'bg-blue-100 text-blue-800' :
+                            value === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                    }`}>
+                    {value}
+                </span>
+            )
+        }
+    ];
+
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Transport Dashboard</h1>
-                    <p className="text-gray-600 mt-1">Manage transport orders and track performance</p>
+            {/* Header */}
+            <div className="md:flex md:items-center md:justify-between">
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        Transport Dashboard
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Manage your fleet operations and logistics
+                    </p>
                 </div>
-                <Link
-                    to="/transport/orders/create"
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                    Create Transport Order
-                </Link>
+                <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
+                    <Link to="/transport/orders/create">
+                        <Button className="inline-flex items-center">
+                            <Plus className="h-4 w-4 mr-2" />
+                            New Transport Order
+                        </Button>
+                    </Link>
+                    <Link to="/transport/trucks">
+                        <Button variant="outline">
+                            Manage Fleet
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {stats.map((stat) => (
-                    <div key={stat.title} className="bg-white rounded-lg shadow p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600">{stat.title}</p>
-                                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                            </div>
-                            <div className={`${stat.color} p-3 rounded-lg`}>
-                                <stat.icon className="w-6 h-6 text-white" />
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {statCards.map((stat, index) => (
+                    <div key={index} className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="p-5">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <stat.icon className={`h-8 w-8 text-${stat.color}-600`} />
+                                </div>
+                                <div className="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt className="text-sm font-medium text-gray-500 truncate">
+                                            {stat.title}
+                                        </dt>
+                                        <dd className="flex items-baseline">
+                                            <div className="text-2xl font-semibold text-gray-900">
+                                                {stat.value}
+                                            </div>
+                                            <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
+                                                {stat.change}
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Expense Breakdown */}
-            {analyticsData?.expenseBreakdown && (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Expense Breakdown</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="flex items-center space-x-3">
-                            <Fuel className="w-5 h-5 text-orange-500" />
+            {/* Quick Actions */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="p-6">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                        Quick Actions
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <Link
+                            to="/transport/orders/create"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
                             <div>
-                                <p className="text-sm text-gray-600">Fuel Costs</p>
-                                <p className="font-semibold text-gray-900">
-                                    ₦{Number(analyticsData.expenseBreakdown.fuel || 0).toLocaleString()}
+                                <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-600 group-hover:bg-blue-100">
+                                    <Package className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    Create Transport Order
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Start a new logistics and transport operation
                                 </p>
                             </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                            <Users className="w-5 h-5 text-blue-500" />
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+
+                        <Link
+                            to="/transport/trucks"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
                             <div>
-                                <p className="text-sm text-gray-600">Driver Wages</p>
-                                <p className="font-semibold text-gray-900">
-                                    ₦{Number(analyticsData.expenseBreakdown.driverWages || 0).toLocaleString()}
+                                <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-600 group-hover:bg-green-100">
+                                    <Truck className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    Manage Fleet
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Add and manage your truck fleet
                                 </p>
                             </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                            <DollarSign className="w-5 h-5 text-green-500" />
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+
+                        <Link
+                            to="/transport/orders"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
                             <div>
-                                <p className="text-sm text-gray-600">Service Charges</p>
-                                <p className="font-semibold text-gray-900">
-                                    ₦{Number(analyticsData.expenseBreakdown.serviceCharges || 0).toLocaleString()}
+                                <span className="rounded-lg inline-flex p-3 bg-purple-50 text-purple-600 group-hover:bg-purple-100">
+                                    <TrendingUp className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    View All Orders
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Track and manage all transport orders
                                 </p>
                             </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                            <Truck className="w-5 h-5 text-purple-500" />
-                            <div>
-                                <p className="text-sm text-gray-600">Truck Expenses</p>
-                                <p className="font-semibold text-gray-900">
-                                    ₦{Number(analyticsData.expenseBreakdown.truckExpenses || 0).toLocaleString()}
-                                </p>
-                            </div>
-                        </div>
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
                     </div>
                 </div>
-            )}
+            </div>
 
-            {/* Order Status - Only render if we have valid array */}
-            {analyticsData?.statusBreakdown && Array.isArray(analyticsData.statusBreakdown) && analyticsData.statusBreakdown.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Status</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {analyticsData.statusBreakdown.map((status: any, index: number) => {
-                            // Ensure we only render primitive values
-                            const statusText = typeof status.deliveryStatus === 'string'
-                                ? status.deliveryStatus.toLowerCase().replace('_', ' ')
-                                : 'Unknown';
-                            const count = Number(status._count || 0);
-
-                            return (
-                                <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
-                                    <p className="text-sm text-gray-600 capitalize">
-                                        {statusText}
-                                    </p>
-                                    <p className="text-xl font-bold text-gray-900 mt-1">{count}</p>
-                                </div>
-                            );
-                        })}
+            {/* Recent Orders */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg leading-6 font-medium text-gray-900">
+                            Recent Transport Orders
+                        </h3>
+                        <Link
+                            to="/transport/orders"
+                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                            View all orders
+                        </Link>
                     </div>
                 </div>
-            )}
-
-            {/* Location Performance - Only render if we have valid array */}
-            {analyticsData?.locationStats && Array.isArray(analyticsData.locationStats) && analyticsData.locationStats.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Location Performance</h2>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead>
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Location
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Trips
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Revenue
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Profit
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {analyticsData.locationStats.map((stat: any, index: number) => (
-                                    <tr key={index}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {stat.location?.name || 'Unknown'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {Number(stat.trips || 0)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            ₦{Number(stat.revenue || 0).toLocaleString()}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            ₦{Number(stat.profit || 0).toLocaleString()}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                <div className="p-6">
+                    <Table
+                        data={recentOrders?.data || []}
+                        columns={orderColumns}
+                        loading={!recentOrders}
+                        emptyMessage="No recent orders found"
+                    />
                 </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Link
-                    to="/transport/orders"
-                    className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow text-center"
-                >
-                    <Package className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
-                    <h3 className="font-semibold text-gray-900">View All Orders</h3>
-                    <p className="text-sm text-gray-600 mt-1">Manage transport orders</p>
-                </Link>
-                <Link
-                    to="/transport/trucks"
-                    className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow text-center"
-                >
-                    <Truck className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                    <h3 className="font-semibold text-gray-900">Manage Trucks</h3>
-                    <p className="text-sm text-gray-600 mt-1">Fleet management</p>
-                </Link>
-                <Link
-                    to="/transport/analytics"
-                    className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow text-center"
-                >
-                    <TrendingUp className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                    <h3 className="font-semibold text-gray-900">Analytics</h3>
-                    <p className="text-sm text-gray-600 mt-1">View detailed reports</p>
-                </Link>
-                <Link
-                    to="/expenses?module=TRANSPORT"
-                    className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow text-center"
-                >
-                    <DollarSign className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                    <h3 className="font-semibold text-gray-900">Expenses</h3>
-                    <p className="text-sm text-gray-600 mt-1">Track transport expenses</p>
-                </Link>
             </div>
         </div>
     );

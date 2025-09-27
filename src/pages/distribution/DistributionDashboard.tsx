@@ -1,128 +1,292 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// src/pages/distribution/DistributionDashboard.tsx
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { distributionApi } from '../../api/distribution.api';
-import { StatsCard } from '../../components/StatsCard';
-import { AnalyticsChart } from '../../components/AnalyticsChart';
-import { TargetProgressCard } from '../../components/distribution/TargetProgressCard';
-import { RecentOrdersTable } from '../../components/distribution/RecentOrdersTable';
-import { TopCustomersCard } from '../../components/distribution/TopCustomersCard';
 import {
     Package,
-    DollarSign,
-    Target,
-    TrendingUp,
     Users,
-    ShoppingCart,
-    AlertCircle,
-    Plus
+    TrendingUp,
+    DollarSign,
+    Plus,
+    ArrowRight,
+    AlertCircle
 } from 'lucide-react';
+import { distributionService } from '../../services/distributionService';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
+import { Table } from '../../components/ui/Table';
+import { DistributionOrder } from '../../types/distribution';
 
-export const DistributionDashboard = () => {
-    const [stats, setStats] = useState<any>(null);
-    const [analytics, setAnalytics] = useState<any>(null);
-    const [targetData, setTargetData] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface DashboardStats {
+    totalOrders: number;
+    totalRevenue: number;
+    totalCustomers: number;
+    monthlyGrowth: number;
+    recentOrders: DistributionOrder[];
+}
 
-    useEffect(() => {
-        const fetchDashboardData = async () => {
-            try {
-                const [statsRes, analyticsRes, targetRes] = await Promise.all([
-                    distributionApi.getDashboardStats(),
-                    distributionApi.getAnalytics(),
-                    distributionApi.getCurrentTarget()
-                ]);
+export const DistributionDashboard: React.FC = () => {
+    const { data: stats, isLoading, error } = useQuery({
+        queryKey: ['distribution-dashboard'],
+        queryFn: () => distributionService.getDashboardStats(),
+    });
 
-                setStats(statsRes.data);
-                setAnalytics(analyticsRes.data);
-                setTargetData(targetRes.data);
-            } catch (error) {
-                console.error('Failed to fetch dashboard data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const { data: recentOrders } = useQuery({
+        queryKey: ['distribution-orders', 1, 5],
+        queryFn: () => distributionService.getOrders(1, 5),
+    });
 
-        fetchDashboardData();
-    }, []);
-
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <LoadingSpinner size="lg" />
             </div>
         );
     }
 
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-gray-600">Failed to load dashboard data</p>
+                </div>
+            </div>
+        );
+    }
+
+    const statCards = [
+        {
+            title: 'Total Orders',
+            value: stats?.totalOrders || 0,
+            icon: Package,
+            color: 'blue',
+            change: '+12%'
+        },
+        {
+            title: 'Total Revenue',
+            value: `₦${(stats?.totalRevenue || 0).toLocaleString()}`,
+            icon: DollarSign,
+            color: 'green',
+            change: '+8%'
+        },
+        {
+            title: 'Active Customers',
+            value: stats?.totalCustomers || 0,
+            icon: Users,
+            color: 'purple',
+            change: '+5%'
+        },
+        {
+            title: 'Monthly Growth',
+            value: `${stats?.monthlyGrowth || 0}%`,
+            icon: TrendingUp,
+            color: 'orange',
+            change: '+2%'
+        }
+    ];
+
+    const orderColumns = [
+        {
+            key: 'orderNumber',
+            title: 'Order #',
+            render: (value: string, record: DistributionOrder) => (
+                <Link
+                    to={`/distribution/orders/${record.id}`}
+                    className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                    {value}
+                </Link>
+            )
+        },
+        {
+            key: 'customer',
+            title: 'Customer',
+            render: (value: any) => value?.name || 'N/A'
+        },
+        {
+            key: 'finalAmount',
+            title: 'Amount',
+            render: (value: number) => `₦${value.toLocaleString()}`
+        },
+        {
+            key: 'status',
+            title: 'Status',
+            render: (value: string) => (
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${value === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                    value === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
+                        value === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                    }`}>
+                    {value}
+                </span>
+            )
+        },
+        {
+            key: 'createdAt',
+            title: 'Date',
+            render: (value: string) => new Date(value).toLocaleDateString()
+        }
+    ];
+
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Distribution Dashboard</h1>
-                    <p className="text-gray-600">Monitor B2B sales performance and targets</p>
+            {/* Header */}
+            <div className="md:flex md:items-center md:justify-between">
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        Distribution Dashboard
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Manage your B2B distribution operations and track performance
+                    </p>
                 </div>
-                <Link to="/distribution/orders/create">
-                    <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create Order
-                    </Button>
-                </Link>
+                <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
+                    <Link to="/distribution/orders/create">
+                        <Button className="inline-flex items-center">
+                            <Plus className="h-4 w-4 mr-2" />
+                            New Order
+                        </Button>
+                    </Link>
+                    <Link to="/distribution/customers">
+                        <Button variant="outline">
+                            Manage Customers
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatsCard
-                    title="Total Orders"
-                    value={stats?.totalOrders || 0}
-                    icon={ShoppingCart}
-                    color="blue"
-                    trend={{
-                        value: 12.5,
-                        isPositive: true
-                    }}
-                />
-                <StatsCard
-                    title="Monthly Revenue"
-                    value={`₦${(stats?.totalRevenue || 0).toLocaleString()}`}
-                    icon={DollarSign}
-                    color="green"
-                    trend={{
-                        value: 8.2,
-                        isPositive: true
-                    }}
-                />
-                <StatsCard
-                    title="Target Progress"
-                    value={`${stats?.monthlyProgress || 0}%`}
-                    icon={Target}
-                    color="purple"
-                    trend={{
-                        value: stats?.weeklyProgress || 0,
-                        isPositive: (stats?.weeklyProgress || 0) > 0
-                    }}
-                />
-                <StatsCard
-                    title="Active Customers"
-                    value={stats?.activeCustomers || 0}
-                    icon={Users}
-                    color="orange"
-                />
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {statCards.map((stat, index) => (
+                    <div key={index} className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="p-5">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <stat.icon className={`h-8 w-8 text-${stat.color}-600`} />
+                                </div>
+                                <div className="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt className="text-sm font-medium text-gray-500 truncate">
+                                            {stat.title}
+                                        </dt>
+                                        <dd className="flex items-baseline">
+                                            <div className="text-2xl font-semibold text-gray-900">
+                                                {stat.value}
+                                            </div>
+                                            <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
+                                                {stat.change}
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
 
-            {/* Target Progress & Analytics */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <TargetProgressCard targetData={targetData} />
-                <AnalyticsChart
-                    data={analytics?.monthlyData || []}
-                    title="Monthly Performance"
-                    type="area"
-                />
+            {/* Quick Actions */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="p-6">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                        Quick Actions
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <Link
+                            to="/distribution/orders/create"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
+                            <div>
+                                <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-600 group-hover:bg-blue-100">
+                                    <Package className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    Create New Order
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Start a new distribution order for your customers
+                                </p>
+                            </div>
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+
+                        <Link
+                            to="/distribution/customers"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
+                            <div>
+                                <span className="rounded-lg inline-flex p-3 bg-purple-50 text-purple-600 group-hover:bg-purple-100">
+                                    <Users className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    Manage Customers
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    View and manage your customer database
+                                </p>
+                            </div>
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+
+                        <Link
+                            to="/targets"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
+                            <div>
+                                <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-600 group-hover:bg-green-100">
+                                    <TrendingUp className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    View Targets
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Track monthly targets and performance
+                                </p>
+                            </div>
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+                    </div>
+                </div>
             </div>
 
-            {/* Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <RecentOrdersTable orders={stats?.recentOrders || []} />
-                <TopCustomersCard customers={stats?.topCustomers || []} />
+            {/* Recent Orders */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg leading-6 font-medium text-gray-900">
+                            Recent Orders
+                        </h3>
+                        <Link
+                            to="/distribution/orders"
+                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                            View all orders
+                        </Link>
+                    </div>
+                </div>
+                <div className="p-6">
+                    <Table
+                        data={recentOrders?.data || []}
+                        columns={orderColumns}
+                        loading={!recentOrders}
+                        emptyMessage="No recent orders found"
+                    />
+                </div>
             </div>
         </div>
     );

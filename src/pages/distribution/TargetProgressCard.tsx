@@ -1,4 +1,5 @@
-import { Target, TrendingUp, AlertTriangle } from 'lucide-react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Target, AlertTriangle } from 'lucide-react';
 import { formatNumber } from '../../utils/format';
 
 interface TargetProgressCardProps {
@@ -32,8 +33,8 @@ export const TargetProgressCard = ({ targetData }: TargetProgressCardProps) => {
                     <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                             className={`h-2 rounded-full transition-all duration-300 ${monthlyProgress >= 100 ? 'bg-green-500' :
-                                    monthlyProgress >= 75 ? 'bg-blue-500' :
-                                        monthlyProgress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                monthlyProgress >= 75 ? 'bg-blue-500' :
+                                    monthlyProgress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                                 }`}
                             style={{ width: `${Math.min(monthlyProgress, 100)}%` }}
                         />
@@ -51,8 +52,8 @@ export const TargetProgressCard = ({ targetData }: TargetProgressCardProps) => {
                     <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                             className={`h-2 rounded-full transition-all duration-300 ${weeklyProgress >= 100 ? 'bg-green-500' :
-                                    weeklyProgress >= 75 ? 'bg-blue-500' :
-                                        weeklyProgress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                weeklyProgress >= 75 ? 'bg-blue-500' :
+                                    weeklyProgress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                                 }`}
                             style={{ width: `${Math.min(weeklyProgress, 100)}%` }}
                         />

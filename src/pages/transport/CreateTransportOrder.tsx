@@ -1,444 +1,254 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+// src/pages/transport/CreateTransportOrder.tsx
+import React, { useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { transportApi, CreateTransportOrderData } from '../../api/transport.api';
-import { ArrowLeft, Truck, Calculator } from 'lucide-react';
-import apiClient from '../../api/client';
+import { Save, ArrowLeft, MapPin } from 'lucide-react';
+import { transportService } from '../../services/transportService';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { globalToast } from '../../components/ui/Toast';
 
-const createTransportOrderSchema = z.object({
-    distributionOrderId: z.string().min(1, 'Distribution order is required'),
-    orderNumber: z.string().min(1, 'Order number is required'),
-    invoiceNumber: z.string().min(1, 'Invoice number is required'),
-    locationId: z.string().min(1, 'Location is required'),
+const transportOrderSchema = z.object({
+    clientName: z.string().min(1, 'Client name is required'),
+    pickupLocation: z.string().min(1, 'Pickup location is required'),
+    deliveryLocation: z.string().min(1, 'Delivery location is required'),
+    totalOrderAmount: z.number().min(1, 'Order amount must be greater than 0'),
     truckId: z.string().optional(),
-    totalOrderAmount: z.number().min(0, 'Amount must be positive'),
-    fuelRequired: z.number().min(0, 'Fuel required must be positive'),
-    fuelPricePerLiter: z.number().min(0, 'Fuel price must be positive'),
-    driverDetails: z.string().optional(),
 });
 
-type FormData = z.infer<typeof createTransportOrderSchema>;
+type TransportOrderFormData = z.infer<typeof transportOrderSchema>;
 
-export const CreateTransportOrder = () => {
+export const CreateTransportOrder: React.FC = () => {
     const navigate = useNavigate();
-    const [calculatedCosts, setCalculatedCosts] = useState<{
-        totalFuelCost: number;
-        estimatedProfit: number;
-        profitMargin: number;
-    } | null>(null);
+    const { id } = useParams();
+    const queryClient = useQueryClient();
+    const isEditing = Boolean(id);
 
-    const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
-        resolver: zodResolver(createTransportOrderSchema),
-    });
-
-    const fuelRequired = watch('fuelRequired');
-    const fuelPricePerLiter = watch('fuelPricePerLiter');
-    const totalOrderAmount = watch('totalOrderAmount');
-    const selectedDistributionOrderId = watch('distributionOrderId');
-
-    useEffect(() => {
-        if (fuelRequired && fuelPricePerLiter && totalOrderAmount) {
-            const totalFuelCost = fuelRequired * fuelPricePerLiter;
-            const estimatedProfit = totalOrderAmount - totalFuelCost;
-            const profitMargin = totalOrderAmount > 0 ? (estimatedProfit / totalOrderAmount) * 100 : 0;
-
-            setCalculatedCosts({
-                totalFuelCost,
-                estimatedProfit,
-                profitMargin,
-            });
+    const {
+        register,
+        handleSubmit,
+        setValue,
+        formState: { errors, isSubmitting }
+    } = useForm<TransportOrderFormData>({
+        resolver: zodResolver(transportOrderSchema),
+        defaultValues: {
+            clientName: '',
+            pickupLocation: '',
+            deliveryLocation: '',
+            totalOrderAmount: 0,
+            truckId: '',
         }
-    }, [fuelRequired, fuelPricePerLiter, totalOrderAmount]);
-
-    // Generate next order number
-    const { data: nextOrderNumber } = useQuery({
-        queryKey: ['next-transport-order-number'],
-        queryFn: async () => {
-            const response = await apiClient.get('/transport/orders');
-            const orders = response.data?.data?.orders || [];
-
-            if (orders.length === 0) {
-                return 'TO-001';
-            }
-
-            // Extract numbers and find the highest
-            const numbers = orders
-                .map((order: any) => {
-                    const match = order.orderNumber.match(/TO-(\d+)/);
-                    return match ? parseInt(match[1]) : 0;
-                })
-                .filter((num: number) => !isNaN(num));
-
-            const maxNumber = Math.max(...numbers, 0);
-            const nextNumber = maxNumber + 1;
-
-            return `TO-${String(nextNumber).padStart(3, '0')}`;
-        },
     });
 
-    // Generate invoice number based on order number
+    // Fetch trucks for dropdown
+    const { data: trucks } = useQuery({
+        queryKey: ['transport-trucks'],
+        queryFn: () => transportService.getTrucks(),
+    });
+
+    // Fetch existing order if editing
+    const { data: existingOrder, isLoading: loadingOrder } = useQuery({
+        queryKey: ['transport-order', id],
+        queryFn: () => transportService.getOrder(id!),
+        enabled: isEditing,
+    });
+
+    // Set form values when editing
     useEffect(() => {
-        if (nextOrderNumber) {
-            setValue('orderNumber', nextOrderNumber);
-            setValue('invoiceNumber', `INV-${nextOrderNumber.replace('TO-', '')}`);
+        if (existingOrder && isEditing) {
+            setValue('clientName', existingOrder.clientName);
+            setValue('pickupLocation', existingOrder.pickupLocation);
+            setValue('deliveryLocation', existingOrder.deliveryLocation);
+            setValue('totalOrderAmount', existingOrder.totalOrderAmount);
+            setValue('truckId', existingOrder.truckId || '');
         }
-    }, [nextOrderNumber, setValue]);
+    }, [existingOrder, isEditing, setValue]);
 
-    // Fetch distribution orders
-    const { data: distributionOrdersData, isLoading: loadingOrders } = useQuery({
-        queryKey: ['distribution-orders-for-transport'],
-        queryFn: async () => {
-            const response = await apiClient.get('/distribution/orders');
-            return response.data;
-        },
-    });
-
-    // Fetch locations
-    const { data: locationsData } = useQuery({
-        queryKey: ['locations'],
-        queryFn: async () => {
-            const response = await apiClient.get('/admin/locations');
-            return response.data;
-        },
-    });
-
-    // Fetch trucks
-    const { data: trucksData } = useQuery({
-        queryKey: ['trucks'],
-        queryFn: async () => {
-            try {
-                const response = await apiClient.get('/transport/trucks');
-                return response.data;
-            } catch (error) {
-                console.log('Trucks endpoint error:', error);
-                return { data: { trucks: [] } };
-            }
-        },
-    });
-
-    // Auto-fill form when distribution order is selected
-    useEffect(() => {
-        if (selectedDistributionOrderId && distributionOrdersData?.data?.orders) {
-            const selectedOrder = distributionOrdersData.data.orders.find(
-                (order: any) => order.id === selectedDistributionOrderId
-            );
-
-            if (selectedOrder) {
-                setValue('locationId', selectedOrder.locationId);
-                setValue('totalOrderAmount', selectedOrder.finalAmount || selectedOrder.totalAmount);
-            }
-        }
-    }, [selectedDistributionOrderId, distributionOrdersData, setValue]);
-
-    const createOrderMutation = useMutation({
-        mutationFn: (data: CreateTransportOrderData) => {
-            const cleanData = { ...data };
-
-            // Remove empty or undefined fields
-            if (!cleanData.truckId || cleanData.truckId === '') {
-                delete cleanData.truckId;
-            }
-            if (!cleanData.distributionOrderId || cleanData.distributionOrderId === '') {
-                delete cleanData.distributionOrderId;
-            }
-            if (!cleanData.invoiceNumber || cleanData.invoiceNumber === '') {
-                delete cleanData.invoiceNumber;
-            }
-            if (!cleanData.driverDetails || cleanData.driverDetails === '') {
-                delete cleanData.driverDetails;
-            }
-
-            console.log('Clean data being sent to API:', cleanData);
-
-            return transportApi.createOrder(cleanData);
-        },
-        onSuccess: (response) => {
-            console.log('Transport order created:', response);
-            alert('Transport order created successfully!');
+    // Create/Update mutations
+    const createMutation = useMutation({
+        mutationFn: (data: TransportOrderFormData) => transportService.createOrder(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['transport-orders'] });
+            globalToast.success('Transport order created successfully!');
             navigate('/transport/orders');
         },
         onError: (error: any) => {
-            console.error('Transport order creation error:', error);
-            console.error('Error response:', error.response?.data);
-
-            const errorMessage = error.response?.data?.message || 'Failed to create order';
-            const details = error.response?.data?.details;
-
-            if (details && Array.isArray(details)) {
-                const detailMessages = details.map((d: any) => {
-                    return `Field: ${d.path || d.param || 'unknown'}\nIssue: ${d.msg || d.message}`;
-                }).join('\n\n');
-
-                alert(`${errorMessage}\n\n${detailMessages}`);
-            } else {
-                alert(errorMessage);
-            }
-        },
+            globalToast.error(error.response?.data?.message || 'Failed to create transport order');
+        }
     });
 
-    const onSubmit = (data: FormData) => {
-        console.log('Form data being submitted:', data);
-        console.log('Distribution Order ID:', data.distributionOrderId);
-        console.log('Location ID:', data.locationId);
-        console.log('Truck ID:', data.truckId);
+    const updateMutation = useMutation({
+        mutationFn: (data: TransportOrderFormData) => transportService.updateOrder(id!, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['transport-orders'] });
+            queryClient.invalidateQueries({ queryKey: ['transport-order', id] });
+            globalToast.success('Transport order updated successfully!');
+            navigate('/transport/orders');
+        },
+        onError: (error: any) => {
+            globalToast.error(error.response?.data?.message || 'Failed to update transport order');
+        }
+    });
 
-        createOrderMutation.mutate(data);
+    const onSubmit = (data: TransportOrderFormData) => {
+        if (isEditing) {
+            updateMutation.mutate(data);
+        } else {
+            createMutation.mutate(data);
+        }
     };
 
-    const distributionOrders = (distributionOrdersData?.data?.orders || []).filter(
-        (order: any) => order.status === 'CONFIRMED' && !order.transportOrder
-    );
-
-    const trucks = trucksData?.data?.trucks || [];
-
-    if (loadingOrders) {
+    if (isEditing && loadingOrder) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">Loading...</div>
+                <LoadingSpinner size="lg" />
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={() => navigate('/transport/orders')}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Create Transport Order</h1>
-                    <p className="text-gray-600 mt-1">Link transport to a confirmed distribution order</p>
-                </div>
-            </div>
-
-            {distributionOrders.length === 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <p className="text-amber-800">
-                        No available distribution orders. All confirmed orders already have transport or there are no confirmed orders.
-                    </p>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow p-6 space-y-6">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <Truck className="w-5 h-5" />
-                                Order Details
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Distribution Order *
-                                    </label>
-                                    <select
-                                        {...register('distributionOrderId')}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                        disabled={distributionOrders.length === 0}
-                                    >
-                                        <option value="">Select Distribution Order</option>
-                                        {distributionOrders.map((order: any) => (
-                                            <option key={order.id} value={order.id}>
-                                                {order.orderNumber} - {order.customer?.name} ({order.location?.name}) - ₦{(order.finalAmount || order.totalAmount)?.toLocaleString()}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.distributionOrderId && (
-                                        <p className="text-red-500 text-xs mt-1">{errors.distributionOrderId.message}</p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Order Number * <span className="text-xs text-gray-500">(Auto-generated)</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        {...register('orderNumber')}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                                        readOnly
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Invoice Number * <span className="text-xs text-gray-500">(Auto-generated)</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        {...register('invoiceNumber')}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                                        readOnly
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Location * <span className="text-xs text-gray-500">(From distribution order)</span>
-                                    </label>
-                                    <select
-                                        {...register('locationId')}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                                        disabled
-                                    >
-                                        <option value="">Select Location</option>
-                                        {locationsData?.data?.locations?.map((location: any) => (
-                                            <option key={location.id} value={location.id}>
-                                                {location.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Truck (Optional)
-                                    </label>
-                                    <select
-                                        {...register('truckId')}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    >
-                                        <option value="">No truck assigned</option>
-                                        {trucks.map((truck: any) => (
-                                            <option key={truck.truckId} value={truck.truckId}>
-                                                {truck.truckId} - Capacity: {truck.maxPallets} pallets
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Driver Details (Optional)
-                                    </label>
-                                    <textarea
-                                        {...register('driverDetails')}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                        rows={2}
-                                        placeholder="Driver name, contact, vehicle details..."
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <Calculator className="w-5 h-5" />
-                                Financial Details
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Order Amount (₦) *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        {...register('totalOrderAmount', { valueAsNumber: true })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                                        readOnly
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Fuel Required (Liters) *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        {...register('fuelRequired', { valueAsNumber: true })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                        placeholder="200.00"
-                                    />
-                                    {errors.fuelRequired && (
-                                        <p className="text-red-500 text-xs mt-1">{errors.fuelRequired.message}</p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Fuel Price/Liter (₦) *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        {...register('fuelPricePerLiter', { valueAsNumber: true })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                        placeholder="750.00"
-                                    />
-                                    {errors.fuelPricePerLiter && (
-                                        <p className="text-red-500 text-xs mt-1">{errors.fuelPricePerLiter.message}</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-4">
-                            <button
-                                type="button"
-                                onClick={() => navigate('/transport/orders')}
-                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={createOrderMutation.isPending || distributionOrders.length === 0}
-                                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                            >
-                                {createOrderMutation.isPending ? 'Creating...' : 'Create Transport Order'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <div className="lg:col-span-1">
-                    <div className="bg-white rounded-lg shadow p-6 sticky top-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Estimation</h3>
-                        {calculatedCosts ? (
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center pb-2 border-b">
-                                    <span className="text-sm text-gray-600">Revenue</span>
-                                    <span className="font-semibold text-gray-900">
-                                        ₦{totalOrderAmount?.toLocaleString() || 0}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center pb-2 border-b">
-                                    <span className="text-sm text-gray-600">Fuel Cost</span>
-                                    <span className="font-semibold text-red-600">
-                                        -₦{calculatedCosts.totalFuelCost.toLocaleString()}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center pb-2 border-b">
-                                    <span className="text-sm text-gray-600">Est. Profit</span>
-                                    <span className={`font-semibold ${calculatedCosts.estimatedProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        ₦{calculatedCosts.estimatedProfit.toLocaleString()}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center pt-2">
-                                    <span className="text-sm font-medium text-gray-700">Margin</span>
-                                    <span className="text-lg font-bold text-indigo-600">
-                                        {calculatedCosts.profitMargin.toFixed(2)}%
-                                    </span>
-                                </div>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-gray-500">
-                                Select distribution order and enter fuel details
-                            </p>
-                        )}
+            {/* Header */}
+            <div className="md:flex md:items-center md:justify-between">
+                <div className="flex items-center space-x-3">
+                    <Button
+                        variant="outline"
+                        onClick={() => navigate('/transport/orders')}
+                        className="p-2"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <div>
+                        <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
+                            {isEditing ? 'Edit Transport Order' : 'Create New Transport Order'}
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            {isEditing ? 'Update transport order details' : 'Fill in the details to create a new transport order'}
+                        </p>
                     </div>
                 </div>
             </div>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                {/* Client Information */}
+                <div className="bg-white shadow rounded-lg">
+                    <div className="px-6 py-4 border-b border-gray-200">
+                        <h3 className="text-lg font-medium text-gray-900">Client Information</h3>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                                <Input
+                                    label="Client Name *"
+                                    {...register('clientName')}
+                                    error={errors.clientName?.message}
+                                    placeholder="Enter client name"
+                                />
+                            </div>
+
+                            <Input
+                                label="Total Order Amount (₦) *"
+                                type="number"
+                                step="0.01"
+                                {...register('totalOrderAmount', { valueAsNumber: true })}
+                                error={errors.totalOrderAmount?.message}
+                                placeholder="0.00"
+                            />
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Assign Truck (Optional)
+                                </label>
+                                <select
+                                    {...register('truckId')}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                >
+                                    <option value="">Select a truck</option>
+                                    {trucks?.filter(truck => truck.isActive).map((truck) => (
+                                        <option key={truck.id} value={truck.id}>
+                                            {truck.plateNumber} - {truck.capacity}kg capacity
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.truckId && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.truckId.message}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Location Information */}
+                <div className="bg-white shadow rounded-lg">
+                    <div className="px-6 py-4 border-b border-gray-200">
+                        <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                            <MapPin className="h-5 w-5 mr-2" />
+                            Route Information
+                        </h3>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            <div>
+                                <Input
+                                    label="Pickup Location *"
+                                    {...register('pickupLocation')}
+                                    error={errors.pickupLocation?.message}
+                                    placeholder="Enter pickup address"
+                                />
+                            </div>
+
+                            <div>
+                                <Input
+                                    label="Delivery Location *"
+                                    {...register('deliveryLocation')}
+                                    error={errors.deliveryLocation?.message}
+                                    placeholder="Enter delivery address"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Route Preview */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                            <h4 className="text-sm font-medium text-gray-900 mb-3">Route Preview</h4>
+                            <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                <div className="flex items-center">
+                                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                                    <span>Pickup</span>
+                                </div>
+                                <div className="flex-1 border-t border-dashed border-gray-300"></div>
+                                <div className="flex items-center">
+                                    <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                                    <span>Delivery</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate('/transport/orders')}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        loading={isSubmitting || createMutation.isPending || updateMutation.isPending}
+                        className="inline-flex items-center"
+                    >
+                        <Save className="h-4 w-4 mr-2" />
+                        {isEditing ? 'Update Order' : 'Create Order'}
+                    </Button>
+                </div>
+            </form>
         </div>
     );
 };

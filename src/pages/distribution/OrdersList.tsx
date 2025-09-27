@@ -1,224 +1,280 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { distributionApi } from '../../api/distribution.api';
-import { DataTable, Column } from '../../components/ui/DataTable';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// src/pages/distribution/OrdersList.tsx
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { Plus, Search, Download, Eye, Edit } from 'lucide-react';
+import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { formatCurrency, formatDate } from '../../utils/format';
-import { Plus, Eye, Edit, Download } from 'lucide-react';
-import { toast } from '../../utils/toast';
+import { Input } from '../../components/ui/Input';
+import { Table } from '../../components/ui/Table';
+import { DistributionOrder, OrderStatus } from '../../types/distribution';
 
-export const OrdersList = () => {
-    const navigate = useNavigate();
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [pagination, setPagination] = useState({
-        current: 1,
-        pageSize: 20,
-        total: 0
+export const OrdersList: React.FC = () => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
+
+    const pageSize = 10;
+
+    const { data: ordersData, isLoading, error } = useQuery({
+        queryKey: ['distribution-orders', currentPage, pageSize],
+        queryFn: () => distributionService.getOrders(currentPage, pageSize),
     });
-    const [filters, setFilters] = useState({});
 
-    // Fetch orders
-    const fetchOrders = async (page = 1, pageSize = 20, searchTerm = '', filterParams = {}) => {
-        try {
-            setLoading(true);
-            const response = await distributionApi.getOrders({
-                page,
-                limit: pageSize,
-                search: searchTerm,
-                ...filterParams
-            });
+    const handleSearch = (value: string) => {
+        setSearchTerm(value);
+        setCurrentPage(1); // Reset to first page when searching
+    };
 
-            setOrders(response.data);
-            setPagination({
-                current: page,
-                pageSize,
-                total: response.total
-            });
-        } catch (error) {
-            console.error('Failed to fetch orders:', error);
-            toast.error('Failed to load orders');
-        } finally {
-            setLoading(false);
+    const handleStatusFilter = (status: OrderStatus | '') => {
+        setStatusFilter(status);
+        setCurrentPage(1);
+    };
+
+    const getStatusBadge = (status: string) => {
+        const baseClasses = 'inline-flex px-2 py-1 text-xs font-semibold rounded-full';
+        switch (status) {
+            case 'DELIVERED':
+                return `${baseClasses} bg-green-100 text-green-800`;
+            case 'SHIPPED':
+                return `${baseClasses} bg-blue-100 text-blue-800`;
+            case 'PROCESSING':
+                return `${baseClasses} bg-yellow-100 text-yellow-800`;
+            case 'PENDING':
+                return `${baseClasses} bg-gray-100 text-gray-800`;
+            case 'CANCELLED':
+                return `${baseClasses} bg-red-100 text-red-800`;
+            default:
+                return `${baseClasses} bg-gray-100 text-gray-800`;
         }
     };
 
-    useEffect(() => {
-        fetchOrders();
-    }, []);
-
-    // Handle search
-    const handleSearch = (searchTerm: string) => {
-        fetchOrders(1, pagination.pageSize, searchTerm, filters);
-    };
-
-    // Handle filter
-    const handleFilter = (newFilters: Record<string, any>) => {
-        setFilters(newFilters);
-        fetchOrders(1, pagination.pageSize, '', newFilters);
-    };
-
-    // Handle sort
-    const handleSort = (sortField: string, sortOrder: 'asc' | 'desc') => {
-        fetchOrders(pagination.current, pagination.pageSize, '', {
-            ...filters,
-            sortField,
-            sortOrder
-        });
-    };
-
-    // Handle pagination
-    const handlePagination = (page: number, pageSize: number) => {
-        fetchOrders(page, pageSize, '', filters);
-    };
-
-    // Handle export
-    const handleExport = async (format: 'csv' | 'excel') => {
-        try {
-            const response = await distributionApi.exportOrders(filters, format);
-
-            // Create download link
-            const blob = new Blob([response.data]);
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `distribution_orders.${format}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
-            toast.success(`Orders exported as ${format.toUpperCase()}`);
-        } catch (error) {
-            console.error('Export failed:', error);
-            toast.error('Failed to export orders');
-        }
-    };
-
-    // Status badge color mapping
-    const getStatusColor = (status: string) => {
-        const colors = {
-            PENDING: 'yellow',
-            CONFIRMED: 'blue',
-            PROCESSING: 'purple',
-            IN_TRANSIT: 'indigo',
-            DELIVERED: 'green',
-            PARTIALLY_DELIVERED: 'orange',
-            CANCELLED: 'red'
-        };
-        return colors[status as keyof typeof colors] || 'gray';
-    };
-
-    // Table columns
-    const columns: Column[] = [
+    const orderColumns = [
         {
-            key: 'id',
-            title: 'Order ID',
-            sortable: true,
-            render: (value) => (
-                <span className="font-mono text-sm">{value.slice(-8)}</span>
+            key: 'orderNumber',
+            title: 'Order #',
+            render: (value: string, record: DistributionOrder) => (
+                <Link
+                    to={`/distribution/orders/${record.id}`}
+                    className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                    {value}
+                </Link>
             )
         },
         {
             key: 'customer',
             title: 'Customer',
-            sortable: true,
-            filterable: true,
-            render: (_, record) => (
+            render: (value: any) => (
                 <div>
-                    <div className="font-medium">{record.customer?.name}</div>
-                    <div className="text-sm text-gray-500">{record.customer?.email}</div>
+                    <div className="font-medium text-gray-900">{value?.name || 'N/A'}</div>
+                    <div className="text-sm text-gray-500">{value?.territory}</div>
                 </div>
             )
         },
         {
             key: 'location',
             title: 'Location',
-            filterable: true,
-            render: (_, record) => record.location?.name
+            render: (value: any) => value?.name || 'N/A'
         },
         {
             key: 'totalPacks',
             title: 'Packs',
-            sortable: true,
-            align: 'right' as const,
-            render: (value) => value.toLocaleString()
+            render: (value: number) => value.toLocaleString()
         },
         {
             key: 'finalAmount',
             title: 'Amount',
-            sortable: true,
-            align: 'right' as const,
-            render: (value) => formatCurrency(value)
+            render: (value: number) => `₦${value.toLocaleString()}`
         },
         {
             key: 'status',
             title: 'Status',
-            filterable: true,
-            render: (value) => (
-                <Badge color={getStatusColor(value)} variant="soft">
-                    {value.replace('_', ' ')}
-                </Badge>
+            render: (value: string) => (
+                <span className={getStatusBadge(value)}>
+                    {value}
+                </span>
             )
         },
         {
             key: 'createdAt',
-            title: 'Created',
-            sortable: true,
-            render: (value) => formatDate(value)
+            title: 'Date',
+            render: (value: string) => new Date(value).toLocaleDateString()
+        },
+        {
+            key: 'actions',
+            title: 'Actions',
+            render: (value: any, record: DistributionOrder) => (
+                <div className="flex items-center space-x-2">
+                    <Link to={`/distribution/orders/${record.id}`}>
+                        <Button variant="outline" size="sm" className="p-1">
+                            <Eye className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <Link to={`/distribution/orders/${record.id}/edit`}>
+                        <Button variant="outline" size="sm" className="p-1">
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                </div>
+            )
         }
     ];
 
-    // Row actions
-    const rowActions = [
-        {
-            key: 'view',
-            label: 'View',
-            icon: Eye,
-            onClick: (record: any) => navigate(`/distribution/orders/${record.id}`)
-        },
-        {
-            key: 'edit',
-            label: 'Edit',
-            icon: Edit,
-            onClick: (record: any) => navigate(`/distribution/orders/${record.id}/edit`),
-            visible: (record: any) => ['PENDING', 'CONFIRMED'].includes(record.status)
-        }
-    ];
+    const Pagination = () => {
+        if (!ordersData) return null;
+
+        const { page, totalPages, total } = ordersData;
+        const startItem = ((page - 1) * pageSize) + 1;
+        const endItem = Math.min(page * pageSize, total);
+
+        return (
+            <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                <div className="flex flex-1 justify-between sm:hidden">
+                    <Button
+                        variant="outline"
+                        disabled={page === 1}
+                        onClick={() => setCurrentPage(page - 1)}
+                    >
+                        Previous
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={page === totalPages}
+                        onClick={() => setCurrentPage(page + 1)}
+                    >
+                        Next
+                    </Button>
+                </div>
+                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                        <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{startItem}</span> to{' '}
+                            <span className="font-medium">{endItem}</span> of{' '}
+                            <span className="font-medium">{total}</span> results
+                        </p>
+                    </div>
+                    <div>
+                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
+                            <Button
+                                variant="outline"
+                                disabled={page === 1}
+                                onClick={() => setCurrentPage(page - 1)}
+                                className="rounded-l-md"
+                            >
+                                Previous
+                            </Button>
+
+                            {/* Page numbers */}
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                const pageNum = Math.max(1, Math.min(page - 2 + i, totalPages - 4 + i));
+                                if (pageNum <= totalPages) {
+                                    return (
+                                        <Button
+                                            key={pageNum}
+                                            variant={pageNum === page ? "primary" : "outline"}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className="rounded-none"
+                                        >
+                                            {pageNum}
+                                        </Button>
+                                    );
+                                }
+                                return null;
+                            })}
+
+                            <Button
+                                variant="outline"
+                                disabled={page === totalPages}
+                                onClick={() => setCurrentPage(page + 1)}
+                                className="rounded-r-md"
+                            >
+                                Next
+                            </Button>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    if (error) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-red-600">Failed to load orders</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Distribution Orders</h1>
-                    <p className="text-gray-600">Manage B2B customer orders and deliveries</p>
+            {/* Header */}
+            <div className="md:flex md:items-center md:justify-between">
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        Distribution Orders
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Manage all distribution orders and track their status
+                    </p>
                 </div>
-
-                <Button onClick={() => navigate('/distribution/orders/create')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Order
-                </Button>
+                <div className="mt-4 flex md:mt-0 md:ml-4">
+                    <Link to="/distribution/orders/create">
+                        <Button className="inline-flex items-center">
+                            <Plus className="h-4 w-4 mr-2" />
+                            New Order
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
-            <DataTable
-                data={orders}
-                columns={columns}
-                loading={loading}
-                pagination={{
-                    ...pagination,
-                    onChange: handlePagination
-                }}
-                onSearch={handleSearch}
-                onFilter={handleFilter}
-                onSort={handleSort}
-                onExport={handleExport}
-                onRefresh={() => fetchOrders(pagination.current, pagination.pageSize)}
-                rowActions={rowActions}
-                selectable
-                title="Orders"
-                subtitle={`${pagination.total} total orders`}
-            />
+            {/* Filters */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="p-6">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Input
+                                placeholder="Search orders..."
+                                value={searchTerm}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
+
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => handleStatusFilter(e.target.value as OrderStatus | '')}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="PROCESSING">Processing</option>
+                            <option value="SHIPPED">Shipped</option>
+                            <option value="DELIVERED">Delivered</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+
+                        <Button variant="outline" className="inline-flex items-center">
+                            <Download className="h-4 w-4 mr-2" />
+                            Export
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Orders Table */}
+            <div className="bg-white shadow rounded-lg overflow-hidden">
+                <Table
+                    data={ordersData?.data || []}
+                    columns={orderColumns}
+                    loading={isLoading}
+                    emptyMessage="No orders found"
+                />
+
+                <Pagination />
+            </div>
         </div>
     );
 };
