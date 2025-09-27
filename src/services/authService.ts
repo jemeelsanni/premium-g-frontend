@@ -1,3 +1,4 @@
+// src/services/authService.ts - Fixed Version
 import { BaseApiService } from './api';
 import { AuthResponse, User } from '../types';
 
@@ -12,14 +13,23 @@ export class AuthService extends BaseApiService {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await this.post<AuthResponse>(credentials, '/login');
+    const response = await this.post<{
+      success: boolean;
+      data: {
+        accessToken: string;
+        user: User;
+      };
+    }>(credentials, '/login');
     
     // Store token in localStorage
-    if (response.token) {
-      localStorage.setItem('token', response.token);
+    if (response.data.accessToken) {
+      localStorage.setItem('token', response.data.accessToken);
     }
     
-    return response;
+    return {
+      token: response.data.accessToken,
+      user: response.data.user
+    };
   }
 
   async logout(): Promise<void> {
@@ -32,7 +42,12 @@ export class AuthService extends BaseApiService {
   }
 
   async getCurrentUser(): Promise<User> {
-    return this.get<User>('/me');
+    const response = await this.get<{
+      success: boolean;
+      data: User;
+    }>('/me');
+    
+    return response.data;
   }
 
   async refreshToken(): Promise<AuthResponse> {

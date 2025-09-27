@@ -1,59 +1,69 @@
-import axios, { AxiosError } from 'axios';
+// src/api/client.ts - Updated with correct port
+import axios, { AxiosResponse, AxiosError } from 'axios';
 
+// Create axios instance with correct backend port
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 seconds
+  timeout: 10000, // 10 second timeout
+  withCredentials: false, // Don't send cookies
 });
 
-// Request interceptor - Add auth token
+// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor - Handle errors globally
+// Response interceptor with better error handling
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response: AxiosResponse) => {
+    // Log successful responses in development
+    if (import.meta.env.DEV) {
+      console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url}:`, response.status);
+    }
+    return response;
+  },
   (error: AxiosError) => {
-    // Handle 401 Unauthorized - token expired or invalid
-    if (error.response?.status === 401) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      
-      // Only redirect if not already on login page
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login?session=expired';
+    // Log errors in development
+    if (import.meta.env.DEV) {
+      console.error(`❌ ${error.config?.method?.toUpperCase()} ${error.config?.url}:`, {
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data
+      });
+    }
+
+    // Handle specific error cases
+    if (error.code === 'ECONNABORTED') {
+      console.error('Request timeout - backend may be down');
+    } else if (error.code === 'ERR_NETWORK') {
+      console.error('Network error - backend may be down or wrong port');
+    } else if (error.response?.status === 401) {
+      // Clear token and redirect to login only if we're not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
       }
-    }
-
-    // Handle 403 Forbidden - insufficient permissions
-    if (error.response?.status === 403) {
-      console.error('Access denied:', error.response.data);
-    }
-
-    // Handle 404 Not Found
-    if (error.response?.status === 404) {
-      console.error('Resource not found:', error.response.data);
-    }
-
-    // Handle 500 Server Error
-    if (error.response?.status === 500) {
-      console.error('Server error:', error.response.data);
+    } else if (error.response?.status === 403) {
+      // Forbidden - redirect to unauthorized page
+      window.location.href = '/unauthorized';
     }
 
     return Promise.reject(error);
   }
 );
 
+// Export configured client
 export default apiClient;

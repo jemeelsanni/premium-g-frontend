@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/distribution/OrderDetails.tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,6 +20,16 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Modal } from '../../components/ui/Modal';
 import { OrderStatus } from '../../types/distribution';
 import { toast } from 'react-hot-toast';
+
+// Define the location interface to match your actual API response
+interface OrderLocation {
+    id: string;
+    name: string;
+    address?: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
 
 export const OrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -103,6 +113,8 @@ export const OrderDetails: React.FC = () => {
     }
 
     const availableStatusOptions = getStatusOptions(order.status);
+    // Type assertion to ensure we have the correct location structure
+    const location = order.location as OrderLocation | undefined;
 
     return (
         <div className="space-y-6">
@@ -218,16 +230,18 @@ export const OrderDetails: React.FC = () => {
                         </h3>
                     </div>
                     <div className="p-6 space-y-4">
-                        {order.location ? (
+                        {location ? (
                             <>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-500">Location Name</label>
-                                    <p className="mt-1 text-sm text-gray-900">{order.location.name}</p>
+                                    <p className="mt-1 text-sm text-gray-900">{location.name}</p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-500">Address</label>
-                                    <p className="mt-1 text-sm text-gray-900">{order.location.address}</p>
-                                </div>
+                                {location.address && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-500">Address</label>
+                                        <p className="mt-1 text-sm text-gray-900">{location.address}</p>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <p className="text-sm text-gray-500">Location information not available</p>
