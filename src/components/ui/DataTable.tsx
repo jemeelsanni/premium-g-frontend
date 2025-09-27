@@ -6,10 +6,9 @@ import {
     Search,
     Filter,
     Download,
-    RefreshCw
+    RefreshCw,
 } from 'lucide-react';
 import { Button } from './Button';
-import { Input } from './Input';
 import { Select } from './Select';
 
 export interface Column<T = any> {
@@ -26,6 +25,7 @@ export interface DataTableProps<T = any> {
     data: T[];
     columns: Column<T>[];
     loading?: boolean;
+    rowKey?: keyof T | ((record: T) => string); // More flexible row key handling
     pagination?: {
         current: number;
         pageSize: number;
@@ -40,20 +40,23 @@ export interface DataTableProps<T = any> {
     rowActions?: Array<{
         key: string;
         label: string;
-        icon?: React.ComponentType<any>;
+        icon?: React.ComponentType<{ className?: string }>;
         onClick: (record: T) => void;
         visible?: (record: T) => boolean;
+        variant?: 'primary' | 'danger' | 'secondary';
     }>;
     selectable?: boolean;
     onSelectionChange?: (selectedRowKeys: string[], selectedRows: T[]) => void;
     title?: string;
     subtitle?: string;
+    emptyMessage?: string;
 }
 
 export function DataTable<T extends Record<string, any>>({
     data,
     columns,
     loading = false,
+    rowKey = 'id',
     pagination,
     onSearch,
     onFilter,
@@ -64,7 +67,8 @@ export function DataTable<T extends Record<string, any>>({
     selectable,
     onSelectionChange,
     title,
-    subtitle
+    subtitle,
+    emptyMessage = 'No data found'
 }: DataTableProps<T>) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortField, setSortField] = useState<string>('');
@@ -72,8 +76,17 @@ export function DataTable<T extends Record<string, any>>({
     const [filters, setFilters] = useState<Record<string, any>>({});
     const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
     const [showFilters, setShowFilters] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
 
-    // Handle search
+    // Get row key value
+    const getRowKey = (record: T, index: number): string => {
+        if (typeof rowKey === 'function') {
+            return rowKey(record);
+        }
+        return record[rowKey as string] || index.toString();
+    };
+
+    // Handle search with debouncing
     const handleSearch = (value: string) => {
         setSearchTerm(value);
         onSearch?.(value);
@@ -94,6 +107,12 @@ export function DataTable<T extends Record<string, any>>({
         onFilter?.(newFilters);
     };
 
+    // Clear all filters
+    const clearFilters = () => {
+        setFilters({});
+        onFilter?.({});
+    };
+
     // Handle row selection
     const handleRowSelect = (rowKey: string, selected: boolean) => {
         const newSelectedKeys = selected
@@ -101,13 +120,13 @@ export function DataTable<T extends Record<string, any>>({
             : selectedRowKeys.filter(key => key !== rowKey);
 
         setSelectedRowKeys(newSelectedKeys);
-        const selectedRows = data.filter(row => newSelectedKeys.includes(row.id));
+        const selectedRows = data.filter(row => newSelectedKeys.includes(getRowKey(row, 0)));
         onSelectionChange?.(newSelectedKeys, selectedRows);
     };
 
     // Handle select all
     const handleSelectAll = (selected: boolean) => {
-        const newSelectedKeys = selected ? data.map(row => row.id) : [];
+        const newSelectedKeys = selected ? data.map((row, index) => getRowKey(row, index)) : [];
         setSelectedRowKeys(newSelectedKeys);
         const selectedRows = selected ? data : [];
         onSelectionChange?.(newSelectedKeys, selectedRows);
@@ -121,8 +140,14 @@ export function DataTable<T extends Record<string, any>>({
     // Get unique values for filter options
     const getFilterOptions = (field: string) => {
         const values = data.map(row => row[field]).filter(Boolean);
-        return [...new Set(values)].map(value => ({ value, label: value }));
+        return [...new Set(values)].map(value => ({
+            value: value.toString(),
+            label: value.toString()
+        }));
     };
+
+    // Check if any filters are active
+    const hasActiveFilters = Object.values(filters).some(value => value && value !== '');
 
     const allSelected = selectedRowKeys.length === data.length && data.length > 0;
     const indeterminate = selectedRowKeys.length > 0 && selectedRowKeys.length < data.length;
@@ -154,11 +179,36 @@ export function DataTable<T extends Record<string, any>>({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => onExport('csv')}
+                                    onClick={() => setShowExportMenu(!showExportMenu)}
                                 >
                                     <Download className="h-4 w-4 mr-2" />
                                     Export
                                 </Button>
+
+                                {showExportMenu && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                                        <div className="py-1">
+                                            <button
+                                                onClick={() => {
+                                                    onExport('csv');
+                                                    setShowExportMenu(false);
+                                                }}
+                                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            >
+                                                Export as CSV
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    onExport('excel');
+                                                    setShowExportMenu(false);
+                                                }}
+                                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            >
+                                                Export as Excel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -182,14 +232,37 @@ export function DataTable<T extends Record<string, any>>({
                     )}
 
                     {filterableColumns.length > 0 && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowFilters(!showFilters)}
-                        >
-                            <Filter className="h-4 w-4 mr-2" />
-                            Filters
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowFilters(!showFilters)}
+                            >
+                                <Filter className="h-4 w-4 mr-2" />
+                                Filters
+                                {hasActiveFilters && (
+                                    <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                                        Active
+                                    </span>
+                                )}
+                            </Button>
+
+                            {hasActiveFilters && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={clearFilters}
+                                >
+                                    Clear
+                                </Button>
+                            )}
+                        </div>
+                    )}
+
+                    {selectedRowKeys.length > 0 && (
+                        <div className="text-sm text-gray-600">
+                            {selectedRowKeys.length} item{selectedRowKeys.length !== 1 ? 's' : ''} selected
+                        </div>
                     )}
                 </div>
 
@@ -236,23 +309,28 @@ export function DataTable<T extends Record<string, any>>({
                                 <th
                                     key={column.key}
                                     className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${column.align === 'center' ? 'text-center' :
-                                            column.align === 'right' ? 'text-right' : 'text-left'
+                                        column.align === 'right' ? 'text-right' : 'text-left'
                                         }`}
                                     style={{ width: column.width }}
                                 >
                                     {column.sortable ? (
                                         <button
-                                            className="flex items-center space-x-1 hover:text-gray-700"
+                                            className="flex items-center space-x-1 hover:text-gray-700 group"
                                             onClick={() => handleSort(column.key)}
                                         >
                                             <span>{column.title}</span>
-                                            {sortField === column.key ? (
-                                                sortOrder === 'asc' ?
-                                                    <ChevronUp className="h-4 w-4" /> :
-                                                    <ChevronDown className="h-4 w-4" />
-                                            ) : (
-                                                <div className="h-4 w-4" />
-                                            )}
+                                            <div className="flex flex-col">
+                                                {sortField === column.key ? (
+                                                    sortOrder === 'asc' ?
+                                                        <ChevronUp className="h-4 w-4" /> :
+                                                        <ChevronDown className="h-4 w-4" />
+                                                ) : (
+                                                    <div className="h-4 w-4 opacity-0 group-hover:opacity-50">
+                                                        <ChevronUp className="h-2 w-4" />
+                                                        <ChevronDown className="h-2 w-4" />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </button>
                                     ) : (
                                         column.title
@@ -281,58 +359,74 @@ export function DataTable<T extends Record<string, any>>({
                         ) : data.length === 0 ? (
                             <tr>
                                 <td colSpan={columns.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} className="px-6 py-12 text-center text-gray-500">
-                                    No data found
+                                    {emptyMessage}
                                 </td>
                             </tr>
                         ) : (
-                            data.map((record, index) => (
-                                <tr key={record.id || index} className="hover:bg-gray-50">
-                                    {selectable && (
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedRowKeys.includes(record.id)}
-                                                onChange={(e) => handleRowSelect(record.id, e.target.checked)}
-                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                            />
-                                        </td>
-                                    )}
+                            data.map((record, index) => {
+                                const key = getRowKey(record, index);
+                                return (
+                                    <tr key={key} className="hover:bg-gray-50 transition-colors">
+                                        {selectable && (
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedRowKeys.includes(key)}
+                                                    onChange={(e) => handleRowSelect(key, e.target.checked)}
+                                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                />
+                                            </td>
+                                        )}
 
-                                    {columns.map(column => (
-                                        <td
-                                            key={column.key}
-                                            className={`px-6 py-4 whitespace-nowrap text-sm ${column.align === 'center' ? 'text-center' :
+                                        {columns.map(column => (
+                                            <td
+                                                key={column.key}
+                                                className={`px-6 py-4 whitespace-nowrap text-sm ${column.align === 'center' ? 'text-center' :
                                                     column.align === 'right' ? 'text-right' : 'text-left'
-                                                }`}
-                                        >
-                                            {column.render
-                                                ? column.render(record[column.key], record, index)
-                                                : record[column.key]
-                                            }
-                                        </td>
-                                    ))}
-
-                                    {rowActions && rowActions.length > 0 && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex items-center justify-end space-x-2">
-                                                {rowActions
-                                                    .filter(action => !action.visible || action.visible(record))
-                                                    .map(action => (
-                                                        <button
-                                                            key={action.key}
-                                                            onClick={() => action.onClick(record)}
-                                                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                                                            title={action.label}
-                                                        >
-                                                            {action.icon ? <action.icon className="h-4 w-4" /> : action.label}
-                                                        </button>
-                                                    ))
+                                                    }`}
+                                            >
+                                                {column.render
+                                                    ? column.render(record[column.key], record, index)
+                                                    : record[column.key]
                                                 }
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))
+                                            </td>
+                                        ))}
+
+                                        {rowActions && rowActions.length > 0 && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex items-center justify-end space-x-2">
+                                                    {rowActions
+                                                        .filter(action => !action.visible || action.visible(record))
+                                                        .map(action => {
+                                                            const colorClasses = {
+                                                                primary: 'text-blue-600 hover:text-blue-800',
+                                                                danger: 'text-red-600 hover:text-red-800',
+                                                                secondary: 'text-gray-400 hover:text-gray-600'
+                                                            };
+
+                                                            return (
+                                                                <button
+                                                                    key={action.key}
+                                                                    onClick={() => action.onClick(record)}
+                                                                    className={`transition-colors ${colorClasses[action.variant || 'secondary']
+                                                                        }`}
+                                                                    title={action.label}
+                                                                >
+                                                                    {action.icon ? (
+                                                                        <action.icon className="h-4 w-4" />
+                                                                    ) : (
+                                                                        action.label
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })
+                                                    }
+                                                </div>
+                                            </td>
+                                        )}
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
@@ -371,6 +465,14 @@ export function DataTable<T extends Record<string, any>>({
                         </Button>
                     </div>
                 </div>
+            )}
+
+            {/* Click outside handlers for dropdowns */}
+            {showExportMenu && (
+                <div
+                    className="fixed inset-0 z-0"
+                    onClick={() => setShowExportMenu(false)}
+                />
             )}
         </div>
     );

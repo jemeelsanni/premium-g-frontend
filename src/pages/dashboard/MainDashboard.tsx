@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { UserRole } from '../../types';
@@ -7,7 +8,6 @@ import {
     Truck,
     Warehouse,
     DollarSign,
-    TrendingUp,
     Users,
     ShoppingCart,
     Target
@@ -155,8 +155,8 @@ export const MainDashboard = () => {
                     >
                         <div>
                             <span className={`rounded-lg inline-flex p-3 ring-4 ring-white ${module.color === 'blue' ? 'bg-blue-50 text-blue-700' :
-                                    module.color === 'green' ? 'bg-green-50 text-green-700' :
-                                        'bg-purple-50 text-purple-700'
+                                module.color === 'green' ? 'bg-green-50 text-green-700' :
+                                    'bg-purple-50 text-purple-700'
                                 }`}>
                                 <module.icon className="h-6 w-6" />
                             </span>

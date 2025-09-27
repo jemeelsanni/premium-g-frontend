@@ -1,15 +1,49 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
-import { UserRole } from '../../types';
+import { UserRole, DistributionOrder } from '../../types';
 import { Package, Truck, Warehouse, DollarSign, AlertCircle, Loader2 } from 'lucide-react';
 import { analyticsApi } from '../../api/analytics.api';
 import { distributionApi } from '../../api/distribution.api';
 import { formatCurrency } from '../../lib/utils';
 
+// Define the exact API response structures based on what the backend returns
+interface DashboardAuditLog {
+    id: string;
+    action: string;
+    entity: string;
+    createdAt: string;
+    user?: {
+        username: string;
+    };
+}
+
+interface DashboardOrder {
+    id: string;
+    orderNumber: string;
+    status: string;
+    createdAt: string;
+    location?: {
+        name: string;
+    };
+}
+
+// API response structure from analyticsApi.getDashboardStats()
+interface AnalyticsDashboardResponse {
+    totalOrders: number;
+    activeDeliveries: number;
+    warehouseStock: number;
+    totalRevenue: number;
+    recentOrders: DashboardOrder[];
+    recentTransportOrders: any[];
+    expenses: any[];
+    recentAuditLogs: DashboardAuditLog[];
+}
+
 export const Dashboard = () => {
     const { user } = useAuthStore();
 
-    // Fetch dashboard statistics from health endpoint
+    // Fetch dashboard statistics from analytics API
     const { data: healthData, isLoading: isLoadingHealth } = useQuery({
         queryKey: ['dashboard-health'],
         queryFn: () => analyticsApi.getDashboardStats(),
@@ -32,40 +66,76 @@ export const Dashboard = () => {
         );
     }
 
-    const stats = healthData?.data ? [
+    // Safely extract dashboard data with proper typing
+    const dashboardData = healthData?.data as AnalyticsDashboardResponse | undefined;
+
+    // Build stats array only if we have dashboard data
+    const stats = dashboardData ? [
         {
             name: 'Total Orders',
-            value: healthData.data.totalOrders?.toString() || '0',
+            value: dashboardData.totalOrders.toString(),
             icon: Package,
             iconColor: 'text-blue-600',
             bgColor: 'bg-blue-100',
         },
         {
             name: 'Active Deliveries',
-            value: healthData.data.activeDeliveries?.toString() || '0',
+            value: dashboardData.activeDeliveries.toString(),
             icon: Truck,
             iconColor: 'text-green-600',
             bgColor: 'bg-green-100',
         },
         {
             name: 'Warehouse Stock',
-            value: healthData.data.warehouseStock?.toString() || '0',
+            value: dashboardData.warehouseStock.toString(),
             icon: Warehouse,
             iconColor: 'text-purple-600',
             bgColor: 'bg-purple-100',
         },
         {
             name: 'Total Revenue',
-            value: healthData.data.totalRevenue ? formatCurrency(healthData.data.totalRevenue) : formatCurrency(0),
+            value: formatCurrency(dashboardData.totalRevenue),
             icon: DollarSign,
             iconColor: 'text-indigo-600',
             bgColor: 'bg-indigo-100',
         },
     ] : [];
 
-    // Safely extract arrays with proper typing
-    const recentOrders = Array.isArray(ordersData?.data?.orders) ? ordersData.data.orders : [];
-    const recentAuditLogs = Array.isArray(healthData?.data?.recentAuditLogs) ? healthData.data.recentAuditLogs : [];
+    // Extract arrays with proper typing
+    const recentOrders: DistributionOrder[] = Array.isArray(ordersData?.data) ? ordersData.data : [];
+    const recentAuditLogs: DashboardAuditLog[] = Array.isArray(dashboardData?.recentAuditLogs) ? dashboardData.recentAuditLogs : [];
+
+    // Helper function to format dates safely
+    const formatDate = (dateString: string | undefined): string => {
+        if (!dateString) return 'N/A';
+
+        try {
+            const date = new Date(dateString);
+            return new Intl.DateTimeFormat('en-NG', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            }).format(date);
+        } catch {
+            return 'N/A';
+        }
+    };
+
+    // Helper function to get status badge styles
+    const getStatusBadgeClass = (status: string): string => {
+        switch (status) {
+            case 'DELIVERED':
+                return 'bg-green-100 text-green-800';
+            case 'PROCESSING':
+                return 'bg-blue-100 text-blue-800';
+            case 'CANCELLED':
+                return 'bg-red-100 text-red-800';
+            default:
+                return 'bg-yellow-100 text-yellow-800';
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -80,7 +150,7 @@ export const Dashboard = () => {
             </div>
 
             {/* Stats Grid */}
-            {stats.length > 0 ? (
+            {dashboardData ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     {stats.map((stat) => (
                         <div key={stat.name} className="bg-white rounded-lg shadow p-6">
@@ -120,46 +190,24 @@ export const Dashboard = () => {
                         <div className="p-6">
                             {recentOrders.length > 0 ? (
                                 <div className="space-y-4">
-                                    {recentOrders.slice(0, 5).map((order) => {
-                                        const createdAtValue = order.createdAt;
-                                        let orderDate = 'N/A';
-
-                                        if (typeof createdAtValue === 'string' && createdAtValue) {
-                                            try {
-                                                const dateObj = new Date(createdAtValue);
-                                                orderDate = new Intl.DateTimeFormat('en-NG', {
-                                                    year: 'numeric',
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                }).format(dateObj);
-                                            } catch {
-                                                orderDate = 'N/A';
-                                            }
-                                        }
-
-                                        return (
-                                            <div key={order.id} className="flex items-center justify-between">
-                                                <div className="flex items-center">
-                                                    <Package className="h-8 w-8 text-gray-400" />
-                                                    <div className="ml-3">
-                                                        <p className="text-sm font-medium text-gray-900">{order.orderNumber}</p>
-                                                        <p className="text-sm text-gray-500">
-                                                            {order.location?.name || 'N/A'} • {orderDate}
-                                                        </p>
-                                                    </div>
+                                    {recentOrders.slice(0, 5).map((order: DistributionOrder) => (
+                                        <div key={order.id} className="flex items-center justify-between">
+                                            <div className="flex items-center">
+                                                <Package className="h-8 w-8 text-gray-400" />
+                                                <div className="ml-3">
+                                                    <p className="text-sm font-medium text-gray-900">
+                                                        {order.orderNo || `Order #${order.id.slice(-6)}`}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">
+                                                        {order.location?.name || 'N/A'} • {formatDate(order.createdAt)}
+                                                    </p>
                                                 </div>
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
-                                                    order.status === 'PROCESSING' ? 'bg-blue-100 text-blue-800' :
-                                                        order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                                                            'bg-yellow-100 text-yellow-800'
-                                                    }`}>
-                                                    {order.status}
-                                                </span>
                                             </div>
-                                        );
-                                    })}
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(order.status)}`}>
+                                                {order.status}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
                                 <p className="text-sm text-gray-500">No recent orders</p>
@@ -176,38 +224,18 @@ export const Dashboard = () => {
                         </div>
                         <div className="p-6">
                             <div className="space-y-4">
-                                {recentAuditLogs.slice(0, 5).map((log) => {
-                                    const createdAtValue = log.createdAt;
-                                    let logDate = 'N/A';
-
-                                    if (typeof createdAtValue === 'string' && createdAtValue) {
-                                        try {
-                                            const dateObj = new Date(createdAtValue);
-                                            logDate = new Intl.DateTimeFormat('en-NG', {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            }).format(dateObj);
-                                        } catch {
-                                            logDate = 'N/A';
-                                        }
-                                    }
-
-                                    return (
-                                        <div key={log.id} className="flex items-start">
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium text-gray-900">
-                                                    {log.action} - {log.entity}
-                                                </p>
-                                                <p className="text-sm text-gray-500">
-                                                    {log.user?.username || 'System'} • {logDate}
-                                                </p>
-                                            </div>
+                                {recentAuditLogs.slice(0, 5).map((log: DashboardAuditLog) => (
+                                    <div key={log.id} className="flex items-start">
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-900">
+                                                {log.action} - {log.entity}
+                                            </p>
+                                            <p className="text-sm text-gray-500">
+                                                {log.user?.username || 'System'} • {formatDate(log.createdAt)}
+                                            </p>
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>

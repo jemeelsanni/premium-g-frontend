@@ -1,5 +1,6 @@
 import React from 'react';
-import { clsx } from 'clsx';
+import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ModalProps {
     isOpen: boolean;
@@ -18,36 +19,35 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
     if (!isOpen) return null;
 
+    const sizeClasses = {
+        sm: 'max-w-sm',
+        md: 'max-w-md',
+        lg: 'max-w-lg',
+        xl: 'max-w-xl',
+    };
+
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                {/* Background overlay */}
+            <div className="flex min-h-screen items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black bg-opacity-25" onClick={onClose} />
                 <div
-                    className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-                    onClick={onClose}
-                />
-
-                {/* Modal */}
-                <div
-                    className={clsx(
-                        'inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle',
-                        {
-                            'sm:max-w-sm': size === 'sm',
-                            'sm:max-w-lg': size === 'md',
-                            'sm:max-w-2xl': size === 'lg',
-                            'sm:max-w-4xl': size === 'xl',
-                        },
-                        'sm:w-full'
+                    className={cn(
+                        'relative w-full bg-white rounded-lg shadow-xl',
+                        sizeClasses[size]
                     )}
                 >
                     {title && (
-                        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                {title}
-                            </h3>
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h3 className="text-lg font-medium">{title}</h3>
+                            <button
+                                onClick={onClose}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
                         </div>
                     )}
-                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6">{children}</div>
+                    <div className="p-4">{children}</div>
                 </div>
             </div>
         </div>

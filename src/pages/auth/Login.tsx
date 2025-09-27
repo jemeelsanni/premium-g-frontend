@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -32,7 +33,8 @@ export const Login = () => {
         try {
             setIsLoading(true);
             setError(null);
-            await login(data);
+            // ✅ Pass username and password separately
+            await login(data.username, data.password);
             navigate(from, { replace: true });
         } catch (error: any) {
             setError(error.response?.data?.message || 'Login failed. Please try again.');

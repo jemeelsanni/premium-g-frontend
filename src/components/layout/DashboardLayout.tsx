@@ -21,6 +21,13 @@ interface DashboardLayoutProps {
     children: ReactNode;
 }
 
+interface NavigationItem {
+    name: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string }>;
+    roles: UserRole[];
+}
+
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
@@ -32,112 +39,114 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         navigate('/login');
     };
 
-    // Navigation items based on user role
-    const getNavigationItems = () => {
-        // Explicitly use UserRole to satisfy TypeScript
-        const allRoles = [
-            'SUPER_ADMIN',
-            'DISTRIBUTION_ADMIN',
-            'DISTRIBUTION_SALES_REP',
-            'TRANSPORT_ADMIN',
-            'TRANSPORT_STAFF',
-            'WAREHOUSE_ADMIN',
-            'WAREHOUSE_SALES_OFFICER',
-            'CASHIER'
-        ] as UserRole[];
-        const items = [
-            {
-                name: 'Dashboard',
-                href: '/dashboard',
-                icon: LayoutDashboard,
-                roles: allRoles,
-            },
-        ];
-
-        // Distribution Module
-        if (user?.role && [UserRole.SUPER_ADMIN, UserRole.DISTRIBUTION_ADMIN, UserRole.DISTRIBUTION_SALES_REP].includes(user.role)) {
-            items.push({
-                name: 'Distribution',
-                href: '/distribution',
-                icon: Package,
-                roles: [UserRole.SUPER_ADMIN, UserRole.DISTRIBUTION_ADMIN, UserRole.DISTRIBUTION_SALES_REP],
-            });
-        }
-
-        // Transport Module
-        if (user?.role && [UserRole.SUPER_ADMIN, UserRole.TRANSPORT_ADMIN, UserRole.TRANSPORT_STAFF].includes(user.role)) {
-            items.push({
-                name: 'Transport',
-                href: '/transport',
-                icon: Truck,
-                roles: [UserRole.SUPER_ADMIN, UserRole.TRANSPORT_ADMIN, UserRole.TRANSPORT_STAFF],
-            });
-        }
-
-        // Add after Transport Module section
-        if (user?.role && [UserRole.SUPER_ADMIN, UserRole.TRANSPORT_ADMIN].includes(user.role)) {
-            items.push({
-                name: 'Trucks',
-                href: '/transport/trucks',
-                icon: Truck,
-                roles: [UserRole.SUPER_ADMIN, UserRole.TRANSPORT_ADMIN],
-            });
-        }
-
-        // Warehouse Module
-        if (user?.role && [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN, UserRole.WAREHOUSE_SALES_OFFICER, UserRole.CASHIER].includes(user.role)) {
-            items.push({
-                name: 'Warehouse',
-                href: '/warehouse',
-                icon: Warehouse,
-                roles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN, UserRole.WAREHOUSE_SALES_OFFICER, UserRole.CASHIER],
-            });
-        }
-
-        // Targets & Performance
-        if (user?.role && [UserRole.SUPER_ADMIN, UserRole.DISTRIBUTION_ADMIN].includes(user.role)) {
-            items.push({
-                name: 'Targets',
-                href: '/targets',
-                icon: Target,
-                roles: [UserRole.SUPER_ADMIN, UserRole.DISTRIBUTION_ADMIN],
-            });
-        }
-
-        // Expenses
-        if (user?.role && [UserRole.SUPER_ADMIN, UserRole.DISTRIBUTION_ADMIN, UserRole.TRANSPORT_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role)) {
-            items.push({
-                name: 'Expenses',
-                href: '/expenses',
-                icon: DollarSign,
-                roles: [UserRole.SUPER_ADMIN, UserRole.DISTRIBUTION_ADMIN, UserRole.TRANSPORT_ADMIN, UserRole.WAREHOUSE_ADMIN],
-            });
-        }
-
-        // Analytics
-        if (user?.role && [UserRole.SUPER_ADMIN, UserRole.DISTRIBUTION_ADMIN, UserRole.TRANSPORT_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role)) {
-            items.push({
-                name: 'Analytics',
-                href: '/analytics',
-                icon: BarChart3,
-                roles: [UserRole.SUPER_ADMIN, UserRole.DISTRIBUTION_ADMIN, UserRole.TRANSPORT_ADMIN, UserRole.WAREHOUSE_ADMIN],
-            });
-        }
-
-        // Admin Module
-        if (user?.role === UserRole.SUPER_ADMIN) {
-            items.push({
-                name: 'Admin',
-                href: '/admin',
-                icon: Settings,
-                roles: [UserRole.SUPER_ADMIN],
-            });
-        }
-
-        return items;
+    // Helper function to check if user has access to navigation item
+    const hasAccess = (roles: UserRole[]): boolean => {
+        return user?.role ? roles.includes(user.role) : false;
     };
 
-    const navigationItems = getNavigationItems();
+    // Navigation items configuration
+    const navigationItems: NavigationItem[] = [
+        {
+            name: 'Dashboard',
+            href: '/dashboard',
+            icon: LayoutDashboard,
+            roles: Object.values(UserRole), // All roles have access to dashboard
+        },
+        {
+            name: 'Distribution',
+            href: '/distribution',
+            icon: Package,
+            roles: [
+                UserRole.SUPER_ADMIN,
+                UserRole.DISTRIBUTION_ADMIN,
+                UserRole.DISTRIBUTION_SALES_REP
+            ],
+        },
+        {
+            name: 'Transport',
+            href: '/transport',
+            icon: Truck,
+            roles: [
+                UserRole.SUPER_ADMIN,
+                UserRole.TRANSPORT_ADMIN,
+                UserRole.TRANSPORT_STAFF
+            ],
+        },
+        {
+            name: 'Trucks',
+            href: '/transport/trucks',
+            icon: Truck,
+            roles: [
+                UserRole.SUPER_ADMIN,
+                UserRole.TRANSPORT_ADMIN
+            ],
+        },
+        {
+            name: 'Warehouse',
+            href: '/warehouse',
+            icon: Warehouse,
+            roles: [
+                UserRole.SUPER_ADMIN,
+                UserRole.WAREHOUSE_ADMIN,
+                UserRole.WAREHOUSE_SALES_OFFICER,
+                UserRole.CASHIER
+            ],
+        },
+        {
+            name: 'Targets',
+            href: '/targets',
+            icon: Target,
+            roles: [
+                UserRole.SUPER_ADMIN,
+                UserRole.DISTRIBUTION_ADMIN
+            ],
+        },
+        {
+            name: 'Expenses',
+            href: '/expenses',
+            icon: DollarSign,
+            roles: [
+                UserRole.SUPER_ADMIN,
+                UserRole.DISTRIBUTION_ADMIN,
+                UserRole.TRANSPORT_ADMIN,
+                UserRole.WAREHOUSE_ADMIN
+            ],
+        },
+        {
+            name: 'Analytics',
+            href: '/analytics',
+            icon: BarChart3,
+            roles: [
+                UserRole.SUPER_ADMIN,
+                UserRole.DISTRIBUTION_ADMIN,
+                UserRole.TRANSPORT_ADMIN,
+                UserRole.WAREHOUSE_ADMIN
+            ],
+        },
+        {
+            name: 'Admin',
+            href: '/admin',
+            icon: Settings,
+            roles: [UserRole.SUPER_ADMIN],
+        },
+    ];
+
+    // Filter navigation items based on user role
+    const accessibleNavItems = navigationItems.filter(item => hasAccess(item.roles));
+
+    // Format role name for display
+    const formatRoleName = (role: UserRole): string => {
+        return role.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    };
+
+    // Get current page name
+    const getCurrentPageName = (): string => {
+        const currentItem = accessibleNavItems.find(item =>
+            location.pathname === item.href ||
+            (item.href !== '/dashboard' && location.pathname.startsWith(item.href))
+        );
+        return currentItem?.name || 'Dashboard';
+    };
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -151,17 +160,20 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
             {/* Sidebar */}
             <div className={`
-        fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0
-      `}>
+                fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
+                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+                lg:translate-x-0
+            `}>
                 <div className="flex flex-col h-full">
                     {/* Logo */}
                     <div className="flex items-center justify-between h-16 px-4 border-b">
-                        <h1 className="text-xl font-bold text-indigo-600">Premium G</h1>
+                        <Link to="/dashboard" className="flex items-center">
+                            <h1 className="text-xl font-bold text-indigo-600">Premium G</h1>
+                        </Link>
                         <button
                             onClick={() => setSidebarOpen(false)}
-                            className="lg:hidden"
+                            className="lg:hidden p-1 rounded-md hover:bg-gray-100"
+                            aria-label="Close sidebar"
                         >
                             <X className="h-6 w-6" />
                         </button>
@@ -169,22 +181,27 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
                     {/* Navigation */}
                     <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-                        {navigationItems.map((item) => {
-                            const isActive = location.pathname.startsWith(item.href);
+                        {accessibleNavItems.map((item) => {
+                            const isActive = location.pathname === item.href ||
+                                (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+
                             return (
                                 <Link
                                     key={item.name}
                                     to={item.href}
                                     className={`
-                    flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
-                    ${isActive
-                                            ? 'bg-indigo-50 text-indigo-600'
-                                            : 'text-gray-700 hover:bg-gray-50'
+                                        flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors
+                                        ${isActive
+                                            ? 'bg-indigo-50 text-indigo-600 border-r-2 border-indigo-600'
+                                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                                         }
-                  `}
+                                    `}
                                     onClick={() => setSidebarOpen(false)}
                                 >
-                                    <item.icon className={`mr-3 h-5 w-5 ${isActive ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                    <item.icon
+                                        className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive ? 'text-indigo-600' : 'text-gray-400'
+                                            }`}
+                                    />
                                     {item.name}
                                 </Link>
                             );
@@ -195,18 +212,24 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     <div className="border-t p-4">
                         <div className="flex items-center mb-3">
                             <div className="flex-shrink-0">
-                                <User className="h-8 w-8 text-gray-400" />
+                                <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                    <User className="h-5 w-5 text-indigo-600" />
+                                </div>
                             </div>
-                            <div className="ml-3">
-                                <p className="text-sm font-medium text-gray-700">{user?.username}</p>
-                                <p className="text-xs text-gray-500">{user?.role.replace('_', ' ')}</p>
+                            <div className="ml-3 min-w-0 flex-1">
+                                <p className="text-sm font-medium text-gray-700 truncate">
+                                    {user?.username}
+                                </p>
+                                <p className="text-xs text-gray-500 truncate">
+                                    {user?.role ? formatRoleName(user.role) : ''}
+                                </p>
                             </div>
                         </div>
                         <button
                             onClick={handleLogout}
                             className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors"
                         >
-                            <LogOut className="mr-3 h-5 w-5" />
+                            <LogOut className="mr-3 h-5 w-5 flex-shrink-0" />
                             Logout
                         </button>
                     </div>
@@ -219,16 +242,27 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <div className="sticky top-0 z-10 flex h-16 bg-white border-b shadow-sm">
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="px-4 text-gray-500 lg:hidden"
+                        className="px-4 text-gray-500 hover:text-gray-700 lg:hidden"
+                        aria-label="Open sidebar"
                     >
                         <Menu className="h-6 w-6" />
                     </button>
                     <div className="flex items-center justify-between flex-1 px-4">
-                        <h2 className="text-lg font-semibold text-gray-900">
-                            {navigationItems.find(item => location.pathname.startsWith(item.href))?.name || 'Dashboard'}
-                        </h2>
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                {getCurrentPageName()}
+                            </h2>
+                            <p className="text-sm text-gray-500">
+                                Welcome back, {user?.username}
+                            </p>
+                        </div>
                         <div className="flex items-center space-x-4">
-                            <span className="text-sm text-gray-500">{user?.email}</span>
+                            <div className="hidden sm:block">
+                                <span className="text-sm text-gray-500">{user?.email}</span>
+                            </div>
+                            <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <User className="h-5 w-5 text-indigo-600" />
+                            </div>
                         </div>
                     </div>
                 </div>
