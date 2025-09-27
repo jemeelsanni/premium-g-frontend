@@ -86,47 +86,57 @@ export interface Product {
   productNo: string;
   name: string;
   description?: string;
-  category?: string;
-  unitPrice: number;
-  unitsPerPack: number;
+  packsPerPallet: number;
+  pricePerPack: number;
+  costPerPack?: number;
+  module: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
+
 
 export interface Location {
   id: string;
   name: string;
-  address: string;
-  contactPerson?: string;
-  contactPhone?: string;
+  address?: string;
+  fuelAdjustment: number;
+  driverWagesPerTrip: number;
+  deliveryNotes?: string;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DistributionOrder {
   id: string;
-  orderNumber: string;
+  customerId: string;
   locationId: string;
-  location?: Location;
-  salesRepId: string;
-  salesRep?: User;
-  status: OrderStatus;
+  totalPallets: number;
   totalPacks: number;
-  totalAmount: number;
-  transportCost?: number;
-  paymentMethod: PaymentMethod;
-  deliveryDate?: string;
-  notes?: string;
+  originalAmount: number;
+  balance: number;
+  finalAmount: number;
+  status: 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'IN_TRANSIT' | 'DELIVERED' | 'PARTIALLY_DELIVERED' | 'CANCELLED';
+  transporterCompany?: string;
+  driverNumber?: string;
+  remark?: string;
+  createdBy: string;
   createdAt: string;
   updatedAt: string;
+  customer: Customer;
+  location: Location;
+  orderItems: DistributionOrderItem[];
 }
 
 export interface DistributionOrderItem {
   id: string;
   orderId: string;
   productId: string;
-  product?: Product;
+  pallets: number;
   packs: number;
-  unitPrice: number;
-  totalPrice: number;
+  amount: number;
+  product: Product;
 }
 
 // Warehouse Types
@@ -144,17 +154,33 @@ export interface WarehouseInventory {
 export interface WarehouseSale {
   id: string;
   productId: string;
-  product?: Product;
   quantity: number;
+  unitType: 'PALLETS' | 'PACKS' | 'UNITS';
   unitPrice: number;
   totalAmount: number;
-  paymentMethod: PaymentMethod;
+  costPerUnit: number;
+  totalCost: number;
+  grossProfit: number;
+  profitMargin: number;
+  paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY';
   customerName?: string;
   customerPhone?: string;
   receiptNumber: string;
   salesOfficer: string;
-  salesOfficerUser?: User;
   createdAt: string;
+  product: Product;
+  salesOfficerUser: User;
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CashFlow {
@@ -173,53 +199,43 @@ export type TransportStatus = "SCHEDULED" | "IN_TRANSIT" | "DELIVERED" | "CANCEL
 
 export interface TransportOrder {
   id: string;
-  distributionOrderId?: string;
   orderNumber: string;
   invoiceNumber?: string;
   locationId: string;
   truckId?: string;
-  
-  // Revenue
   totalOrderAmount: number;
-  
-  // Expenses breakdown
   fuelRequired: number;
   fuelPricePerLiter: number;
   totalFuelCost: number;
   serviceChargeExpense: number;
   driverWages: number;
   truckExpenses: number;
-  
-  // Profit calculation
   totalExpenses: number;
   grossProfit: number;
   netProfit: number;
   profitMargin: number;
-  
-  // Driver and status
   driverDetails?: string;
-  deliveryStatus: OrderStatus;
+  deliveryStatus: 'PENDING' | 'CONFIRMED' | 'IN_TRANSIT' | 'DELIVERED' | 'PARTIALLY_DELIVERED' | 'CANCELLED';
   deliveryDate?: string;
-  
-  // Metadata
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  
-  // Relations
-  location?: Location;
+  location: Location;
   truck?: TruckCapacity;
-  distributionOrder?: DistributionOrder;
-  createdByUser?: User;
 }
 
 export interface TruckCapacity {
   id: string;
   truckId: string;
+  registrationNumber?: string;
   maxPallets: number;
   currentLoad: number;
   availableSpace: number;
+  make?: string;
+  model?: string;
+  year?: number;
   isActive: boolean;
+  createdAt: string;
   updatedAt: string;
 }
 

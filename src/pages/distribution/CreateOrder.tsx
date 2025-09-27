@@ -1,308 +1,187 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { distributionApi } from '../../api/distribution.api';
 import { adminApi } from '../../api/admin.api';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { FormField } from '../../components/ui/FormField';
+import { Plus, Trash2, Calculator } from 'lucide-react';
+import { toast } from '../../utils/toast';
+import { formatCurrency } from '../../utils/format';
 
-interface OrderItem {
-    productId: string;
-    pallets: number;
-    packs: number;
-}
+const orderItemSchema = z.object({
+    productId: z.string().min(1, 'Product is required'),
+    pallets: z.number().min(0, 'Pallets must be 0 or more'),
+    packs: z.number().min(1, 'Packs must be at least 1'),
+    amount: z.number().min(0, 'Amount must be 0 or more')
+});
 
-interface ApiOrderItem {
-    productId: string;
-    pallets: number;
-    packs: number;
-    product?: {
-        id: string;
-        name: string;
-    };
-}
+const orderSchema = z.object({
+    customerId: z.string().min(1, 'Customer is required'),
+    locationId: z.string().min(1, 'Location is required'),
+    orderItems: z.array(orderItemSchema).min(1, 'At least one item is required'),
+    remark: z.string().optional()
+});
+
+type OrderFormData = z.infer<typeof orderSchema>;
 
 export const CreateOrder = () => {
     const navigate = useNavigate();
-    const { id } = useParams<{ id: string }>(); // Get order ID from URL
-    const isEditMode = Boolean(id);
-    const [customerId, setCustomerId] = useState('');
-    const [locationId, setLocationId] = useState('');
-    const [orderItems, setOrderItems] = useState<OrderItem[]>([
-        { productId: '', pallets: 0, packs: 0 }
-    ]);
-    const [remark, setRemark] = useState('');
-
-    const { data: orderData } = useQuery({
-        queryKey: ['distribution-order', id],
-        queryFn: () => distributionApi.getOrderById(id!),
-        enabled: isEditMode,
+    const [loading, setLoading] = useState(false);
+    const [customers, setCustomers] = useState([]);
+    const [locations, setLocations] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [orderSummary, setOrderSummary] = useState({
+        totalPallets: 0,
+        totalPacks: 0,
+        totalAmount: 0
     });
 
-    // Populate form when order data is loaded
+    const form = useForm<OrderFormData>({
+        resolver: zodResolver(orderSchema),
+        defaultValues: {
+            customerId: '',
+            locationId: '',
+            orderItems: [{ productId: '', pallets: 0, packs: 0, amount: 0 }],
+            remark: ''
+        }
+    });
+
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: 'orderItems'
+    });
+
+    // Fetch reference data
     useEffect(() => {
-        if (orderData?.data?.order) {
-            const order = orderData.data.order;
-            setCustomerId(order.customerId || '');
-            setLocationId(order.locationId || '');
-            setRemark(order.remark || '');
+        const fetchData = async () => {
+            try {
+                const [customersRes, locationsRes, productsRes] = await Promise.all([
+                    distributionApi.getCustomers({ limit: 1000 }),
+                    adminApi.getLocations({ limit: 1000 }),
+                    adminApi.getProducts({ limit: 1000 })
+                ]);
 
-            if (order.orderItems && order.orderItems.length > 0) {
-                setOrderItems(order.orderItems.map((item: ApiOrderItem) => ({
-                    productId: item.productId,
-                    pallets: item.pallets || 0,
-                    packs: item.packs || 0,
-                })));
+                setCustomers(customersRes.data || []);
+                setLocations(locationsRes.data || []);
+                setProducts(productsRes.data || []);
+            } catch (error) {
+                console.error('Failed to fetch reference data:', error);
+                toast.error('Failed to load form data');
             }
+        };
+
+        fetchData();
+    }, []);
+
+    // Watch form values for calculations
+    const watchedItems = form.watch('orderItems');
+
+    useEffect(() => {
+        const calculateSummary = () => {
+            const summary = watchedItems.reduce(
+                (acc, item) => ({
+                    totalPallets: acc.totalPallets + (item.pallets || 0),
+                    totalPacks: acc.totalPacks + (item.packs || 0),
+                    totalAmount: acc.totalAmount + (item.amount || 0)
+                }),
+                { totalPallets: 0, totalPacks: 0, totalAmount: 0 }
+            );
+            setOrderSummary(summary);
+        };
+
+        calculateSummary();
+    }, [watchedItems]);
+
+    // Calculate item amount when product or quantity changes
+    const calculateItemAmount = (index: number) => {
+        const item = form.getValues(`orderItems.${index}`);
+        const product = products.find((p: any) => p.id === item.productId);
+
+        if (product && item.packs > 0) {
+            const amount = item.packs * product.pricePerPack;
+            form.setValue(`orderItems.${index}.amount`, amount);
         }
-    }, [orderData]);
+    };
 
-    // Fetch customers, locations, and products
-    const { data: customersData, isLoading: loadingCustomers } = useQuery({
-        queryKey: ['customers'],
-        queryFn: () => adminApi.getCustomers({ limit: 1000 }),
-    });
-
-    const { data: locationsData, isLoading: loadingLocations } = useQuery({
-        queryKey: ['locations'],
-        queryFn: () => adminApi.getLocations({ limit: 1000 }),
-    });
-
-    const { data: productsData, isLoading: loadingProducts } = useQuery({
-        queryKey: ['distribution-products'],
-        queryFn: () => distributionApi.getProducts(),
-    });
-
-    // Safely extract data from responses
-    const customers = Array.isArray(customersData?.data?.customers)
-        ? customersData.data.customers
-        : [];
-
-    const locations = Array.isArray(locationsData?.data?.locations)
-        ? locationsData.data.locations
-        : [];
-
-    const products = Array.isArray(productsData?.data?.products)
-        ? productsData.data.products
-        : [];
-
-    const createOrderMutation = useMutation({
-        mutationFn: (data: {
-            customerId: string;
-            locationId: string;
-            orderItems: OrderItem[];
-            remark?: string;
-        }) => distributionApi.createOrder(data),
-        onSuccess: () => {
+    const onSubmit = async (data: OrderFormData) => {
+        try {
+            setLoading(true);
+            await distributionApi.createOrder(data);
+            toast.success('Order created successfully');
             navigate('/distribution/orders');
-        },
-        onError: (error) => {
-            console.error('Error creating order:', error);
-            alert('Failed to create order. Please try again.');
+        } catch (error: any) {
+            console.error('Failed to create order:', error);
+            toast.error(error.response?.data?.message || 'Failed to create order');
+        } finally {
+            setLoading(false);
         }
-    });
-
-    const addOrderItem = () => {
-        setOrderItems([...orderItems, { productId: '', pallets: 0, packs: 0 }]);
     };
 
-    const removeOrderItem = (index: number) => {
-        setOrderItems(orderItems.filter((_, i) => i !== index));
-    };
+    const customerOptions = customers.map((customer: any) => ({
+        value: customer.id,
+        label: customer.name
+    }));
 
-    const updateOrderItem = (index: number, field: keyof OrderItem, value: string | number) => {
-        const updated = [...orderItems];
-        updated[index] = { ...updated[index], [field]: value };
-        setOrderItems(updated);
-    };
+    const locationOptions = locations.map((location: any) => ({
+        value: location.id,
+        label: location.name
+    }));
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-
-        // Validate
-        if (!customerId || !locationId || orderItems.some(item => !item.productId)) {
-            alert('Please fill in all required fields');
-            return;
-        }
-
-        createOrderMutation.mutate({
-            customerId,
-            locationId,
-            orderItems,
-            remark: remark || undefined,
-        });
-    };
-
-    const isLoading = loadingCustomers || loadingLocations || loadingProducts;
+    const productOptions = products.map((product: any) => ({
+        value: product.id,
+        label: `${product.name} - ${formatCurrency(product.pricePerPack)}/pack`
+    }));
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={() => navigate('/distribution/orders')}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                    <ArrowLeft className="h-5 w-5" />
-                </button>
+            <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Create Distribution Order</h1>
-                    <p className="text-gray-600 mt-1">Fill in the details to create a new order</p>
+                    <p className="text-gray-600">Create a new B2B customer order</p>
                 </div>
-            </div>
 
-            {isLoading ? (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <p className="text-gray-500">Loading form data...</p>
+                {/* Order Summary */}
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-gray-900">{orderSummary.totalPallets}</div>
+                            <div className="text-sm text-gray-600">Total Pallets</div>
+                        </div>
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-gray-900">{orderSummary.totalPacks.toLocaleString()}</div>
+                            <div className="text-sm text-gray-600">Total Packs</div>
+                        </div>
+                        <div className="text-center p-4 bg-blue-50 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-900">{formatCurrency(orderSummary.totalAmount)}</div>
+                            <div className="text-sm text-blue-600">Total Amount</div>
+                        </div>
+                    </div>
                 </div>
-            ) : (
-                <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
-                    {/* Customer & Location */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Customer <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                value={customerId}
-                                onChange={(e) => setCustomerId(e.target.value)}
-                                required
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            >
-                                <option value="">Select Customer</option>
-                                {customers.map((customer: { id: string; name: string }) => (
-                                    <option key={customer.id} value={customer.id}>
-                                        {customer.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Location <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                value={locationId}
-                                onChange={(e) => setLocationId(e.target.value)}
-                                required
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            >
-                                <option value="">Select Location</option>
-                                {locations.map((location: { id: string; name: string }) => (
-                                    <option key={location.id} value={location.id}>
-                                        {location.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Order Items */}
-                    <div>
-                        <div className="flex justify-between items-center mb-4">
-                            <label className="block text-sm font-medium text-gray-700">
-                                Order Items <span className="text-red-500">*</span>
-                            </label>
-                            <button
-                                type="button"
-                                onClick={addOrderItem}
-                                className="flex items-center gap-2 px-3 py-1 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                            >
-                                <Plus className="h-4 w-4" />
-                                Add Item
-                            </button>
-                        </div>
-
-                        <div className="space-y-3">
-                            {orderItems.map((item, index) => (
-                                <div key={index} className="grid grid-cols-12 gap-3 items-end">
-                                    <div className="col-span-5">
-                                        <label className="block text-xs text-gray-600 mb-1">Product</label>
-                                        <select
-                                            value={item.productId}
-                                            onChange={(e) => updateOrderItem(index, 'productId', e.target.value)}
-                                            required
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                        >
-                                            <option value="">Select Product</option>
-                                            {products.map((product: { id: string; name: string; productNo: string }) => (
-                                                <option key={product.id} value={product.id}>
-                                                    {product.productNo} - {product.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="col-span-3">
-                                        <label className="block text-xs text-gray-600 mb-1">Pallets</label>
-                                        <input
-                                            type="number"
-                                            value={item.pallets}
-                                            onChange={(e) => updateOrderItem(index, 'pallets', parseInt(e.target.value) || 0)}
-                                            min="0"
-                                            required
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                        />
-                                    </div>
-                                    <div className="col-span-3">
-                                        <label className="block text-xs text-gray-600 mb-1">Extra Packs</label>
-                                        <input
-                                            type="number"
-                                            value={item.packs}
-                                            onChange={(e) => updateOrderItem(index, 'packs', parseInt(e.target.value) || 0)}
-                                            min="0"
-                                            required
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                        />
-                                    </div>
-                                    <div className="col-span-1">
-                                        {orderItems.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeOrderItem(index)}
-                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                                            >
-                                                <Trash2 className="h-5 w-5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Remark */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Remark (Optional)
-                        </label>
-                        <textarea
-                            value={remark}
-                            onChange={(e) => setRemark(e.target.value)}
-                            rows={3}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Add any additional notes..."
-                        />
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex justify-end gap-3 pt-4 border-t">
-                        <button
-                            type="button"
-                            onClick={() => navigate('/distribution/orders')}
-                            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={createOrderMutation.isPending}
-                            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {createOrderMutation.isPending ? 'Creating...' : 'Create Order'}
-                        </button>
-                    </div>
-                </form>
-            )}
+                {/* Submit */}
+                <div className="flex justify-end space-x-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate('/distribution/orders')}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        loading={loading}
+                        disabled={loading || orderSummary.totalAmount === 0}
+                    >
+                        Create Order
+                    </Button>
+                </div>
+            </form>
         </div>
     );
 };
