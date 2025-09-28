@@ -18,9 +18,15 @@ export const OrdersList: React.FC = () => {
     const pageSize = 10;
 
     const { data: ordersData, isLoading, error } = useQuery({
-        queryKey: ['distribution-orders', currentPage, pageSize],
-        queryFn: () => distributionService.getOrders(currentPage, pageSize),
+        queryKey: ['distribution-orders', currentPage, pageSize, searchTerm, statusFilter],
+        queryFn: () => distributionService.getOrders({ // ✅ FIXED USAGE
+            page: currentPage,
+            limit: pageSize,
+            search: searchTerm || undefined,
+            status: statusFilter || undefined,
+        }),
     });
+
 
     const handleSearch = (value: string) => {
         setSearchTerm(value);

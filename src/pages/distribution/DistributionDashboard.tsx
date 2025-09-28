@@ -12,7 +12,7 @@ import {
     ArrowRight,
     AlertCircle
 } from 'lucide-react';
-import { distributionApi } from '../../api/distribution.api';
+import { distributionService } from '../../services/distributionService'; // ✅ FIXED IMPORT
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
@@ -22,12 +22,12 @@ import { DistributionOrder } from '../../types'; // This should be from types/in
 export const DistributionDashboard: React.FC = () => {
     const { data: statsResponse, isLoading, error } = useQuery({
         queryKey: ['distribution-dashboard'],
-        queryFn: () => distributionApi.getDashboardStats(),
+        queryFn: () => distributionService.getDashboardStats(), // ✅ FIXED USAGE
     });
 
     const { data: recentOrdersResponse } = useQuery({
-        queryKey: ['distribution-orders'],
-        queryFn: () => distributionApi.getOrders({ limit: 5 }),
+        queryKey: ['distribution-orders-recent'],
+        queryFn: () => distributionService.getOrders({ limit: 5 }), // ✅ FIXED USAGE
     });
 
     if (isLoading) {
@@ -50,7 +50,7 @@ export const DistributionDashboard: React.FC = () => {
     }
 
     // Extract data from ApiResponse wrapper
-    const stats = statsResponse?.success ? statsResponse.data : null;
+    const stats = statsResponse?.success ? statsResponse.data : statsResponse;
     const recentOrders = recentOrdersResponse?.data || [];
 
     const statCards = [
@@ -113,9 +113,9 @@ export const DistributionDashboard: React.FC = () => {
             title: 'Status',
             render: (value: string) => (
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${value === 'DELIVERED' ? 'bg-green-100 text-green-800' :
-                        value === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
-                            value === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-gray-100 text-gray-800'
+                    value === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
+                        value === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
                     }`}>
                     {value}
                 </span>
