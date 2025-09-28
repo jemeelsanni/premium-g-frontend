@@ -118,10 +118,11 @@ export const TruckManagement: React.FC = () => {
         }
     };
 
-    const filteredTrucks = trucks?.filter(truck =>
-        truck.plateNumber.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || [];
-
+    const filteredTrucks = Array.isArray(trucks)
+        ? trucks.filter(truck =>
+            truck.plateNumber.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        : [];
     const truckColumns = [
         {
             key: 'plateNumber',
@@ -143,8 +144,8 @@ export const TruckManagement: React.FC = () => {
             title: 'Status',
             render: (value: boolean) => (
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${value
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
                     }`}>
                     {value ? 'Active' : 'Inactive'}
                 </span>

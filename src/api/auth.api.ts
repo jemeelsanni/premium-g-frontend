@@ -8,6 +8,8 @@ import {
   Session
 } from '../types';
 
+
+
 export const authApi = {
   // Login
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {

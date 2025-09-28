@@ -12,30 +12,22 @@ import {
     ArrowRight,
     AlertCircle
 } from 'lucide-react';
-import { distributionService } from '../../services/distributionService';
+import { distributionApi } from '../../api/distribution.api';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
-import { DistributionOrder } from '../../types/distribution';
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface DashboardStats {
-    totalOrders: number;
-    totalRevenue: number;
-    totalCustomers: number;
-    monthlyGrowth: number;
-    recentOrders: DistributionOrder[];
-}
+// FIXED: Import from correct location
+import { DistributionOrder } from '../../types'; // This should be from types/index.ts
 
 export const DistributionDashboard: React.FC = () => {
-    const { data: stats, isLoading, error } = useQuery({
+    const { data: statsResponse, isLoading, error } = useQuery({
         queryKey: ['distribution-dashboard'],
-        queryFn: () => distributionService.getDashboardStats(),
+        queryFn: () => distributionApi.getDashboardStats(),
     });
 
-    const { data: recentOrders } = useQuery({
-        queryKey: ['distribution-orders', 1, 5],
-        queryFn: () => distributionService.getOrders(1, 5),
+    const { data: recentOrdersResponse } = useQuery({
+        queryKey: ['distribution-orders'],
+        queryFn: () => distributionApi.getOrders({ limit: 5 }),
     });
 
     if (isLoading) {
@@ -57,6 +49,10 @@ export const DistributionDashboard: React.FC = () => {
         );
     }
 
+    // Extract data from ApiResponse wrapper
+    const stats = statsResponse?.success ? statsResponse.data : null;
+    const recentOrders = recentOrdersResponse?.data || [];
+
     const statCards = [
         {
             title: 'Total Orders',
@@ -73,31 +69,32 @@ export const DistributionDashboard: React.FC = () => {
             change: '+8%'
         },
         {
-            title: 'Active Customers',
-            value: stats?.totalCustomers || 0,
+            title: 'Top Customers',
+            value: stats?.topCustomers?.length || 0,
             icon: Users,
             color: 'purple',
             change: '+5%'
         },
         {
-            title: 'Monthly Growth',
-            value: `${stats?.monthlyGrowth || 0}%`,
+            title: 'Monthly Progress',
+            value: `${stats?.monthlyProgress || 0}%`,
             icon: TrendingUp,
             color: 'orange',
-            change: '+2%'
+            change: `+${stats?.weeklyProgress || 0}%`
         }
     ];
 
+    // FIXED: Update column keys to match the correct DistributionOrder type
     const orderColumns = [
         {
-            key: 'orderNumber',
+            key: 'orderNo', // Changed from 'orderNumber' to 'orderNo'
             title: 'Order #',
             render: (value: string, record: DistributionOrder) => (
                 <Link
                     to={`/distribution/orders/${record.id}`}
                     className="text-blue-600 hover:text-blue-800 font-medium"
                 >
-                    {value}
+                    {value || `ORD-${record.id.slice(-6)}`} {/* Fallback if orderNo is null */}
                 </Link>
             )
         },
@@ -107,18 +104,18 @@ export const DistributionDashboard: React.FC = () => {
             render: (value: any) => value?.name || 'N/A'
         },
         {
-            key: 'finalAmount',
+            key: 'totalAmount', // Changed from 'finalAmount' to 'totalAmount'
             title: 'Amount',
-            render: (value: number) => `₦${value.toLocaleString()}`
+            render: (value: number) => `₦${value?.toLocaleString() || 0}`
         },
         {
             key: 'status',
             title: 'Status',
             render: (value: string) => (
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${value === 'DELIVERED' ? 'bg-green-100 text-green-800' :
-                    value === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
-                        value === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
+                        value === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
+                            value === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
                     }`}>
                     {value}
                 </span>
@@ -281,9 +278,9 @@ export const DistributionDashboard: React.FC = () => {
                 </div>
                 <div className="p-6">
                     <Table
-                        data={recentOrders?.data || []}
+                        data={recentOrders}
                         columns={orderColumns}
-                        loading={!recentOrders}
+                        loading={!recentOrdersResponse}
                         emptyMessage="No recent orders found"
                     />
                 </div>

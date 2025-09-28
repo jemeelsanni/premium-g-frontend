@@ -19,6 +19,27 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// Auth-related request types
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface ChangePasswordRequest {
+  oldPassword: string;
+  newPassword: string;
+}
+
+export interface Session {
+  id: string;
+  userId: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  lastAccessedAt: string;
+  isActive: boolean;
+}
+
 // User Role Enum
 export enum UserRole {
   SUPER_ADMIN = 'SUPER_ADMIN',
