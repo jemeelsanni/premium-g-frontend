@@ -8,7 +8,11 @@ import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
-import { DistributionOrder, OrderStatus } from '../../types/distribution';
+// ✅ FIXED: Import from the correct types file
+import { DistributionOrder } from '../../types/index';
+
+// ✅ FIXED: Use the correct status type from index.ts
+type OrderStatus = 'PENDING' | 'APPROVED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
 
 export const OrdersList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
@@ -19,14 +23,13 @@ export const OrdersList: React.FC = () => {
 
     const { data: ordersData, isLoading, error } = useQuery({
         queryKey: ['distribution-orders', currentPage, pageSize, searchTerm, statusFilter],
-        queryFn: () => distributionService.getOrders({ // ✅ FIXED USAGE
+        queryFn: () => distributionService.getOrders({
             page: currentPage,
             limit: pageSize,
             search: searchTerm || undefined,
             status: statusFilter || undefined,
         }),
     });
-
 
     const handleSearch = (value: string) => {
         setSearchTerm(value);
@@ -47,6 +50,8 @@ export const OrdersList: React.FC = () => {
                 return `${baseClasses} bg-blue-100 text-blue-800`;
             case 'PROCESSING':
                 return `${baseClasses} bg-yellow-100 text-yellow-800`;
+            case 'APPROVED':
+                return `${baseClasses} bg-purple-100 text-purple-800`;
             case 'PENDING':
                 return `${baseClasses} bg-gray-100 text-gray-800`;
             case 'CANCELLED':
@@ -56,16 +61,17 @@ export const OrdersList: React.FC = () => {
         }
     };
 
+    // ✅ FIXED: Update columns to match the correct DistributionOrder type
     const orderColumns = [
         {
-            key: 'orderNumber',
+            key: 'orderNo', // Changed from 'orderNumber' to 'orderNo'
             title: 'Order #',
             render: (value: string, record: DistributionOrder) => (
                 <Link
                     to={`/distribution/orders/${record.id}`}
                     className="text-blue-600 hover:text-blue-800 font-medium"
                 >
-                    {value}
+                    {value || `ORD-${record.id.slice(-6)}`} {/* Fallback if orderNo is null */}
                 </Link>
             )
         },
@@ -85,14 +91,18 @@ export const OrdersList: React.FC = () => {
             render: (value: any) => value?.name || 'N/A'
         },
         {
-            key: 'totalPacks',
+            key: 'orderItems',
             title: 'Packs',
-            render: (value: number) => value.toLocaleString()
+            render: (value: any[]) => {
+                // Calculate total packs from orderItems
+                const totalPacks = value?.reduce((sum, item) => sum + (item.packs || 0), 0) || 0;
+                return totalPacks.toLocaleString();
+            }
         },
         {
-            key: 'finalAmount',
+            key: 'totalAmount', // Changed from 'finalAmount' to 'totalAmount'
             title: 'Amount',
-            render: (value: number) => `₦${value.toLocaleString()}`
+            render: (value: number) => `₦${value?.toLocaleString() || 0}`
         },
         {
             key: 'status',
@@ -256,6 +266,7 @@ export const OrdersList: React.FC = () => {
                         >
                             <option value="">All Statuses</option>
                             <option value="PENDING">Pending</option>
+                            <option value="APPROVED">Approved</option>
                             <option value="PROCESSING">Processing</option>
                             <option value="SHIPPED">Shipped</option>
                             <option value="DELIVERED">Delivered</option>

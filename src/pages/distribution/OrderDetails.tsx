@@ -13,7 +13,7 @@ import {
     Calendar,
     FileText
 } from 'lucide-react';
-import { distributionService } from '../../services/distributionService'; // ✅ FIXED IMPORT
+import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Modal } from '../../components/ui/Modal';
@@ -30,13 +30,13 @@ export const OrderDetails: React.FC = () => {
 
     const { data: order, isLoading, error } = useQuery({
         queryKey: ['distribution-order', id],
-        queryFn: () => distributionService.getOrder(id!), // ✅ FIXED USAGE
+        queryFn: () => distributionService.getOrder(id!),
         enabled: Boolean(id),
     });
 
     const updateStatusMutation = useMutation({
         mutationFn: ({ orderId, status }: { orderId: string; status: string }) =>
-            distributionService.updateOrderStatus(orderId, status), // ✅ FIXED USAGE
+            distributionService.updateOrderStatus(orderId, status),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', id] });
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
@@ -315,9 +315,9 @@ export const OrderDetails: React.FC = () => {
                         </Button>
                         <Button
                             onClick={handleStatusUpdate}
-                            disabled={!newStatus || updateStatusMutation.isLoading}
+                            disabled={!newStatus || updateStatusMutation.isPending}
                         >
-                            {updateStatusMutation.isLoading ? (
+                            {updateStatusMutation.isPending ? (
                                 <>
                                     <LoadingSpinner size="sm" className="mr-2" />
                                     Updating...

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseApiService } from './api';
-import { DistributionOrder, DistributionCustomer } from '../types/distribution';
+import { DistributionOrder, DistributionCustomer } from '../types/index'; // ✅ FIXED IMPORT
 import { PaginatedResponse, Product, Location } from '../types/common';
 
 export interface CreateOrderData {
@@ -8,11 +8,11 @@ export interface CreateOrderData {
   locationId: string;
   orderItems: {
     productId: string;
-    pallets: number;     // ✅ ADDED
-    packs: number;       // ✅ ADDED
-    amount: number;      // ✅ ADDED
+    pallets: number;
+    packs: number;
+    amount: number;
   }[];
-  remark?: string;       // ✅ ADDED
+  remark?: string;
 }
 
 export interface CreateCustomerData {
@@ -20,11 +20,11 @@ export interface CreateCustomerData {
   email?: string;
   phone?: string;
   address?: string;
-  customerType: 'BUSINESS' | 'ENTERPRISE' | 'GOVERNMENT';  // ✅ FIXED
-  businessRegistration?: string;  // ✅ ADDED
-  taxId?: string;                 // ✅ ADDED
+  customerType: 'BUSINESS' | 'ENTERPRISE' | 'GOVERNMENT';
+  businessRegistration?: string;
+  taxId?: string;
   creditLimit?: number;
-  paymentTerms?: 'NET_15' | 'NET_30' | 'NET_60' | 'CASH';  // ✅ FIXED
+  paymentTerms?: 'NET_15' | 'NET_30' | 'NET_60' | 'CASH';
   territory?: string;
 }
 
@@ -44,9 +44,9 @@ export class DistributionService extends BaseApiService {
     super('/distribution');
   }
 
-  // Dashboard & Analytics - ✅ FIXED ENDPOINT
+  // ✅ FIXED: Use the correct analytics endpoint
   async getDashboardStats(): Promise<any> {
-    return this.get('/dashboard/stats');
+    return this.get('/analytics/summary');
   }
 
   // Orders with proper filtering
@@ -74,12 +74,10 @@ export class DistributionService extends BaseApiService {
     return this.put<DistributionOrder>(data, `/orders/${id}`);
   }
 
-  // ✅ ADDED - Missing method
   async updateOrderStatus(id: string, status: string): Promise<DistributionOrder> {
     return this.put<DistributionOrder>({ status }, `/orders/${id}/status`);
   }
 
-  // Rest of methods stay the same...
   async getCustomers(page = 1, limit = 10): Promise<PaginatedResponse<DistributionCustomer>> {
     return this.get<PaginatedResponse<DistributionCustomer>>(`/customers?page=${page}&limit=${limit}`);
   }

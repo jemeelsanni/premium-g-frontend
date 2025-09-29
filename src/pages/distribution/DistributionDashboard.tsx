@@ -12,22 +12,21 @@ import {
     ArrowRight,
     AlertCircle
 } from 'lucide-react';
-import { distributionService } from '../../services/distributionService'; // ✅ FIXED IMPORT
+import { distributionService } from '../../services/distributionService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
-// FIXED: Import from correct location
-import { DistributionOrder } from '../../types'; // This should be from types/index.ts
+import { DistributionOrder } from '../../types';
 
 export const DistributionDashboard: React.FC = () => {
     const { data: statsResponse, isLoading, error } = useQuery({
         queryKey: ['distribution-dashboard'],
-        queryFn: () => distributionService.getDashboardStats(), // ✅ FIXED USAGE
+        queryFn: () => distributionService.getDashboardStats(),
     });
 
     const { data: recentOrdersResponse } = useQuery({
         queryKey: ['distribution-orders-recent'],
-        queryFn: () => distributionService.getOrders({ limit: 5 }), // ✅ FIXED USAGE
+        queryFn: () => distributionService.getOrders({ page: 1, limit: 5 }),
     });
 
     if (isLoading) {
@@ -49,52 +48,71 @@ export const DistributionDashboard: React.FC = () => {
         );
     }
 
-    // Extract data from ApiResponse wrapper
-    const stats = statsResponse?.success ? statsResponse.data : statsResponse;
-    const recentOrders = recentOrdersResponse?.data || [];
+    // ✅ FIXED: Handle the correct response structure
+    const stats = statsResponse?.success ? statsResponse.data : null;
 
+    // ✅ ROBUST FIX: Extract orders array safely
+    let recentOrders: any[] = [];
+    try {
+        if (recentOrdersResponse) {
+            // Try different possible structures
+            if (Array.isArray(recentOrdersResponse)) {
+                recentOrders = recentOrdersResponse;
+            } else if (recentOrdersResponse.data && Array.isArray(recentOrdersResponse.data)) {
+                recentOrders = recentOrdersResponse.data;
+            } else if (recentOrdersResponse.success && recentOrdersResponse.data && Array.isArray(recentOrdersResponse.data.data)) {
+                recentOrders = recentOrdersResponse.data.data;
+            } else if (recentOrdersResponse.success && Array.isArray(recentOrdersResponse.data)) {
+                recentOrders = recentOrdersResponse.data;
+            }
+        }
+    } catch (e) {
+        console.error('Error extracting recent orders:', e);
+        recentOrders = [];
+    }
+
+    // ✅ FIXED: Use analytics data or fallback to default values
     const statCards = [
         {
             title: 'Total Orders',
-            value: stats?.totalOrders || 0,
+            value: stats?.summary?.totalOrders || 0,
             icon: Package,
             color: 'blue',
             change: '+12%'
         },
         {
             title: 'Total Revenue',
-            value: `₦${(stats?.totalRevenue || 0).toLocaleString()}`,
+            value: `₦${(stats?.summary?.totalRevenue || 0).toLocaleString()}`,
             icon: DollarSign,
             color: 'green',
             change: '+8%'
         },
         {
-            title: 'Top Customers',
-            value: stats?.topCustomers?.length || 0,
-            icon: Users,
+            title: 'Total Packs',
+            value: stats?.summary?.totalPacks || 0,
+            icon: Package,
             color: 'purple',
             change: '+5%'
         },
         {
-            title: 'Monthly Progress',
-            value: `${stats?.monthlyProgress || 0}%`,
+            title: 'Profit Margin',
+            value: `${(stats?.summary?.profitMargin || 0).toFixed(1)}%`,
             icon: TrendingUp,
             color: 'orange',
-            change: `+${stats?.weeklyProgress || 0}%`
+            change: `+${stats?.summary?.averageOrderValue || 0}`
         }
     ];
 
-    // FIXED: Update column keys to match the correct DistributionOrder type
     const orderColumns = [
         {
-            key: 'orderNo', // Changed from 'orderNumber' to 'orderNo'
+            key: 'orderNo',
             title: 'Order #',
             render: (value: string, record: DistributionOrder) => (
                 <Link
                     to={`/distribution/orders/${record.id}`}
                     className="text-blue-600 hover:text-blue-800 font-medium"
                 >
-                    {value || `ORD-${record.id.slice(-6)}`} {/* Fallback if orderNo is null */}
+                    {value || `ORD-${record.id.slice(-6)}`}
                 </Link>
             )
         },
@@ -104,7 +122,7 @@ export const DistributionDashboard: React.FC = () => {
             render: (value: any) => value?.name || 'N/A'
         },
         {
-            key: 'totalAmount', // Changed from 'finalAmount' to 'totalAmount'
+            key: 'totalAmount',
             title: 'Amount',
             render: (value: number) => `₦${value?.toLocaleString() || 0}`
         },
@@ -184,6 +202,55 @@ export const DistributionDashboard: React.FC = () => {
                     </div>
                 ))}
             </div>
+
+            {/* Analytics Summary */}
+            {stats && (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    {/* Top Customers */}
+                    {stats.topCustomers && stats.topCustomers.length > 0 && (
+                        <div className="bg-white shadow rounded-lg p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Top Customers</h3>
+                            <div className="space-y-3">
+                                {stats.topCustomers.slice(0, 5).map((customer: any, index: number) => (
+                                    <div key={index} className="flex justify-between items-center">
+                                        <span className="text-sm font-medium text-gray-900">{customer.name}</span>
+                                        <div className="text-right">
+                                            <div className="text-sm font-semibold text-gray-900">
+                                                ₦{customer.revenue?.toLocaleString() || 0}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {customer.orders || 0} orders
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Top Locations */}
+                    {stats.topLocations && stats.topLocations.length > 0 && (
+                        <div className="bg-white shadow rounded-lg p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Top Locations</h3>
+                            <div className="space-y-3">
+                                {stats.topLocations.slice(0, 5).map((location: any, index: number) => (
+                                    <div key={index} className="flex justify-between items-center">
+                                        <span className="text-sm font-medium text-gray-900">{location.name}</span>
+                                        <div className="text-right">
+                                            <div className="text-sm font-semibold text-gray-900">
+                                                ₦{location.revenue?.toLocaleString() || 0}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {location.orders || 0} orders
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Quick Actions */}
             <div className="bg-white shadow rounded-lg">
@@ -278,7 +345,7 @@ export const DistributionDashboard: React.FC = () => {
                 </div>
                 <div className="p-6">
                     <Table
-                        data={recentOrders}
+                        data={Array.isArray(recentOrders) ? recentOrders : []}
                         columns={orderColumns}
                         loading={!recentOrdersResponse}
                         emptyMessage="No recent orders found"

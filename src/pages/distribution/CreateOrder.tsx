@@ -6,13 +6,12 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
-import { distributionService, CreateOrderData } from '../../services/distributionService'; // ✅ FIXED IMPORT
+import { distributionService, CreateOrderData } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
-// ✅ UPDATED SCHEMA to match backend expectations
 const orderItemSchema = z.object({
     productId: z.string().min(1, 'Product is required'),
     pallets: z.number().min(0, 'Pallets must be non-negative'),
@@ -47,7 +46,7 @@ export const CreateOrder: React.FC = () => {
         defaultValues: {
             customerId: '',
             locationId: '',
-            orderItems: [{ productId: '', pallets: 0, packs: 1, amount: 0 }], // ✅ UPDATED
+            orderItems: [{ productId: '', pallets: 0, packs: 1, amount: 0 }],
             remark: ''
         }
     });
@@ -57,18 +56,17 @@ export const CreateOrder: React.FC = () => {
         name: 'orderItems'
     });
 
-    // ✅ FIXED API CALLS
     const { data: customersData } = useQuery({
         queryKey: ['distribution-customers-all'],
-        queryFn: () => distributionService.getCustomers({ limit: 1000 }),
+        queryFn: () => distributionService.getCustomers(1, 1000),
     });
 
-    const { data: products } = useQuery({
+    const { data: productsData } = useQuery({
         queryKey: ['distribution-products'],
         queryFn: () => distributionService.getProducts(),
     });
 
-    const { data: locations } = useQuery({
+    const { data: locationsData } = useQuery({
         queryKey: ['distribution-locations'],
         queryFn: () => distributionService.getLocations(),
     });
@@ -80,7 +78,6 @@ export const CreateOrder: React.FC = () => {
         enabled: isEditing,
     });
 
-    // ✅ FIXED MUTATIONS
     const createMutation = useMutation({
         mutationFn: (data: CreateOrderData) => distributionService.createOrder(data),
         onSuccess: () => {
@@ -113,7 +110,6 @@ export const CreateOrder: React.FC = () => {
             setValue('locationId', existingOrder.locationId);
             setValue('remark', existingOrder.remark || '');
 
-            // ✅ HANDLE ORDER ITEMS with correct structure
             if (existingOrder.orderItems && existingOrder.orderItems.length > 0) {
                 setValue('orderItems', existingOrder.orderItems.map(item => ({
                     productId: item.productId,
@@ -155,6 +151,11 @@ export const CreateOrder: React.FC = () => {
     const totalAmount = watchedItems.reduce((sum, item) => sum + (item.amount || 0), 0);
     const totalPacks = watchedItems.reduce((sum, item) => sum + (item.packs || 0), 0);
     const totalPallets = watchedItems.reduce((sum, item) => sum + (item.pallets || 0), 0);
+
+    // ✅ FIXED: Handle API response data safely
+    const customers = customersData?.data || [];
+    const products = (productsData as any) || [];
+    const locations = (locationsData as any) || [];
 
     if (loadingOrder) {
         return (
@@ -204,7 +205,7 @@ export const CreateOrder: React.FC = () => {
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                             >
                                 <option value="">Select Customer</option>
-                                {customersData?.data?.map((customer: any) => (
+                                {Array.isArray(customers) && customers.map((customer: any) => (
                                     <option key={customer.id} value={customer.id}>
                                         {customer.name}
                                     </option>
@@ -225,7 +226,7 @@ export const CreateOrder: React.FC = () => {
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                             >
                                 <option value="">Select Location</option>
-                                {locations?.map((location: any) => (
+                                {Array.isArray(locations) && locations.map((location: any) => (
                                     <option key={location.id} value={location.id}>
                                         {location.name}
                                     </option>
@@ -278,7 +279,7 @@ export const CreateOrder: React.FC = () => {
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                     >
                                         <option value="">Select Product</option>
-                                        {products?.map((product: any) => (
+                                        {Array.isArray(products) && products.map((product: any) => (
                                             <option key={product.id} value={product.id}>
                                                 {product.name}
                                             </option>
