@@ -28,10 +28,6 @@ export interface DistributionCustomer {
   phone: string;
   address: string;
   customerType: CustomerType;
-  businessRegistration?: string;
-  taxId?: string;
-  creditLimit: number;
-  paymentTerms: PaymentTerms;
   territory: string;
   salesRepId: string;
   totalOrders: number;

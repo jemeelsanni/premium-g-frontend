@@ -129,28 +129,6 @@ export const CustomersList: React.FC = () => {
             }
         },
         {
-            key: 'paymentTerms',
-            title: 'Payment Terms',
-            render: (value: string) => {
-                if (!value) return 'N/A';
-                const termMap = {
-                    CASH: 'Cash',
-                    NET_15: 'Net 15 days',
-                    NET_30: 'Net 30 days',
-                    NET_60: 'Net 60 days',
-                };
-                return termMap[value as keyof typeof termMap] || value;
-            }
-        },
-        {
-            key: 'creditLimit',
-            title: 'Credit Limit',
-            render: (value: number) => {
-                if (!value) return 'N/A';
-                return `₦${value.toLocaleString()}`;
-            }
-        },
-        {
             key: 'totalOrders',
             title: 'Orders',
             render: (value: number) => (

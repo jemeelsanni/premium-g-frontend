@@ -20,11 +20,7 @@ export interface CreateCustomerData {
   email?: string;
   phone?: string;
   address?: string;
-  customerType: 'BUSINESS' | 'ENTERPRISE' | 'GOVERNMENT';
-  businessRegistration?: string;
-  taxId?: string;
-  creditLimit?: number;
-  paymentTerms?: 'NET_15' | 'NET_30' | 'NET_60' | 'CASH';
+  customerType?: 'BUSINESS' | 'ENTERPRISE' | 'GOVERNMENT';  // Add ? to make it optional
   territory?: string;
 }
 
