@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Product {
   id: string;
   name: string;
@@ -17,12 +18,22 @@ export interface Location {
 }
 
 export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  success: boolean;
+  data: {
+    orders?: T[];      // For transport/distribution orders
+    customers?: T[];   // For customers
+    sales?: T[];       // For warehouse sales
+    inventory?: T[];   // For inventory
+    [key: string]: any; // Allow dynamic keys
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
 }
+
 
 export interface DashboardStats {
   totalRevenue: number;

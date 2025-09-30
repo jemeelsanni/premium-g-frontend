@@ -85,8 +85,8 @@ export const TruckManagement: React.FC = () => {
         if (truck) {
             setEditingTruck(truck);
             reset({
-                plateNumber: truck.plateNumber,
-                capacity: truck.capacity,
+                plateNumber: truck.registrationNumber || '',
+                capacity: truck.maxPallets || 0,  // ✅ Map maxPallets to capacity
             });
         } else {
             setEditingTruck(null);
@@ -113,31 +113,31 @@ export const TruckManagement: React.FC = () => {
     };
 
     const handleDelete = (truck: TruckType) => {
-        if (window.confirm(`Are you sure you want to delete truck ${truck.plateNumber}?`)) {
+        if (window.confirm(`Are you sure you want to delete truck ${truck.registrationNumber}?`)) {  // ✅ Change from plateNumber
             deleteMutation.mutate(truck.id);
         }
     };
 
     const filteredTrucks = Array.isArray(trucks)
         ? trucks.filter(truck =>
-            truck.plateNumber.toLowerCase().includes(searchTerm.toLowerCase())
+            truck.registrationNumber?.toLowerCase().includes(searchTerm.toLowerCase())
         )
         : [];
     const truckColumns = [
         {
-            key: 'plateNumber',
-            title: 'Plate Number',
+            key: 'registrationNumber',
+            title: 'Registration Number',
             render: (value: string) => (
                 <div className="flex items-center">
                     <Truck className="h-4 w-4 mr-2 text-blue-600" />
-                    <span className="font-medium">{value}</span>
+                    <span className="font-medium">{value || 'N/A'}</span>
                 </div>
             )
         },
         {
-            key: 'capacity',
-            title: 'Capacity',
-            render: (value: number) => `${value.toLocaleString()} kg`
+            key: 'maxPallets',  // ✅ Change from 'capacity'
+            title: 'Max Pallets',
+            render: (value: number) => `${value?.toLocaleString() || 0} pallets`  // ✅ Add null check
         },
         {
             key: 'isActive',
@@ -263,7 +263,7 @@ export const TruckManagement: React.FC = () => {
                                         Total Capacity
                                     </dt>
                                     <dd className="text-2xl font-semibold text-gray-900">
-                                        {trucks?.reduce((sum, truck) => sum + truck.capacity, 0).toLocaleString() || 0}
+                                        {trucks?.reduce((sum, truck) => sum + truck.maxPallets, 0).toLocaleString() || 0}
                                     </dd>
                                 </dl>
                             </div>

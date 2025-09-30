@@ -66,7 +66,9 @@ export const CustomersList: React.FC = () => {
     };
 
     // Extract customers array safely from response
-    const customers = Array.isArray(customersData?.data) ? customersData.data : [];
+    const customers = Array.isArray(customersData?.data?.customers)
+        ? customersData.data.customers
+        : [];
 
     const customerColumns = [
         {

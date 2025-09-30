@@ -1,16 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BaseApiService } from './api';
+import { BaseApiService, apiClient } from './api';
 import { TransportOrder, Truck } from '../types/transport';
 import { PaginatedResponse } from '../types/common';
 
 export interface CreateTransportOrderData {
+  orderNumber: string;
   clientName: string;
+  clientPhone?: string;
   pickupLocation: string;
-  deliveryLocation: string;
+  deliveryAddress: string;  // ✅ Changed from deliveryLocation
+  locationId: string;  // ✅ Added
   totalOrderAmount: number;
+  fuelRequired: number;  // ✅ Added
+  fuelPricePerLiter: number;  // ✅ Added
   truckId?: string;
+  driverDetails?: string;
+  invoiceNumber?: string;
 }
-
 export interface CreateTruckData {
   plateNumber: string;
   capacity: number;
@@ -42,30 +48,46 @@ export class TransportService extends BaseApiService {
     return this.put<TransportOrder>({ deliveryStatus: status }, `/orders/${id}/status`);
   }
 
-  // Trucks
+  // Trucks - FIXED
   async getTrucks(): Promise<Truck[]> {
-    return this.get<Truck[]>('/trucks');
+    const response = await this.get<{ success: boolean; data: { trucks: Truck[] } }>('/trucks');
+    return response.data.trucks; // ✅ Extract the trucks array
   }
 
   async getTruck(id: string): Promise<Truck> {
-    return this.get<Truck>(`/trucks/${id}`);
+    const response = await this.get<{ success: boolean; data: { truck: Truck } }>(`/trucks/${id}`);
+    return response.data.truck;
   }
 
   async createTruck(data: CreateTruckData): Promise<Truck> {
-    return this.post<Truck>(data, '/trucks');
-  }
+    // Map plateNumber to registrationNumber and capacity to maxPallets
+    const payload = {
+        truckId: `TRK-${Date.now()}`,  // Generate a unique truckId
+        registrationNumber: data.plateNumber,
+        maxPallets: data.capacity,
+    };
+    const response = await this.post<{ success: boolean; data: { truck: Truck } }>(payload, '/trucks');
+    return response.data.truck;
+}
 
   async updateTruck(id: string, data: Partial<CreateTruckData>): Promise<Truck> {
-    return this.put<Truck>(data, `/trucks/${id}`);
-  }
+    // Map field names for update
+    const payload: any = {};
+    if (data.plateNumber) payload.registrationNumber = data.plateNumber;
+    if (data.capacity) payload.maxPallets = data.capacity;
+    
+    const response = await this.put<{ success: boolean; data: { truck: Truck } }>(payload, `/trucks/${id}`);
+    return response.data.truck;
+}
 
   async deleteTruck(id: string): Promise<void> {
     return this.delete(`/trucks/${id}`);
   }
 
-  // Analytics
+  // Analytics - FIXED
   async getDashboardStats(): Promise<any> {
-    return this.get('/analytics/dashboard');
+    const response = await apiClient.get('/analytics/transport/dashboard');
+    return response.data;
   }
 }
 

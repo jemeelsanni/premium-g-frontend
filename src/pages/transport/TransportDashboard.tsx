@@ -54,14 +54,14 @@ export const TransportDashboard: React.FC = () => {
     const statCards = [
         {
             title: 'Active Trips',
-            value: stats?.activeTrips || 0,
+            value: stats?.data?.activeTrips || 0,
             icon: Truck,
             color: 'blue',
             change: '+15%'
         },
         {
             title: 'Total Revenue',
-            value: `₦${(stats?.totalRevenue || 0).toLocaleString()}`,
+            value: `₦${(stats?.data?.totalRevenue || 0).toLocaleString()}`,
             icon: DollarSign,
             color: 'green',
             change: '+12%'
@@ -127,9 +127,9 @@ export const TransportDashboard: React.FC = () => {
             title: 'Status',
             render: (value: string) => (
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${value === 'DELIVERED' ? 'bg-green-100 text-green-800' :
-                        value === 'IN_TRANSIT' ? 'bg-blue-100 text-blue-800' :
-                            value === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-gray-100 text-gray-800'
+                    value === 'IN_TRANSIT' ? 'bg-blue-100 text-blue-800' :
+                        value === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
                     }`}>
                     {value}
                 </span>
@@ -287,7 +287,7 @@ export const TransportDashboard: React.FC = () => {
                 </div>
                 <div className="p-6">
                     <Table
-                        data={recentOrders?.data || []}
+                        data={recentOrders?.data?.orders || []}  // ✅ Access orders array
                         columns={orderColumns}
                         loading={!recentOrders}
                         emptyMessage="No recent orders found"

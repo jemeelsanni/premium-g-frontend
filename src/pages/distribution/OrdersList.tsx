@@ -139,9 +139,9 @@ export const OrdersList: React.FC = () => {
     ];
 
     const Pagination = () => {
-        if (!ordersData) return null;
+        if (!ordersData?.data?.pagination) return null;  // ✅ Access nested pagination
 
-        const { page, totalPages, total } = ordersData;
+        const { page, totalPages, total } = ordersData.data.pagination;  // ✅ Access nested pagination
         const startItem = ((page - 1) * pageSize) + 1;
         const endItem = Math.min(page * pageSize, total);
 
@@ -150,14 +150,14 @@ export const OrdersList: React.FC = () => {
                 <div className="flex flex-1 justify-between sm:hidden">
                     <Button
                         variant="outline"
-                        disabled={page === 1}
+                        disabled={page <= 1}
                         onClick={() => setCurrentPage(page - 1)}
                     >
                         Previous
                     </Button>
                     <Button
                         variant="outline"
-                        disabled={page === totalPages}
+                        disabled={page >= totalPages}
                         onClick={() => setCurrentPage(page + 1)}
                     >
                         Next
@@ -172,39 +172,30 @@ export const OrdersList: React.FC = () => {
                         </p>
                     </div>
                     <div>
-                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
+                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                             <Button
                                 variant="outline"
-                                disabled={page === 1}
+                                disabled={page <= 1}
                                 onClick={() => setCurrentPage(page - 1)}
-                                className="rounded-l-md"
+                                className="relative inline-flex items-center rounded-l-md px-2 py-2"
                             >
                                 Previous
                             </Button>
-
-                            {/* Page numbers */}
-                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                const pageNum = Math.max(1, Math.min(page - 2 + i, totalPages - 4 + i));
-                                if (pageNum <= totalPages) {
-                                    return (
-                                        <Button
-                                            key={pageNum}
-                                            variant={pageNum === page ? "primary" : "outline"}
-                                            onClick={() => setCurrentPage(pageNum)}
-                                            className="rounded-none"
-                                        >
-                                            {pageNum}
-                                        </Button>
-                                    );
-                                }
-                                return null;
-                            })}
-
+                            {[...Array(totalPages)].map((_, idx) => (
+                                <Button
+                                    key={idx + 1}
+                                    variant={page === idx + 1 ? "primary" : "outline"}
+                                    onClick={() => setCurrentPage(idx + 1)}
+                                    className="relative inline-flex items-center px-4 py-2"
+                                >
+                                    {idx + 1}
+                                </Button>
+                            ))}
                             <Button
                                 variant="outline"
-                                disabled={page === totalPages}
+                                disabled={page >= totalPages}
                                 onClick={() => setCurrentPage(page + 1)}
-                                className="rounded-r-md"
+                                className="relative inline-flex items-center rounded-r-md px-2 py-2"
                             >
                                 Next
                             </Button>
@@ -214,7 +205,6 @@ export const OrdersList: React.FC = () => {
             </div>
         );
     };
-
     if (error) {
         return (
             <div className="text-center py-12">
@@ -284,7 +274,7 @@ export const OrdersList: React.FC = () => {
             {/* Orders Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
                 <Table
-                    data={ordersData?.data || []}
+                    data={ordersData?.data?.orders || []}
                     columns={orderColumns}
                     loading={isLoading}
                     emptyMessage="No orders found"
