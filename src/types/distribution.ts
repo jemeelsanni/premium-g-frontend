@@ -65,3 +65,40 @@ export interface DistributionOrderItem {
   unitPrice: number;
   totalPrice: number;
 }
+
+export interface RecordPaymentData {
+  orderId: string;
+  amount: number;
+  paymentMethod: 'BANK_TRANSFER' | 'CASH' | 'CHECK' | 'WHATSAPP_TRANSFER' | 'POS' | 'MOBILE_MONEY';
+  reference?: string;
+  paidBy?: string;
+  receivedBy: string;
+  notes?: string;
+}
+
+export interface RiteFoodsPaymentData {
+  orderId: string;
+  amount: number;
+  paymentMethod: 'BANK_TRANSFER' | 'CHECK';
+  reference: string;
+  riteFoodsOrderNumber?: string;
+  riteFoodsInvoiceNumber?: string;
+}
+
+export interface AssignTransportData {
+  orderId: string;
+  transporterCompany: string;
+  driverNumber: string;
+  truckNumber?: string;
+}
+
+export interface RecordDeliveryData {
+  orderId: string;
+  deliveryStatus: 'FULLY_DELIVERED' | 'PARTIALLY_DELIVERED' | 'FAILED';
+  deliveredPallets?: number;
+  deliveredPacks?: number;
+  deliveredBy: string;
+  deliveryNotes?: string;
+  nonDeliveryReason?: string;
+  partialDeliveryReason?: string;
+}

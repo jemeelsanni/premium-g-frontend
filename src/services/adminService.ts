@@ -24,6 +24,8 @@ export interface CreateProductData {
   description?: string;
   packsPerPallet: number;
   pricePerPack: number;
+  costPerPack?: number;  // ✅ Added
+  module: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';  // ✅ Added
 }
 
 export interface CreateCustomerData {
@@ -31,6 +33,8 @@ export interface CreateCustomerData {
   email?: string;
   phone?: string;
   address?: string;
+  customerType?: string;  // ✅ Added
+  territory?: string;  // ✅ Added
 }
 
 export interface CreateLocationData {
@@ -38,6 +42,7 @@ export interface CreateLocationData {
   address?: string;
   fuelAdjustment?: number;
   driverWagesPerTrip?: number;
+  deliveryNotes?: string;  // ✅ Added
 }
 
 export interface UserFilters {
@@ -70,7 +75,10 @@ export class AdminService extends BaseApiService {
     super('/admin');
   }
 
-  // User Management
+  // ================================
+  // USER MANAGEMENT
+  // ================================
+
   async getUsers(filters?: UserFilters): Promise<PaginatedResponse<User>> {
     const params = new URLSearchParams();
     if (filters) {
@@ -95,7 +103,10 @@ export class AdminService extends BaseApiService {
     return this.delete<ApiResponse<null>>(`/users/${id}`);
   }
 
-  // Product Management
+  // ================================
+  // PRODUCT MANAGEMENT
+  // ================================
+
   async getProducts(filters?: ProductFilters): Promise<PaginatedResponse<Product>> {
     const params = new URLSearchParams();
     if (filters) {
@@ -120,7 +131,10 @@ export class AdminService extends BaseApiService {
     return this.delete<ApiResponse<null>>(`/products/${id}`);
   }
 
-  // Customer Management
+  // ================================
+  // CUSTOMER MANAGEMENT
+  // ================================
+
   async getCustomers(filters?: any): Promise<PaginatedResponse<Customer>> {
     const params = new URLSearchParams();
     if (filters) {
@@ -145,7 +159,10 @@ export class AdminService extends BaseApiService {
     return this.delete<ApiResponse<null>>(`/customers/${id}`);
   }
 
-  // Location Management
+  // ================================
+  // LOCATION MANAGEMENT
+  // ================================
+
   async getLocations(filters?: any): Promise<PaginatedResponse<Location>> {
     const params = new URLSearchParams();
     if (filters) {
@@ -170,7 +187,10 @@ export class AdminService extends BaseApiService {
     return this.delete<ApiResponse<null>>(`/locations/${id}`);
   }
 
-  // Audit Trail
+  // ================================
+  // AUDIT TRAIL
+  // ================================
+
   async getAuditTrail(filters?: AuditFilters): Promise<PaginatedResponse<AuditLog>> {
     const params = new URLSearchParams();
     if (filters) {
@@ -183,13 +203,40 @@ export class AdminService extends BaseApiService {
     return this.get<PaginatedResponse<AuditLog>>(`/audit-trail?${params.toString()}`);
   }
 
-  // System Config
+  // ================================
+  // SYSTEM CONFIGURATION
+  // ================================
+
   async getSystemConfig(): Promise<ApiResponse<Record<string, string>>> {
     return this.get<ApiResponse<Record<string, string>>>('/system-config');
   }
 
   async updateSystemConfig(key: string, value: string): Promise<ApiResponse<{ key: string; value: string }>> {
     return this.put<ApiResponse<{ key: string; value: string }>>({ value }, `/system-config/${key}`);
+  }
+
+  // ================================
+  // SYSTEM STATS (✅ ADDED)
+  // ================================
+
+  async getSystemStats(): Promise<ApiResponse<{
+    systemStats: {
+      totalUsers: number;
+      totalDistributionOrders: number;
+      totalTransportOrders: number;
+      totalWarehouseSales: number;
+      recentAuditLogs: number;
+    };
+    userStats: Array<{ role: string; _count: { role: number } }>;
+    businessStats: {
+      distributionRevenue: number;
+      transportRevenue: number;
+      warehouseRevenue: number;
+      totalRevenue: number;
+    };
+    recentActivity: AuditLog[];
+  }>> {
+    return this.get<ApiResponse<any>>('/stats');
   }
 }
 
