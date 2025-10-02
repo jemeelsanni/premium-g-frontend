@@ -1,77 +1,114 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/distribution/OrdersList.tsx
+// src/pages/distribution/OrdersListEnhanced.tsx
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { Plus, Search, Download, Eye, Edit } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Plus, Search, Filter, X, Eye } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
-// ✅ FIXED: Import from the correct types file
-import { DistributionOrder } from '../../types/index';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
-// ✅ FIXED: Use the correct status type from index.ts
-type OrderStatus = 'PENDING' | 'APPROVED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-
-export const OrdersList: React.FC = () => {
+export const OrdersListEnhanced: React.FC = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Get filters from URL
+    const paymentStatusFilter = searchParams.get('paymentStatus') || '';
+    const riteFoodsStatusFilter = searchParams.get('riteFoodsStatus') || '';
+    const deliveryStatusFilter = searchParams.get('deliveryStatus') || '';
+    const orderStatusFilter = searchParams.get('status') || '';
 
     const pageSize = 10;
 
     const { data: ordersData, isLoading, error } = useQuery({
-        queryKey: ['distribution-orders', currentPage, pageSize, searchTerm, statusFilter],
+        queryKey: ['distribution-orders', currentPage, pageSize, searchTerm, paymentStatusFilter, riteFoodsStatusFilter, deliveryStatusFilter, orderStatusFilter],
         queryFn: () => distributionService.getOrders({
             page: currentPage,
             limit: pageSize,
             search: searchTerm || undefined,
-            status: statusFilter || undefined,
+            paymentStatus: paymentStatusFilter || undefined,
+            riteFoodsStatus: riteFoodsStatusFilter || undefined,
+            deliveryStatus: deliveryStatusFilter || undefined,
+            status: orderStatusFilter || undefined,
         }),
     });
 
     const handleSearch = (value: string) => {
         setSearchTerm(value);
-        setCurrentPage(1); // Reset to first page when searching
-    };
-
-    const handleStatusFilter = (status: OrderStatus | '') => {
-        setStatusFilter(status);
         setCurrentPage(1);
     };
 
-    const getStatusBadge = (status: string) => {
-        const baseClasses = 'inline-flex px-2 py-1 text-xs font-semibold rounded-full';
-        switch (status) {
-            case 'DELIVERED':
-                return `${baseClasses} bg-green-100 text-green-800`;
-            case 'SHIPPED':
-                return `${baseClasses} bg-blue-100 text-blue-800`;
-            case 'PROCESSING':
-                return `${baseClasses} bg-yellow-100 text-yellow-800`;
-            case 'APPROVED':
-                return `${baseClasses} bg-purple-100 text-purple-800`;
-            case 'PENDING':
-                return `${baseClasses} bg-gray-100 text-gray-800`;
-            case 'CANCELLED':
-                return `${baseClasses} bg-red-100 text-red-800`;
-            default:
-                return `${baseClasses} bg-gray-100 text-gray-800`;
+    const handleFilterChange = (filterType: string, value: string) => {
+        const newParams = new URLSearchParams(searchParams);
+        if (value) {
+            newParams.set(filterType, value);
+        } else {
+            newParams.delete(filterType);
         }
+        setSearchParams(newParams);
+        setCurrentPage(1);
     };
 
-    // ✅ FIXED: Update columns to match the correct DistributionOrder type
+    const clearFilters = () => {
+        setSearchParams(new URLSearchParams());
+        setSearchTerm('');
+        setCurrentPage(1);
+    };
+
+    const hasActiveFilters = paymentStatusFilter || riteFoodsStatusFilter || deliveryStatusFilter || orderStatusFilter || searchTerm;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const getStatusBadge = (status: string, type: 'payment' | 'ritefoods' | 'delivery' | 'order' = 'order') => {
+        const configs: Record<string, { class: string; label: string }> = {
+            // Payment Status
+            PENDING: { class: 'bg-orange-100 text-orange-800', label: 'Pending Payment' },
+            PARTIAL: { class: 'bg-yellow-100 text-yellow-800', label: 'Partial Payment' },
+            CONFIRMED: { class: 'bg-green-100 text-green-800', label: 'Payment Confirmed' },
+
+            // Rite Foods Status
+            NOT_SENT: { class: 'bg-gray-100 text-gray-800', label: 'Not Sent' },
+            PAYMENT_SENT: { class: 'bg-blue-100 text-blue-800', label: 'Payment Sent' },
+            ORDER_RAISED: { class: 'bg-purple-100 text-purple-800', label: 'Order Raised' },
+            PROCESSING: { class: 'bg-purple-100 text-purple-800', label: 'Processing' },
+            LOADED: { class: 'bg-indigo-100 text-indigo-800', label: 'Loaded' },
+            DISPATCHED: { class: 'bg-indigo-100 text-indigo-800', label: 'Dispatched' },
+
+            // Delivery Status
+            IN_TRANSIT: { class: 'bg-blue-100 text-blue-800', label: 'In Transit' },
+            FULLY_DELIVERED: { class: 'bg-green-100 text-green-800', label: 'Delivered' },
+            PARTIALLY_DELIVERED: { class: 'bg-yellow-100 text-yellow-800', label: 'Partial Delivery' },
+            FAILED: { class: 'bg-red-100 text-red-800', label: 'Failed' },
+
+            // Order Status
+            PAYMENT_CONFIRMED: { class: 'bg-green-100 text-green-800', label: 'Payment OK' },
+            SENT_TO_RITE_FOODS: { class: 'bg-purple-100 text-purple-800', label: 'At Rite Foods' },
+            PROCESSING_BY_RFL: { class: 'bg-purple-100 text-purple-800', label: 'Processing' },
+            DELIVERED: { class: 'bg-green-100 text-green-800', label: 'Delivered' },
+            CANCELLED: { class: 'bg-red-100 text-red-800', label: 'Cancelled' },
+        };
+
+        const config = configs[status] || { class: 'bg-gray-100 text-gray-800', label: status };
+        return (
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.class}`}>
+                {config.label}
+            </span>
+        );
+    };
+
     const orderColumns = [
         {
-            key: 'orderNo', // Changed from 'orderNumber' to 'orderNo'
+            key: 'id',
             title: 'Order #',
-            render: (value: string, record: DistributionOrder) => (
+            render: (value: string, record: any) => (
                 <Link
                     to={`/distribution/orders/${record.id}`}
-                    className="text-blue-600 hover:text-blue-800 font-medium"
+                    className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
                 >
-                    {value || `ORD-${record.id.slice(-6)}`} {/* Fallback if orderNo is null */}
+                    #{value.slice(-8)}
                 </Link>
             )
         },
@@ -81,7 +118,7 @@ export const OrdersList: React.FC = () => {
             render: (value: any) => (
                 <div>
                     <div className="font-medium text-gray-900">{value?.name || 'N/A'}</div>
-                    <div className="text-sm text-gray-500">{value?.territory}</div>
+                    <div className="text-sm text-gray-500">{value?.territory || ''}</div>
                 </div>
             )
         },
@@ -91,63 +128,55 @@ export const OrdersList: React.FC = () => {
             render: (value: any) => value?.name || 'N/A'
         },
         {
-            key: 'orderItems',
-            title: 'Packs',
-            render: (value: any[]) => {
-                // Calculate total packs from orderItems
-                const totalPacks = value?.reduce((sum, item) => sum + (item.packs || 0), 0) || 0;
-                return totalPacks.toLocaleString();
-            }
-        },
-        {
-            key: 'totalAmount', // Changed from 'finalAmount' to 'totalAmount'
+            key: 'finalAmount',
             title: 'Amount',
-            render: (value: number) => `₦${value?.toLocaleString() || 0}`
-        },
-        {
-            key: 'status',
-            title: 'Status',
-            render: (value: string) => (
-                <span className={getStatusBadge(value)}>
-                    {value}
-                </span>
+            render: (value: number) => (
+                <span className="font-semibold">₦{value?.toLocaleString() || '0'}</span>
             )
         },
         {
+            key: 'paymentStatus',
+            title: 'Payment',
+            render: (value: string) => getStatusBadge(value, 'payment')
+        },
+        {
+            key: 'riteFoodsStatus',
+            title: 'Rite Foods',
+            render: (value: string) => getStatusBadge(value, 'ritefoods')
+        },
+        {
+            key: 'deliveryStatus',
+            title: 'Delivery',
+            render: (value: string) => getStatusBadge(value, 'delivery')
+        },
+        {
             key: 'createdAt',
-            title: 'Date',
+            title: 'Created',
             render: (value: string) => new Date(value).toLocaleDateString()
         },
         {
             key: 'actions',
             title: 'Actions',
-            render: (value: any, record: DistributionOrder) => (
-                <div className="flex items-center space-x-2">
-                    <Link to={`/distribution/orders/${record.id}`}>
-                        <Button variant="outline" size="sm" className="p-1">
-                            <Eye className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                    <Link to={`/distribution/orders/${record.id}/edit`}>
-                        <Button variant="outline" size="sm" className="p-1">
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                </div>
+            render: (value: any, record: any) => (
+                <Link to={`/distribution/orders/${record.id}`}>
+                    <Button variant="outline" size="sm">
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                    </Button>
+                </Link>
             )
         }
     ];
 
     const Pagination = () => {
-        if (!ordersData?.data?.pagination) return null;  // ✅ Access nested pagination
+        const pagination = ordersData?.data?.pagination;
+        if (!pagination) return null;
 
-        const { page, totalPages, total } = ordersData.data.pagination;  // ✅ Access nested pagination
-        const startItem = ((page - 1) * pageSize) + 1;
-        const endItem = Math.min(page * pageSize, total);
+        const { page, totalPages } = pagination;
 
         return (
-            <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-                <div className="flex flex-1 justify-between sm:hidden">
+            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div className="flex-1 flex justify-between sm:hidden">
                     <Button
                         variant="outline"
                         disabled={page <= 1}
@@ -163,16 +192,15 @@ export const OrdersList: React.FC = () => {
                         Next
                     </Button>
                 </div>
-                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                     <div>
                         <p className="text-sm text-gray-700">
-                            Showing <span className="font-medium">{startItem}</span> to{' '}
-                            <span className="font-medium">{endItem}</span> of{' '}
-                            <span className="font-medium">{total}</span> results
+                            Showing page <span className="font-medium">{page}</span> of{' '}
+                            <span className="font-medium">{totalPages}</span>
                         </p>
                     </div>
                     <div>
-                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                             <Button
                                 variant="outline"
                                 disabled={page <= 1}
@@ -181,9 +209,9 @@ export const OrdersList: React.FC = () => {
                             >
                                 Previous
                             </Button>
-                            {[...Array(totalPages)].map((_, idx) => (
+                            {[...Array(Math.min(5, totalPages))].map((_, idx) => (
                                 <Button
-                                    key={idx + 1}
+                                    key={idx}
                                     variant={page === idx + 1 ? "primary" : "outline"}
                                     onClick={() => setCurrentPage(idx + 1)}
                                     className="relative inline-flex items-center px-4 py-2"
@@ -205,6 +233,7 @@ export const OrdersList: React.FC = () => {
             </div>
         );
     };
+
     if (error) {
         return (
             <div className="text-center py-12">
@@ -222,10 +251,14 @@ export const OrdersList: React.FC = () => {
                         Distribution Orders
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Manage all distribution orders and track their status
+                        Manage and track all distribution orders through workflow stages
                     </p>
                 </div>
-                <div className="mt-4 flex md:mt-0 md:ml-4">
+                <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
+                    <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filters
+                    </Button>
                     <Link to="/distribution/orders/create">
                         <Button className="inline-flex items-center">
                             <Plus className="h-4 w-4 mr-2" />
@@ -235,52 +268,195 @@ export const OrdersList: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white shadow rounded-lg">
-                <div className="p-6">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                                placeholder="Search orders..."
-                                value={searchTerm}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                className="pl-10"
-                            />
+            {/* Active Filters Bar */}
+            {hasActiveFilters && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 flex-wrap">
+                            <span className="text-sm font-medium text-blue-900">Active Filters:</span>
+                            {searchTerm && (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Search: {searchTerm}
+                                    <button onClick={() => handleSearch('')} className="ml-2 hover:text-blue-900">
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </span>
+                            )}
+                            {paymentStatusFilter && (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Payment: {paymentStatusFilter}
+                                    <button onClick={() => handleFilterChange('paymentStatus', '')} className="ml-2 hover:text-blue-900">
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </span>
+                            )}
+                            {riteFoodsStatusFilter && (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Rite Foods: {riteFoodsStatusFilter}
+                                    <button onClick={() => handleFilterChange('riteFoodsStatus', '')} className="ml-2 hover:text-blue-900">
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </span>
+                            )}
+                            {deliveryStatusFilter && (
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Delivery: {deliveryStatusFilter}
+                                    <button onClick={() => handleFilterChange('deliveryStatus', '')} className="ml-2 hover:text-blue-900">
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </span>
+                            )}
                         </div>
-
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => handleStatusFilter(e.target.value as OrderStatus | '')}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        >
-                            <option value="">All Statuses</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="APPROVED">Approved</option>
-                            <option value="PROCESSING">Processing</option>
-                            <option value="SHIPPED">Shipped</option>
-                            <option value="DELIVERED">Delivered</option>
-                            <option value="CANCELLED">Cancelled</option>
-                        </select>
-
-                        <Button variant="outline" className="inline-flex items-center">
-                            <Download className="h-4 w-4 mr-2" />
-                            Export
+                        <Button variant="outline" size="sm" onClick={clearFilters}>
+                            Clear All
                         </Button>
                     </div>
                 </div>
-            </div>
+            )}
+
+            {/* Filters Panel */}
+            {showFilters && (
+                <div className="bg-white shadow rounded-lg p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Filter Orders</h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {/* Search */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Search
+                            </label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input
+                                    placeholder="Search orders..."
+                                    value={searchTerm}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Payment Status */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Payment Status
+                            </label>
+                            <select
+                                value={paymentStatusFilter}
+                                onChange={(e) => handleFilterChange('paymentStatus', e.target.value)}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">All Payments</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="PARTIAL">Partial</option>
+                                <option value="CONFIRMED">Confirmed</option>
+                            </select>
+                        </div>
+
+                        {/* Rite Foods Status */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Rite Foods Status
+                            </label>
+                            <select
+                                value={riteFoodsStatusFilter}
+                                onChange={(e) => handleFilterChange('riteFoodsStatus', e.target.value)}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">All Statuses</option>
+                                <option value="NOT_SENT">Not Sent</option>
+                                <option value="PAYMENT_SENT">Payment Sent</option>
+                                <option value="ORDER_RAISED">Order Raised</option>
+                                <option value="PROCESSING">Processing</option>
+                                <option value="LOADED">Loaded</option>
+                                <option value="DISPATCHED">Dispatched</option>
+                            </select>
+                        </div>
+
+                        {/* Delivery Status */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Delivery Status
+                            </label>
+                            <select
+                                value={deliveryStatusFilter}
+                                onChange={(e) => handleFilterChange('deliveryStatus', e.target.value)}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">All Deliveries</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="IN_TRANSIT">In Transit</option>
+                                <option value="FULLY_DELIVERED">Delivered</option>
+                                <option value="PARTIALLY_DELIVERED">Partial</option>
+                                <option value="FAILED">Failed</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Orders Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
-                <Table
-                    data={ordersData?.data?.orders || []}
-                    columns={orderColumns}
-                    loading={isLoading}
-                    emptyMessage="No orders found"
-                />
+                {isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <LoadingSpinner size="lg" />
+                    </div>
+                ) : (
+                    <>
+                        <Table
+                            data={ordersData?.data?.orders || []}
+                            columns={orderColumns}
+                            loading={isLoading}
+                            emptyMessage="No orders found"
+                        />
+                        <Pagination />
+                    </>
+                )}
+            </div>
 
-                <Pagination />
+            {/* Quick Actions */}
+            <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button
+                        onClick={() => handleFilterChange('paymentStatus', 'PENDING')}
+                        className="p-4 border-2 border-orange-200 rounded-lg hover:bg-orange-50 transition-colors text-left"
+                    >
+                        <div className="text-2xl font-bold text-orange-600">
+                            {ordersData?.data?.orders?.filter((o: any) => o.paymentStatus === 'PENDING').length || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Pending Payment</div>
+                    </button>
+
+                    <button
+                        onClick={() => handleFilterChange('riteFoodsStatus', 'LOADED')}
+                        className="p-4 border-2 border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors text-left"
+                    >
+                        <div className="text-2xl font-bold text-indigo-600">
+                            {ordersData?.data?.orders?.filter((o: any) => o.riteFoodsStatus === 'LOADED').length || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Ready for Transport</div>
+                    </button>
+
+                    <button
+                        onClick={() => handleFilterChange('deliveryStatus', 'IN_TRANSIT')}
+                        className="p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 transition-colors text-left"
+                    >
+                        <div className="text-2xl font-bold text-blue-600">
+                            {ordersData?.data?.orders?.filter((o: any) => o.deliveryStatus === 'IN_TRANSIT').length || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">In Transit</div>
+                    </button>
+
+                    <button
+                        onClick={() => handleFilterChange('deliveryStatus', 'FULLY_DELIVERED')}
+                        className="p-4 border-2 border-green-200 rounded-lg hover:bg-green-50 transition-colors text-left"
+                    >
+                        <div className="text-2xl font-bold text-green-600">
+                            {ordersData?.data?.orders?.filter((o: any) => o.deliveryStatus === 'FULLY_DELIVERED').length || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Delivered</div>
+                    </button>
+                </div>
             </div>
         </div>
     );
