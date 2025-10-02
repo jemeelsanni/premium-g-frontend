@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,7 +7,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
-import { distributionService, CreateOrderData } from '../../services/distributionService';
+import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -21,7 +22,7 @@ const orderItemSchema = z.object({
 
 const orderSchema = z.object({
     customerId: z.string().min(1, 'Customer is required'),
-    locationId: z.string().min(1, 'Location is required'),
+    deliveryLocation: z.string().min(1, 'Delivery location is required'),
     orderItems: z.array(orderItemSchema).min(1, 'At least one item is required'),
     remark: z.string().optional(),
 });
@@ -40,12 +41,12 @@ export const CreateOrder: React.FC = () => {
         handleSubmit,
         watch,
         setValue,
-        formState: { errors, isSubmitting }
+        formState: { errors }
     } = useForm<OrderFormData>({
         resolver: zodResolver(orderSchema),
         defaultValues: {
             customerId: '',
-            locationId: '',
+            deliveryLocation: '',
             orderItems: [{ productId: '', pallets: 0, packs: 1, amount: 0 }],
             remark: ''
         }
@@ -56,19 +57,49 @@ export const CreateOrder: React.FC = () => {
         name: 'orderItems'
     });
 
-    const { data: customersData } = useQuery({
+    // Fetch customers
+    const { data: customersResponse, isLoading: loadingCustomers, error: customersError } = useQuery({
         queryKey: ['distribution-customers-all'],
-        queryFn: () => distributionService.getCustomers(1, 1000),
+        queryFn: async () => {
+            try {
+                const response = await distributionService.getCustomers(1, 1000);
+                console.log('Customers Response:', response);
+                return response;
+            } catch (error) {
+                console.error('Error fetching customers:', error);
+                throw error;
+            }
+        },
     });
 
-    const { data: productsData } = useQuery({
+    // Fetch products
+    const { data: productsResponse, isLoading: loadingProducts, error: productsError } = useQuery({
         queryKey: ['distribution-products'],
-        queryFn: () => distributionService.getProducts(),
+        queryFn: async () => {
+            try {
+                const response = await distributionService.getProducts();
+                console.log('Products Response:', response);
+                return response;
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                throw error;
+            }
+        },
     });
 
-    const { data: locationsData } = useQuery({
+    // Fetch locations for reference (optional - for location suggestions)
+    const { data: locationsResponse } = useQuery({
         queryKey: ['distribution-locations'],
-        queryFn: () => distributionService.getLocations(),
+        queryFn: async () => {
+            try {
+                const response = await distributionService.getLocations();
+                console.log('Locations Response:', response);
+                return response;
+            } catch (error) {
+                console.error('Error fetching locations:', error);
+                return null;
+            }
+        },
     });
 
     // Fetch existing order if editing
@@ -79,19 +110,29 @@ export const CreateOrder: React.FC = () => {
     });
 
     const createMutation = useMutation({
-        mutationFn: (data: CreateOrderData) => distributionService.createOrder(data),
-        onSuccess: () => {
+        mutationFn: (data: any) => {
+            console.log('Sending to API:', data);
+            return distributionService.createOrder(data);
+        },
+        onSuccess: (response) => {
+            console.log('Order created successfully:', response);
             toast.success('Order created successfully!');
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
             navigate('/distribution/orders');
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to create order');
+            console.error('Create order error:', error);
+            console.error('Error response:', error.response?.data);
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || error.message
+                || 'Failed to create order';
+            toast.error(errorMessage);
         },
     });
 
     const updateMutation = useMutation({
-        mutationFn: (data: CreateOrderData) => distributionService.updateOrder(id!, data),
+        mutationFn: (data: any) => distributionService.updateOrder(id!, data),
         onSuccess: () => {
             toast.success('Order updated successfully!');
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
@@ -99,19 +140,23 @@ export const CreateOrder: React.FC = () => {
             navigate('/distribution/orders');
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to update order');
+            console.error('Update order error:', error);
+            const errorMessage = error.response?.data?.message || 'Failed to update order';
+            toast.error(errorMessage);
         },
     });
 
     // Load existing order data for editing
     useEffect(() => {
         if (isEditing && existingOrder) {
-            setValue('customerId', existingOrder.customerId);
-            setValue('locationId', existingOrder.locationId);
-            setValue('remark', existingOrder.remark || '');
+            const order = (existingOrder as any).data?.order || (existingOrder as any).data || existingOrder;
 
-            if (existingOrder.orderItems && existingOrder.orderItems.length > 0) {
-                setValue('orderItems', existingOrder.orderItems.map(item => ({
+            setValue('customerId', order.customerId);
+            setValue('deliveryLocation', order.deliveryLocation || '');
+            setValue('remark', order.remark || '');
+
+            if (order.orderItems && order.orderItems.length > 0) {
+                setValue('orderItems', order.orderItems.map((item: any) => ({
                     productId: item.productId,
                     pallets: item.pallets || 0,
                     packs: item.packs || 1,
@@ -122,12 +167,20 @@ export const CreateOrder: React.FC = () => {
     }, [existingOrder, isEditing, setValue]);
 
     const onSubmit = (data: OrderFormData) => {
-        const orderData: CreateOrderData = {
+        // Format the data exactly as the backend expects
+        const orderData = {
             customerId: data.customerId,
-            locationId: data.locationId,
-            orderItems: data.orderItems,
-            remark: data.remark || undefined,
+            deliveryLocation: data.deliveryLocation.trim(), // Backend will find/create location
+            orderItems: data.orderItems.map(item => ({
+                productId: item.productId,
+                pallets: Number(item.pallets) || 0,
+                packs: Number(item.packs) || 0,
+                amount: Number(item.amount) || 0
+            })),
+            remark: data.remark?.trim() || ''
         };
+
+        console.log('📤 Submitting order data:', JSON.stringify(orderData, null, 2));
 
         if (isEditing) {
             updateMutation.mutate(orderData);
@@ -143,24 +196,79 @@ export const CreateOrder: React.FC = () => {
     const removeOrderItem = (index: number) => {
         if (fields.length > 1) {
             remove(index);
+        } else {
+            toast.error('Order must have at least one item');
         }
     };
 
     // Calculate totals
     const watchedItems = watch('orderItems');
-    const totalAmount = watchedItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-    const totalPacks = watchedItems.reduce((sum, item) => sum + (item.packs || 0), 0);
-    const totalPallets = watchedItems.reduce((sum, item) => sum + (item.pallets || 0), 0);
+    const totalAmount = watchedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const totalPacks = watchedItems.reduce((sum, item) => sum + (Number(item.packs) || 0), 0);
+    const totalPallets = watchedItems.reduce((sum, item) => sum + (Number(item.pallets) || 0), 0);
 
-    // ✅ FIXED: Handle API response data safely
-    const customers = customersData?.data || [];
-    const products = (productsData as any) || [];
-    const locations = (locationsData as any) || [];
+    // Extract data from nested API responses
+    let customers: any[] = [];
+    let products: any[] = [];
+    let locations: any[] = [];
+
+    if (customersResponse) {
+        if ((customersResponse as any).data?.customers) {
+            customers = (customersResponse as any).data.customers;
+        } else if ((customersResponse as any).customers) {
+            customers = (customersResponse as any).customers;
+        } else if (Array.isArray((customersResponse as any).data)) {
+            customers = (customersResponse as any).data;
+        } else if (Array.isArray(customersResponse)) {
+            customers = customersResponse;
+        }
+    }
+
+    if (productsResponse) {
+        if ((productsResponse as any).data?.products) {
+            products = (productsResponse as any).data.products;
+        } else if ((productsResponse as any).products) {
+            products = (productsResponse as any).products;
+        } else if (Array.isArray((productsResponse as any).data)) {
+            products = (productsResponse as any).data;
+        } else if (Array.isArray(productsResponse)) {
+            products = productsResponse;
+        }
+    }
+
+    if (locationsResponse) {
+        if ((locationsResponse as any).data?.locations) {
+            locations = (locationsResponse as any).data.locations;
+        } else if ((locationsResponse as any).locations) {
+            locations = (locationsResponse as any).locations;
+        } else if (Array.isArray(locationsResponse)) {
+            locations = locationsResponse;
+        }
+    }
+
+    console.log('Extracted customers:', customers.length);
+    console.log('Extracted products:', products.length);
+    console.log('Extracted locations:', locations.length);
 
     if (loadingOrder) {
         return (
             <div className="flex items-center justify-center h-64">
                 <LoadingSpinner size="lg" />
+            </div>
+        );
+    }
+
+    if (customersError || productsError) {
+        return (
+            <div className="max-w-4xl mx-auto space-y-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h3 className="text-red-800 font-semibold mb-2">Error Loading Data</h3>
+                    {customersError && <p className="text-red-600 text-sm">Failed to load customers</p>}
+                    {productsError && <p className="text-red-600 text-sm">Failed to load products</p>}
+                    <Button onClick={() => navigate('/distribution/orders')} className="mt-4">
+                        Back to Orders
+                    </Button>
+                </div>
             </div>
         );
     }
@@ -172,6 +280,7 @@ export const CreateOrder: React.FC = () => {
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center">
                         <button
+                            type="button"
                             onClick={() => navigate('/distribution/orders')}
                             className="mr-4 p-2 text-gray-400 hover:text-gray-600"
                         >
@@ -189,6 +298,18 @@ export const CreateOrder: React.FC = () => {
                 </div>
             </div>
 
+            {/* Debug Info */}
+            {process.env.NODE_ENV === 'development' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs">
+                    <p className="font-semibold text-blue-800 mb-2">📊 Debug Info:</p>
+                    <p className="text-blue-600">✓ Customers: {customers.length}</p>
+                    <p className="text-blue-600">✓ Products: {products.length}</p>
+                    <p className="text-blue-600">✓ Locations (optional): {locations.length}</p>
+                    {customers.length === 0 && <p className="text-red-600 mt-2">⚠️ No customers found</p>}
+                    {products.length === 0 && <p className="text-red-600 mt-2">⚠️ No products found</p>}
+                </div>
+            )}
+
             {/* Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="bg-white shadow rounded-lg p-6">
@@ -200,54 +321,74 @@ export const CreateOrder: React.FC = () => {
                             <label className="block text-sm font-medium text-gray-700">
                                 Customer *
                             </label>
-                            <select
-                                {...register('customerId')}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            >
-                                <option value="">Select Customer</option>
-                                {Array.isArray(customers) && customers.map((customer: any) => (
-                                    <option key={customer.id} value={customer.id}>
-                                        {customer.name}
-                                    </option>
-                                ))}
-                            </select>
+                            {loadingCustomers ? (
+                                <div className="mt-1 p-2 text-sm text-gray-500">Loading customers...</div>
+                            ) : (
+                                <>
+                                    <select
+                                        {...register('customerId')}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        disabled={customers.length === 0}
+                                    >
+                                        <option value="">
+                                            {customers.length === 0 ? 'No customers available' : 'Select Customer'}
+                                        </option>
+                                        {customers.map((customer: any) => (
+                                            <option key={customer.id} value={customer.id}>
+                                                {customer.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {customers.length === 0 && (
+                                        <p className="mt-1 text-xs text-orange-600">
+                                            No customers found. Please create customers first.
+                                        </p>
+                                    )}
+                                </>
+                            )}
                             {errors.customerId && (
                                 <p className="mt-1 text-sm text-red-600">{errors.customerId.message}</p>
                             )}
                         </div>
 
-                        {/* Location Selection */}
+                        {/* Delivery Location - Text Input with Suggestions */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700">
                                 Delivery Location *
                             </label>
-                            <select
-                                {...register('locationId')}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            >
-                                <option value="">Select Location</option>
-                                {Array.isArray(locations) && locations.map((location: any) => (
-                                    <option key={location.id} value={location.id}>
-                                        {location.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.locationId && (
-                                <p className="mt-1 text-sm text-red-600">{errors.locationId.message}</p>
+                            <Input
+                                type="text"
+                                {...register('deliveryLocation')}
+                                placeholder="Enter delivery location"
+                                className="mt-1"
+                                list="locations-datalist"
+                            />
+                            {/* Optional: Provide suggestions from locations table */}
+                            {locations.length > 0 && (
+                                <datalist id="locations-datalist">
+                                    {locations.map((location: any) => (
+                                        <option key={location.id} value={location.name} />
+                                    ))}
+                                </datalist>
+                            )}
+                            <p className="mt-1 text-xs text-gray-500">
+                                Type the delivery location address
+                            </p>
+                            {errors.deliveryLocation && (
+                                <p className="mt-1 text-sm text-red-600">{errors.deliveryLocation.message}</p>
                             )}
                         </div>
                     </div>
 
-                    {/* Remark */}
                     <div className="mt-6">
                         <label className="block text-sm font-medium text-gray-700">
-                            Remark
+                            Remarks (Optional)
                         </label>
                         <textarea
                             {...register('remark')}
                             rows={3}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            placeholder="Additional notes or instructions..."
+                            placeholder="Add any special instructions or notes"
                         />
                     </div>
                 </div>
@@ -260,11 +401,20 @@ export const CreateOrder: React.FC = () => {
                             type="button"
                             variant="outline"
                             onClick={addOrderItem}
+                            disabled={products.length === 0}
                         >
                             <Plus className="h-4 w-4 mr-2" />
                             Add Item
                         </Button>
                     </div>
+
+                    {products.length === 0 && (
+                        <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                            <p className="text-sm text-orange-800">
+                                ⚠️ No products available. Please add products to the system first.
+                            </p>
+                        </div>
+                    )}
 
                     <div className="space-y-4">
                         {fields.map((field, index) => (
@@ -277,9 +427,10 @@ export const CreateOrder: React.FC = () => {
                                     <select
                                         {...register(`orderItems.${index}.productId`)}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        disabled={products.length === 0}
                                     >
                                         <option value="">Select Product</option>
-                                        {Array.isArray(products) && products.map((product: any) => (
+                                        {products.map((product: any) => (
                                             <option key={product.id} value={product.id}>
                                                 {product.name}
                                             </option>
@@ -303,11 +454,6 @@ export const CreateOrder: React.FC = () => {
                                         {...register(`orderItems.${index}.pallets`, { valueAsNumber: true })}
                                         className="mt-1"
                                     />
-                                    {errors.orderItems?.[index]?.pallets && (
-                                        <p className="mt-1 text-sm text-red-600">
-                                            {errors.orderItems[index]?.pallets?.message}
-                                        </p>
-                                    )}
                                 </div>
 
                                 {/* Packs */}
@@ -321,11 +467,6 @@ export const CreateOrder: React.FC = () => {
                                         {...register(`orderItems.${index}.packs`, { valueAsNumber: true })}
                                         className="mt-1"
                                     />
-                                    {errors.orderItems?.[index]?.packs && (
-                                        <p className="mt-1 text-sm text-red-600">
-                                            {errors.orderItems[index]?.packs?.message}
-                                        </p>
-                                    )}
                                 </div>
 
                                 {/* Amount */}
@@ -340,11 +481,6 @@ export const CreateOrder: React.FC = () => {
                                         {...register(`orderItems.${index}.amount`, { valueAsNumber: true })}
                                         className="mt-1"
                                     />
-                                    {errors.orderItems?.[index]?.amount && (
-                                        <p className="mt-1 text-sm text-red-600">
-                                            {errors.orderItems[index]?.amount?.message}
-                                        </p>
-                                    )}
                                 </div>
 
                                 {/* Remove Button */}
@@ -352,10 +488,9 @@ export const CreateOrder: React.FC = () => {
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        size="sm"
                                         onClick={() => removeOrderItem(index)}
                                         disabled={fields.length === 1}
-                                        className="text-red-600 hover:text-red-800"
+                                        className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -363,28 +498,28 @@ export const CreateOrder: React.FC = () => {
                             </div>
                         ))}
                     </div>
+                </div>
 
-                    {/* Order Summary */}
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                        <h4 className="text-md font-medium text-gray-900 mb-2">Order Summary</h4>
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div>
-                                <span className="text-gray-600">Total Pallets:</span>
-                                <span className="ml-2 font-medium">{totalPallets}</span>
-                            </div>
-                            <div>
-                                <span className="text-gray-600">Total Packs:</span>
-                                <span className="ml-2 font-medium">{totalPacks}</span>
-                            </div>
-                            <div>
-                                <span className="text-gray-600">Total Amount:</span>
-                                <span className="ml-2 font-medium">₦{totalAmount.toLocaleString()}</span>
-                            </div>
+                {/* Order Summary */}
+                <div className="bg-white shadow rounded-lg p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Order Summary</h3>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Pallets:</span>
+                            <span className="font-medium">{totalPallets}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Packs:</span>
+                            <span className="font-medium">{totalPacks}</span>
+                        </div>
+                        <div className="flex justify-between text-base font-semibold pt-2 border-t">
+                            <span>Total Amount:</span>
+                            <span>₦{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Actions */}
+                {/* Action Buttons */}
                 <div className="flex justify-end space-x-3">
                     <Button
                         type="button"
@@ -395,19 +530,19 @@ export const CreateOrder: React.FC = () => {
                     </Button>
                     <Button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={
+                            createMutation.isPending ||
+                            updateMutation.isPending ||
+                            products.length === 0 ||
+                            customers.length === 0
+                        }
                     >
-                        {isSubmitting ? (
-                            <>
-                                <LoadingSpinner size="sm" className="mr-2" />
-                                {isEditing ? 'Updating...' : 'Creating...'}
-                            </>
-                        ) : (
-                            <>
-                                <Save className="h-4 w-4 mr-2" />
-                                {isEditing ? 'Update Order' : 'Create Order'}
-                            </>
-                        )}
+                        <Save className="h-4 w-4 mr-2" />
+                        {createMutation.isPending || updateMutation.isPending
+                            ? 'Saving...'
+                            : isEditing
+                                ? 'Update Order'
+                                : 'Create Order'}
                     </Button>
                 </div>
             </form>

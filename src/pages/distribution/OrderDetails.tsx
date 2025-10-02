@@ -6,7 +6,6 @@ import {
     ArrowLeft,
     Package,
     DollarSign,
-    Calendar,
     MapPin,
     User,
     CheckCircle,
@@ -19,6 +18,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
+import { DistributionOrder } from '../../types';
 
 export const OrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -31,6 +31,7 @@ export const OrderDetails: React.FC = () => {
         paymentMethod: 'CASH',
         reference: '',
         paidBy: '',
+        receivedBy: '',  // ✅ Add receivedBy field
         notes: ''
     });
 
@@ -77,6 +78,7 @@ export const OrderDetails: React.FC = () => {
             paymentMethod: 'CASH',
             reference: '',
             paidBy: '',
+            receivedBy: '',  // ✅ Add receivedBy field
             notes: ''
         });
     };
@@ -100,7 +102,22 @@ export const OrderDetails: React.FC = () => {
         );
     }
 
-    const order = orderResponse?.data;
+    // ✅ FIX: Handle potentially nested API response structure
+    // Backend might return { data: { order: {...} } } or just the order directly
+    let order: DistributionOrder | null = null;
+
+    if (orderResponse) {
+        // Check if response has nested data.order structure
+        if ((orderResponse as any).data?.order) {
+            order = (orderResponse as any).data.order;
+        } else if ((orderResponse as any).data) {
+            order = (orderResponse as any).data;
+        } else {
+            // Response is the order directly
+            order = orderResponse as any;
+        }
+    }
+
     const payments = paymentsResponse || [];
 
     if (!order) {
@@ -115,9 +132,11 @@ export const OrderDetails: React.FC = () => {
         );
     }
 
-    const balance = parseFloat(order.balance || 0);
-    const amountPaid = parseFloat(order.amountPaid || 0);
-    const totalAmount = parseFloat(order.finalAmount || 0);
+    // ✅ FIX: Safely handle payment-related fields that might not exist in type
+    const balance = parseFloat((order as any).balance || 0);
+    const amountPaid = parseFloat((order as any).amountPaid || 0);
+    const totalAmount = parseFloat((order as any).finalAmount || order.finalAmount || 0);
+    const paymentStatus = (order as any).paymentStatus || 'PENDING';
 
     return (
         <div className="space-y-6">
@@ -139,263 +158,226 @@ export const OrderDetails: React.FC = () => {
                         Created on {new Date(order.createdAt).toLocaleDateString()}
                     </p>
                 </div>
-                <span className={`px-3 py-1 text-sm font-semibold rounded-full ${order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                    order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
-                        order.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
+                <span className={`px-3 py-1 text-sm font-semibold rounded-full ${order.status === 'DELIVERED'
+                        ? 'bg-green-100 text-green-800'
+                        : order.status === 'PROCESSING'
+                            ? 'bg-blue-100 text-blue-800'
+                            : order.status === 'PENDING'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
                     }`}>
                     {order.status}
                 </span>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main Order Details */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Order Information */}
-                    <div className="bg-white shadow rounded-lg">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Order Information</h3>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className="flex items-start space-x-3">
-                                <User className="h-5 w-5 text-gray-400 mt-0.5" />
-                                <div>
-                                    <div className="text-sm font-medium text-gray-900">Customer</div>
-                                    <div className="text-sm text-gray-600">{order.customer?.name}</div>
-                                    {order.customer?.email && (
-                                        <div className="text-sm text-gray-500">{order.customer.email}</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex items-start space-x-3">
-                                <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
-                                <div>
-                                    <div className="text-sm font-medium text-gray-900">Location</div>
-                                    <div className="text-sm text-gray-600">{order.location?.name}</div>
-                                    {order.location?.address && (
-                                        <div className="text-sm text-gray-500">{order.location.address}</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex items-start space-x-3">
-                                <Package className="h-5 w-5 text-gray-400 mt-0.5" />
-                                <div>
-                                    <div className="text-sm font-medium text-gray-900">Order Details</div>
-                                    <div className="text-sm text-gray-600">
-                                        {order.totalPallets} pallets • {order.totalPacks} packs
-                                    </div>
-                                </div>
-                            </div>
-
-                            {order.remark && (
-                                <div className="pt-4 border-t">
-                                    <div className="text-sm font-medium text-gray-900 mb-1">Remarks</div>
-                                    <div className="text-sm text-gray-600">{order.remark}</div>
-                                </div>
-                            )}
-                        </div>
+            {/* Order Details Grid */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* Customer Information */}
+                <div className="bg-white shadow rounded-lg p-6">
+                    <div className="flex items-center mb-4">
+                        <User className="h-5 w-5 text-gray-400 mr-2" />
+                        <h3 className="text-lg font-medium text-gray-900">Customer</h3>
                     </div>
-
-                    {/* Order Items */}
-                    <div className="bg-white shadow rounded-lg">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Order Items</h3>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                            Product
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                            Pallets
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                            Packs
-                                        </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                                            Amount
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {order.orderItems?.map((item: any) => (
-                                        <tr key={item.id}>
-                                            <td className="px-6 py-4 text-sm text-gray-900">
-                                                {item.product?.name}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {item.pallets}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {item.packs}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                                                ₦{parseFloat(item.amount).toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* Payment History */}
-                    <div className="bg-white shadow rounded-lg">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-medium text-gray-900">Payment History</h3>
-                                <Button
-                                    size="sm"
-                                    onClick={() => setIsPaymentModalOpen(true)}
-                                    disabled={balance <= 0}
-                                >
-                                    Record Payment
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="p-6">
-                            {payments.length > 0 ? (
-                                <div className="space-y-4">
-                                    {payments.map((payment: any) => (
-                                        <div key={payment.id} className="flex items-start justify-between border-b pb-4 last:border-0">
-                                            <div className="flex items-start space-x-3">
-                                                <div className="p-2 bg-green-100 rounded-full">
-                                                    <DollarSign className="h-4 w-4 text-green-600" />
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        ₦{parseFloat(payment.amount).toLocaleString()}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500">
-                                                        {payment.paymentMethod} • {payment.paidBy}
-                                                    </div>
-                                                    {payment.reference && (
-                                                        <div className="text-xs text-gray-500">
-                                                            Ref: {payment.reference}
-                                                        </div>
-                                                    )}
-                                                    {payment.notes && (
-                                                        <div className="text-xs text-gray-600 mt-1">
-                                                            {payment.notes}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {new Date(payment.createdAt).toLocaleDateString()}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-gray-500">
-                                    No payments recorded yet
-                                </div>
-                            )}
-                        </div>
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-900">
+                            {order.customer?.name || 'N/A'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                            {(order.customer as any)?.phone || 'No phone'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                            {(order.customer as any)?.email || 'No email'}
+                        </p>
                     </div>
                 </div>
 
-                {/* Payment Summary Sidebar */}
-                <div className="space-y-6">
-                    {/* Payment Status */}
-                    <div className="bg-white shadow rounded-lg">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Payment Summary</h3>
+                {/* Location Information */}
+                <div className="bg-white shadow rounded-lg p-6">
+                    <div className="flex items-center mb-4">
+                        <MapPin className="h-5 w-5 text-gray-400 mr-2" />
+                        <h3 className="text-lg font-medium text-gray-900">Location</h3>
+                    </div>
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-900">
+                            {(order.location as any)?.name || 'N/A'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                            {(order.location as any)?.address || 'No address'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Order Summary */}
+                <div className="bg-white shadow rounded-lg p-6">
+                    <div className="flex items-center mb-4">
+                        <Package className="h-5 w-5 text-gray-400 mr-2" />
+                        <h3 className="text-lg font-medium text-gray-900">Summary</h3>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Pallets:</span>
+                            <span className="font-medium">{order.totalPallets || 0}</span>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-600">Total Amount</span>
-                                <span className="text-sm font-semibold text-gray-900">
-                                    ₦{totalAmount.toLocaleString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-600">Amount Paid</span>
-                                <span className="text-sm font-semibold text-green-600">
-                                    ₦{amountPaid.toLocaleString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center pt-4 border-t">
-                                <span className="text-sm font-medium text-gray-900">Balance</span>
-                                <span className={`text-lg font-bold ${balance <= 0 ? 'text-green-600' : 'text-orange-600'
-                                    }`}>
-                                    ₦{balance.toLocaleString()}
-                                </span>
-                            </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Packs:</span>
+                            <span className="font-medium">{order.totalPacks || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Created:</span>
+                            <span className="font-medium">
+                                {new Date(order.createdAt).toLocaleDateString()}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                            {/* Payment Status Badge */}
-                            <div className="pt-4">
-                                <span className={`w-full flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg ${order.paymentStatus === 'CONFIRMED'
-                                    ? 'bg-green-100 text-green-800'
-                                    : order.paymentStatus === 'PARTIALLY_PAID'
-                                        ? 'bg-yellow-100 text-yellow-800'
-                                        : 'bg-red-100 text-red-800'
-                                    }`}>
-                                    {order.paymentStatus === 'CONFIRMED' && <CheckCircle className="h-4 w-4 mr-2" />}
-                                    {order.paymentStatus === 'PARTIALLY_PAID' && <Clock className="h-4 w-4 mr-2" />}
-                                    {order.paymentStatus === 'PENDING' && <AlertCircle className="h-4 w-4 mr-2" />}
-                                    {order.paymentStatus}
-                                </span>
-                            </div>
+            {/* Order Items */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900">Order Items</h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Product
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Pallets
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Packs
+                                </th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Amount
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {order.orderItems?.map((item: any) => (
+                                <tr key={item.id}>
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                        {item.product?.name || 'Unknown Product'}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                        {item.pallets || 0}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                        {item.packs || 0}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                                        ₦{parseFloat(item.amount || 0).toLocaleString()}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-                            {/* Confirm Payment Button (Admin only) */}
-                            {order.paymentStatus !== 'CONFIRMED' && balance <= 0 && (
-                                <Button
-                                    variant="primary"
-                                    className="w-full"
-                                    onClick={() => confirmPaymentMutation.mutate()}
-                                    disabled={confirmPaymentMutation.isPending}
+            {/* Payment Status */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900">Payment Summary</h3>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Total Amount</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                            ₦{totalAmount.toLocaleString()}
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Amount Paid</span>
+                        <span className="text-sm font-semibold text-green-600">
+                            ₦{amountPaid.toLocaleString()}
+                        </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-4 border-t">
+                        <span className="text-sm font-medium text-gray-900">Balance</span>
+                        <span className={`text-lg font-bold ${balance <= 0 ? 'text-green-600' : 'text-orange-600'
+                            }`}>
+                            ₦{balance.toLocaleString()}
+                        </span>
+                    </div>
+
+                    {/* Payment Status Badge */}
+                    <div className="pt-4">
+                        <span className={`w-full flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg ${paymentStatus === 'CONFIRMED'
+                                ? 'bg-green-100 text-green-800'
+                                : paymentStatus === 'PARTIAL'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-gray-100 text-gray-800'
+                            }`}>
+                            {paymentStatus === 'CONFIRMED' && <CheckCircle className="h-4 w-4 mr-2" />}
+                            {paymentStatus === 'PENDING' && <Clock className="h-4 w-4 mr-2" />}
+                            {paymentStatus}
+                        </span>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex space-x-3 pt-4">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setIsPaymentModalOpen(true)}
+                            disabled={balance <= 0}
+                            className="flex-1"
+                        >
+                            <DollarSign className="h-4 w-4 mr-2" />
+                            Record Payment
+                        </Button>
+                        {paymentStatus !== 'CONFIRMED' && balance <= 0 && (
+                            <Button
+                                size="sm"
+                                onClick={() => confirmPaymentMutation.mutate()}
+                                className="flex-1"
+                            >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Confirm Payment
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Payment History */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900">Payment History</h3>
+                </div>
+                <div className="p-6">
+                    {payments.length > 0 ? (
+                        <div className="space-y-4">
+                            {payments.map((payment: any) => (
+                                <div
+                                    key={payment.id}
+                                    className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
                                 >
-                                    {confirmPaymentMutation.isPending ? 'Confirming...' : 'Confirm Payment'}
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Timeline */}
-                    <div className="bg-white shadow rounded-lg">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Order Timeline</h3>
-                        </div>
-                        <div className="p-6">
-                            <div className="space-y-4">
-                                <div className="flex items-start space-x-3">
-                                    <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
                                     <div>
-                                        <div className="text-sm font-medium text-gray-900">Created</div>
-                                        <div className="text-xs text-gray-500">
-                                            {new Date(order.createdAt).toLocaleString()}
-                                        </div>
+                                        <p className="text-sm font-medium text-gray-900">
+                                            ₦{parseFloat(payment.amount).toLocaleString()}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {payment.paymentMethod} • {new Date(payment.createdAt).toLocaleString()}
+                                        </p>
+                                        {payment.reference && (
+                                            <p className="text-xs text-gray-500">Ref: {payment.reference}</p>
+                                        )}
                                     </div>
+                                    <span className="text-xs text-gray-500">
+                                        By {payment.paidBy || 'Unknown'}
+                                    </span>
                                 </div>
-                                {order.paymentConfirmedAt && (
-                                    <div className="flex items-start space-x-3">
-                                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                                        <div>
-                                            <div className="text-sm font-medium text-gray-900">Payment Confirmed</div>
-                                            <div className="text-xs text-gray-500">
-                                                {new Date(order.paymentConfirmedAt).toLocaleString()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="flex items-start space-x-3">
-                                    <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
-                                    <div>
-                                        <div className="text-sm font-medium text-gray-900">Last Updated</div>
-                                        <div className="text-xs text-gray-500">
-                                            {new Date(order.updatedAt).toLocaleString()}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            ))}
                         </div>
-                    </div>
+                    ) : (
+                        <p className="text-sm text-gray-500 text-center py-8">
+                            No payment history available
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -407,75 +389,88 @@ export const OrderDetails: React.FC = () => {
             >
                 <form onSubmit={handleRecordPayment} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Amount (₦)
+                        <label className="block text-sm font-medium text-gray-700">
+                            Amount *
                         </label>
                         <Input
                             type="number"
-                            value={paymentData.amount}
-                            onChange={(e) => setPaymentData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                            max={balance}
-                            min={0}
                             step="0.01"
+                            value={paymentData.amount}
+                            onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) })}
                             required
+                            className="mt-1"
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                            Remaining balance: ₦{balance.toLocaleString()}
+                            Outstanding balance: ₦{balance.toLocaleString()}
                         </p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Payment Method
+                        <label className="block text-sm font-medium text-gray-700">
+                            Payment Method *
                         </label>
                         <select
                             value={paymentData.paymentMethod}
-                            onChange={(e) => setPaymentData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: e.target.value })}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                             required
                         >
                             <option value="CASH">Cash</option>
-                            <option value="TRANSFER">Bank Transfer</option>
-                            <option value="CHEQUE">Cheque</option>
+                            <option value="BANK_TRANSFER">Bank Transfer</option>
+                            <option value="CHECK">Check</option>
                             <option value="POS">POS</option>
                         </select>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Reference (Optional)
+                        <label className="block text-sm font-medium text-gray-700">
+                            Reference
                         </label>
                         <Input
                             type="text"
                             value={paymentData.reference}
-                            onChange={(e) => setPaymentData(prev => ({ ...prev, reference: e.target.value }))}
-                            placeholder="Transaction reference or cheque number"
+                            onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
+                            className="mt-1"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Paid By
+                        <label className="block text-sm font-medium text-gray-700">
+                            Paid By *
                         </label>
                         <Input
                             type="text"
                             value={paymentData.paidBy}
-                            onChange={(e) => setPaymentData(prev => ({ ...prev, paidBy: e.target.value }))}
-                            placeholder="Customer name or representative"
+                            onChange={(e) => setPaymentData({ ...paymentData, paidBy: e.target.value })}
                             required
+                            placeholder="Name of person who paid"
+                            className="mt-1"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Notes (Optional)
+                        <label className="block text-sm font-medium text-gray-700">
+                            Received By *
+                        </label>
+                        <Input
+                            type="text"
+                            value={paymentData.receivedBy}
+                            onChange={(e) => setPaymentData({ ...paymentData, receivedBy: e.target.value })}
+                            required
+                            placeholder="Name of person who received payment"
+                            className="mt-1"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                            Notes
                         </label>
                         <textarea
                             value={paymentData.notes}
-                            onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => setPaymentData({ ...paymentData, notes: e.target.value })}
                             rows={3}
-                            placeholder="Additional notes about the payment"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                     </div>
 

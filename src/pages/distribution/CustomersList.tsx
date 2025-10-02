@@ -210,7 +210,7 @@ export const CustomersList: React.FC = () => {
                                         Enterprise Clients
                                     </dt>
                                     <dd className="text-lg font-medium text-gray-900">
-                                        {customers.filter(c => c.customerType === 'ENTERPRISE').length}
+                                        {customers.filter((c: { customerType: string; }) => c.customerType === 'ENTERPRISE').length}
                                     </dd>
                                 </dl>
                             </div>
@@ -229,7 +229,7 @@ export const CustomersList: React.FC = () => {
                                         Active Territories
                                     </dt>
                                     <dd className="text-lg font-medium text-gray-900">
-                                        {new Set(customers.filter(c => c.territory).map(c => c.territory)).size}
+                                        {new Set(customers.filter((c: { territory: any; }) => c.territory).map((c: { territory: any; }) => c.territory)).size}
                                     </dd>
                                 </dl>
                             </div>

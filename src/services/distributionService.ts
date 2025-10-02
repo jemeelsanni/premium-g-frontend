@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseApiService } from './api';
 import { DistributionOrder, DistributionCustomer } from '../types/index';
-import { PaginatedResponse, Product, Location } from '../types/common';
+import { PaginatedResponse } from '../types/common';
 
 export interface CreateOrderData {
   customerId: string;
-  locationId: string;
+  deliveryLocation: string;  // ✅ Changed from locationId to deliveryLocation (text input)
   orderItems: {
     productId: string;
     pallets: number;
@@ -37,14 +37,12 @@ export interface DistributionFilters {
   locationId?: string;
   startDate?: string;
   endDate?: string;
-  search?: string; // ✅ NOW INCLUDED
-
+  search?: string;
   paymentStatus?: string;
   riteFoodsStatus?: string;
   deliveryStatus?: string;
 }
 
-// ✅ NEW: Payment History Interface
 export interface PaymentHistory {
   id: string;
   orderId: string;
@@ -57,7 +55,6 @@ export interface PaymentHistory {
   createdAt: string;
 }
 
-// ✅ NEW: Weekly Performance Interface
 export interface WeeklyPerformance {
   id: string;
   targetId: string;
@@ -69,7 +66,6 @@ export interface WeeklyPerformance {
   weekEndDate: string;
 }
 
-// ✅ NEW: Target Interface
 export interface DistributionTarget {
   id: string;
   year: number;
@@ -81,7 +77,6 @@ export interface DistributionTarget {
   updatedAt: string;
 }
 
-// ✅ NEW: Payment Recording Interface
 export interface RecordPaymentData {
   orderId: string;
   amount: number;
@@ -91,7 +86,6 @@ export interface RecordPaymentData {
   notes?: string;
 }
 
-// ✅ NEW: Bulk Payment Confirmation Interface
 export interface BulkPaymentConfirmData {
   orderIds: string[];
   notes?: string;
@@ -107,7 +101,7 @@ export class DistributionService extends BaseApiService {
     return this.get('/analytics/summary');
   }
 
-  // Orders with proper filtering (including search)
+  // Orders with proper filtering
   async getOrders(filters?: DistributionFilters): Promise<PaginatedResponse<DistributionOrder>> {
     const params = new URLSearchParams();
     if (filters) {
@@ -136,27 +130,36 @@ export class DistributionService extends BaseApiService {
     return this.put<DistributionOrder>({ status }, `/orders/${id}/status`);
   }
 
-  // ✅ NEW: Payment History Methods
+  // ✅ FIXED: Payment History Methods - Match Backend Routes
   async getPaymentHistory(orderId: string): Promise<PaymentHistory[]> {
-    return this.get<PaymentHistory[]>(`/orders/${orderId}/payments`);
+    // Backend route: GET /api/v1/distribution/payments/:orderId/summary
+    const response = await this.get<any>(`/payments/${orderId}/summary`);
+    // Extract payment history from summary response
+    return response.customerPayments || [];
   }
 
   async recordPayment(data: RecordPaymentData): Promise<PaymentHistory> {
-    return this.post<PaymentHistory>(data, '/payments');
+    // ✅ Backend route: POST /api/v1/distribution/payments/record
+    return this.post<PaymentHistory>(data, '/payments/record');
   }
 
   async confirmPayment(orderId: string, notes?: string): Promise<DistributionOrder> {
-    return this.put<DistributionOrder>({ notes }, `/orders/${orderId}/confirm-payment`);
+    // ✅ Backend route: POST /api/v1/distribution/payments/confirm
+    return this.post<DistributionOrder>({ orderId, notes }, '/payments/confirm');
   }
 
-  // ✅ NEW: Bulk Payment Confirmation (Admin only)
   async bulkConfirmPayments(data: BulkPaymentConfirmData): Promise<any> {
     return this.post<any>(data, '/orders/bulk/confirm-payments');
   }
 
-  // Customer Management
-  async getCustomers(page = 1, limit = 10): Promise<PaginatedResponse<DistributionCustomer>> {
-    return this.get<PaginatedResponse<DistributionCustomer>>(`/customers?page=${page}&limit=${limit}`);
+  // ✅ FIXED: Customer Management with proper response handling
+  async getCustomers(page = 1, limit = 10): Promise<any> {
+    const response = await this.get<any>(`/customers?page=${page}&limit=${limit}`);
+    console.log('Raw customers response:', response);
+    
+    // Backend returns: { success: true, data: { customers: [...], pagination: {...} } }
+    // But BaseApiService already extracts response.data, so we get: { customers: [...], pagination: {...} }
+    return response;
   }
 
   async getCustomer(id: string): Promise<DistributionCustomer> {
@@ -175,7 +178,7 @@ export class DistributionService extends BaseApiService {
     return this.get<DistributionOrder[]>(`/customers/${customerId}/orders`);
   }
 
-  // ✅ NEW: Targets & Performance Methods
+  // Targets & Performance Methods
   async getTargets(page = 1, limit = 10): Promise<PaginatedResponse<DistributionTarget>> {
     return this.get<PaginatedResponse<DistributionTarget>>(`/targets?page=${page}&limit=${limit}`);
   }
@@ -201,7 +204,6 @@ export class DistributionService extends BaseApiService {
     return this.post<DistributionTarget>(data, '/targets');
   }
 
-  // ✅ NEW: Weekly Performance Tracking
   async getWeeklyPerformance(params?: {
     year?: number;
     month?: number;
@@ -218,13 +220,23 @@ export class DistributionService extends BaseApiService {
     return this.get<WeeklyPerformance[]>(`/performance/weekly?${queryParams.toString()}`);
   }
 
-  // Products & Locations
-  async getProducts(): Promise<Product[]> {
-    return this.get<Product[]>('/products');
+  // ✅ FIXED: Products & Locations with proper response handling
+  async getProducts(): Promise<any> {
+    const response = await this.get<any>('/products');
+    console.log('Raw products response:', response);
+    
+    // Backend returns: { success: true, data: { products: [...] } }
+    // But BaseApiService already extracts response.data, so we get: { products: [...] }
+    return response;
   }
 
-  async getLocations(): Promise<Location[]> {
-    return this.get<Location[]>('/locations');
+  async getLocations(): Promise<any> {
+    const response = await this.get<any>('/locations');
+    console.log('Raw locations response:', response);
+    
+    // Backend returns: { success: true, data: { locations: [...] } }
+    // But BaseApiService already extracts response.data, so we get: { locations: [...] }
+    return response;
   }
 }
 
