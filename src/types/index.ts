@@ -137,6 +137,14 @@ export interface DistributionCustomer extends Customer {
 }
 
 export interface DistributionOrder {
+  amountPaid: number;
+  finalAmount: number;
+  orderNumber: string;
+  totalPallets: ReactNode;
+  totalPacks: ReactNode;
+  paymentStatus: string;
+  paymentConfirmedAt: any;
+  balance: number;
   id: string;
   orderNo: string;
   customerId: string;

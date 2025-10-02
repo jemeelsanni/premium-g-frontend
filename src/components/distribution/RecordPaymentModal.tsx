@@ -1,6 +1,6 @@
 // src/components/distribution/RecordPaymentModal.tsx
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,7 +11,7 @@ import { Input } from '../ui/Input';
 import { toast } from 'react-hot-toast';
 
 const paymentSchema = z.object({
-    amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
+    amount: z.number().min(0.01, 'Amount must be greater than 0'),
     paymentMethod: z.enum(['BANK_TRANSFER', 'CASH', 'CHECK', 'WHATSAPP_TRANSFER', 'POS', 'MOBILE_MONEY']),
     reference: z.string().optional(),
     paidBy: z.string().optional(),
@@ -47,6 +47,9 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             amount: balance,
             paymentMethod: 'BANK_TRANSFER',
             receivedBy: '',
+            reference: '',
+            paidBy: '',
+            notes: '',
         },
     });
 
@@ -83,7 +86,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
         },
     });
 
-    const onSubmit = (data: PaymentFormData) => {
+    const onSubmit: SubmitHandler<PaymentFormData> = (data) => {
         recordPaymentMutation.mutate(data);
     };
 

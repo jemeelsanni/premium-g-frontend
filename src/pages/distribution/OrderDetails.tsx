@@ -1,39 +1,96 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/distribution/OrderDetailsEnhanced.tsx
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    ArrowLeft, Edit, Truck, Package, DollarSign, CheckCircle, AlertCircle, CreditCard, FileText
+    ArrowLeft,
+    Package,
+    DollarSign,
+    Calendar,
+    MapPin,
+    User,
+    CheckCircle,
+    Clock,
+    AlertCircle
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { RecordPaymentModal } from '../../components/distribution/RecordPaymentModal';
-import { ConfirmPaymentModal } from '../../components/distribution/ConfirmPaymentModal';
-import { PayRiteFoodsModal } from '../../components/distribution/PayRiteFoodsModal';
-import { UpdateRiteFoodsStatusModal } from '../../components/distribution/UpdateRiteFoodsStatusModal';
-import { AssignTransportModal } from '../../components/distribution/AssignTransportModal';
-import { RecordDeliveryModal } from '../../components/distribution/RecordDeliveryModal';
-// import { toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 
-export const OrderDetailsEnhanced: React.FC = () => {
+export const OrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    // Modal states
-    const [showRecordPayment, setShowRecordPayment] = useState(false);
-    const [showConfirmPayment, setShowConfirmPayment] = useState(false);
-    const [showPayRiteFoods, setShowPayRiteFoods] = useState(false);
-    const [showUpdateRFL, setShowUpdateRFL] = useState(false);
-    const [showAssignTransport, setShowAssignTransport] = useState(false);
-    const [showRecordDelivery, setShowRecordDelivery] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [paymentData, setPaymentData] = useState({
+        amount: 0,
+        paymentMethod: 'CASH',
+        reference: '',
+        paidBy: '',
+        notes: ''
+    });
 
-    const { data: orderResponse, isLoading, error } = useQuery({
+    const { data: orderResponse, isLoading } = useQuery({
         queryKey: ['distribution-order', id],
         queryFn: () => distributionService.getOrder(id!),
         enabled: !!id,
     });
+
+    const { data: paymentsResponse } = useQuery({
+        queryKey: ['order-payments', id],
+        queryFn: () => distributionService.getPaymentHistory(id!),
+        enabled: !!id,
+    });
+
+    const recordPaymentMutation = useMutation({
+        mutationFn: (data: any) => distributionService.recordPayment(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['distribution-order', id] });
+            queryClient.invalidateQueries({ queryKey: ['order-payments', id] });
+            toast.success('Payment recorded successfully!');
+            setIsPaymentModalOpen(false);
+            resetPaymentForm();
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Failed to record payment');
+        }
+    });
+
+    const confirmPaymentMutation = useMutation({
+        mutationFn: () => distributionService.confirmPayment(id!, 'Payment confirmed by accountant'),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['distribution-order', id] });
+            toast.success('Payment confirmed successfully!');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Failed to confirm payment');
+        }
+    });
+
+    const resetPaymentForm = () => {
+        setPaymentData({
+            amount: 0,
+            paymentMethod: 'CASH',
+            reference: '',
+            paidBy: '',
+            notes: ''
+        });
+    };
+
+    const handleRecordPayment = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!id) return;
+
+        recordPaymentMutation.mutate({
+            orderId: id,
+            ...paymentData
+        });
+    };
 
     if (isLoading) {
         return (
@@ -43,558 +100,402 @@ export const OrderDetailsEnhanced: React.FC = () => {
         );
     }
 
-    if (error || !orderResponse?.data?.order) {
+    const order = orderResponse?.data;
+    const payments = paymentsResponse || [];
+
+    if (!order) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                    <p className="text-gray-600">Failed to load order details</p>
-                    <Button onClick={() => navigate('/distribution/orders')} className="mt-4">
-                        Back to Orders
-                    </Button>
-                </div>
+            <div className="text-center py-12">
+                <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <p className="text-gray-600">Order not found</p>
+                <Button onClick={() => navigate('/distribution/orders')} className="mt-4">
+                    Back to Orders
+                </Button>
             </div>
         );
     }
 
-    const order = orderResponse.data.order;
-    const workflow = order.workflow || {};
-
-    // Get stage status
-    const getStageStatus = (stageKey: string) => {
-        if (stageKey === 'stage1_orderCreation') return 'completed';
-
-        if (stageKey === 'stage2_payment') {
-            if (workflow.stage2_payment?.status === 'CONFIRMED') return 'completed';
-            if (workflow.stage2_payment?.status === 'PARTIAL' || workflow.stage2_payment?.balance > 0) return 'current';
-            return 'pending';
-        }
-
-        if (stageKey === 'stage3_riteFoods') {
-            if (workflow.stage3_riteFoods?.status === 'LOADED' || workflow.stage3_riteFoods?.status === 'DISPATCHED') return 'completed';
-            if (workflow.stage3_riteFoods?.paidToRiteFoods) return 'current';
-            return 'locked';
-        }
-
-        if (stageKey === 'stage4_transport') {
-            if (workflow.stage5_delivery?.status === 'IN_TRANSIT') return 'completed';
-            if (workflow.stage4_transport?.transporter) return 'current';
-            return 'locked';
-        }
-
-        if (stageKey === 'stage5_delivery') {
-            if (workflow.stage5_delivery?.status === 'FULLY_DELIVERED') return 'completed';
-            if (workflow.stage5_delivery?.status === 'IN_TRANSIT') return 'current';
-            return 'locked';
-        }
-
-        return 'locked';
-    };
+    const balance = parseFloat(order.balance || 0);
+    const amountPaid = parseFloat(order.amountPaid || 0);
+    const totalAmount = parseFloat(order.finalAmount || 0);
 
     return (
-        <div className="space-y-6 pb-12">
+        <div className="space-y-6">
             {/* Header */}
-            <div className="md:flex md:items-center md:justify-between">
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center">
-                        <button
-                            onClick={() => navigate('/distribution/orders')}
-                            className="mr-4 p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                        >
-                            <ArrowLeft className="h-5 w-5" />
-                        </button>
-                        <div>
-                            <h2 className="text-3xl font-bold text-gray-900">
-                                Order #{order.id?.slice(-8) || 'N/A'}
-                            </h2>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Created on {new Date(order.createdAt).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                })}
-                            </p>
-                        </div>
-                    </div>
+            <div className="flex items-center space-x-4">
+                <Button
+                    variant="outline"
+                    onClick={() => navigate('/distribution/orders')}
+                    className="flex items-center"
+                >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back
+                </Button>
+                <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                        Order #{order.orderNumber || order.id.slice(-8)}
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                        Created on {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
                 </div>
-                <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
-                    <Button variant="outline" onClick={() => navigate(`/distribution/orders/${id}/edit`)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Order
-                    </Button>
-                </div>
-            </div>
-
-            {/* Workflow Progress Tracker */}
-            <WorkflowTracker
-                stages={{
-                    stage1: getStageStatus('stage1_orderCreation'),
-                    stage2: getStageStatus('stage2_payment'),
-                    stage3: getStageStatus('stage3_riteFoods'),
-                    stage4: getStageStatus('stage4_transport'),
-                    stage5: getStageStatus('stage5_delivery'),
-                }}
-            />
-
-            {/* Stage 1: Order Creation */}
-            <StageCard
-                icon={<Package className="h-6 w-6" />}
-                title="Stage 1: Order Created"
-                status={getStageStatus('stage1_orderCreation')}
-                statusText="Completed"
-            >
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span className="text-gray-600">Created By:</span>
-                        <span className="ml-2 font-medium">{workflow.stage1_orderCreation?.createdBy || 'N/A'}</span>
-                    </div>
-                    <div>
-                        <span className="text-gray-600">Date:</span>
-                        <span className="ml-2 font-medium">
-                            {new Date(workflow.stage1_orderCreation?.createdAt || order.createdAt).toLocaleString()}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Order Items */}
-                <div className="mt-4 border-t pt-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Order Items</h4>
-                    <div className="space-y-2">
-                        {order.orderItems?.map((item: any, idx: number) => (
-                            <div key={idx} className="flex justify-between text-sm bg-gray-50 p-3 rounded-lg">
-                                <span className="font-medium">{item.product?.name || 'Product'}</span>
-                                <span className="text-gray-600">
-                                    {item.quantity} packs × ₦{item.unitPrice?.toLocaleString()}
-                                </span>
-                                <span className="font-semibold">₦{item.totalPrice?.toLocaleString()}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="mt-4 flex justify-between font-semibold text-lg border-t pt-3">
-                        <span>Total Amount:</span>
-                        <span className="text-blue-600">₦{order.finalAmount?.toLocaleString()}</span>
-                    </div>
-                </div>
-            </StageCard>
-
-            {/* Stage 2: Payment */}
-            <StageCard
-                icon={<CreditCard className="h-6 w-6" />}
-                title="Stage 2: Customer Payment"
-                status={getStageStatus('stage2_payment')}
-                statusText={workflow.stage2_payment?.status || 'Pending'}
-            >
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                        <div className="text-xs text-blue-600 font-medium">Total Amount</div>
-                        <div className="text-2xl font-bold text-blue-900">
-                            ₦{workflow.stage2_payment?.totalAmount?.toLocaleString() || '0'}
-                        </div>
-                    </div>
-                    <div className="bg-green-50 p-4 rounded-lg">
-                        <div className="text-xs text-green-600 font-medium">Amount Paid</div>
-                        <div className="text-2xl font-bold text-green-900">
-                            ₦{workflow.stage2_payment?.amountPaid?.toLocaleString() || '0'}
-                        </div>
-                    </div>
-                    <div className="bg-orange-50 p-4 rounded-lg">
-                        <div className="text-xs text-orange-600 font-medium">Balance</div>
-                        <div className="text-2xl font-bold text-orange-900">
-                            ₦{workflow.stage2_payment?.balance?.toLocaleString() || '0'}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Payment History */}
-                {workflow.stage2_payment?.payments && workflow.stage2_payment.payments.length > 0 && (
-                    <div className="border-t pt-4 mt-4">
-                        <h4 className="font-medium mb-2">Payment History</h4>
-                        <div className="space-y-2">
-                            {workflow.stage2_payment.payments.map((payment: any, idx: number) => (
-                                <div key={idx} className="flex justify-between text-sm bg-gray-50 p-3 rounded-lg">
-                                    <span>{payment.paymentMethod}</span>
-                                    <span>₦{payment.amount?.toLocaleString()}</span>
-                                    <span className="text-gray-500">
-                                        {new Date(payment.createdAt).toLocaleDateString()}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="mt-4 flex gap-3">
-                    {workflow.stage2_payment?.status !== 'CONFIRMED' && (
-                        <Button onClick={() => setShowRecordPayment(true)} className="flex-1">
-                            <DollarSign className="h-4 w-4 mr-2" />
-                            Record Payment
-                        </Button>
-                    )}
-                    {workflow.stage2_payment?.balance === 0 && workflow.stage2_payment?.status !== 'CONFIRMED' && (
-                        <Button onClick={() => setShowConfirmPayment(true)} variant="primary" className="flex-1">
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Confirm Payment
-                        </Button>
-                    )}
-                </div>
-            </StageCard>
-
-            {/* Stage 3: Rite Foods */}
-            <StageCard
-                icon={<FileText className="h-6 w-6" />}
-                title="Stage 3: Rite Foods Processing"
-                status={getStageStatus('stage3_riteFoods')}
-                statusText={workflow.stage3_riteFoods?.status || 'Not Started'}
-            >
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <span className="text-sm font-medium">Payment to Rite Foods</span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${workflow.stage3_riteFoods?.paidToRiteFoods
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                            }`}>
-                            {workflow.stage3_riteFoods?.paidToRiteFoods ? 'Paid' : 'Unpaid'}
-                        </span>
-                    </div>
-
-                    {workflow.stage3_riteFoods?.paidToRiteFoods && (
-                        <>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <span className="text-gray-600">Amount Paid:</span>
-                                    <span className="ml-2 font-medium">
-                                        ₦{workflow.stage3_riteFoods?.amountPaid?.toLocaleString() || '0'}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-600">Payment Date:</span>
-                                    <span className="ml-2 font-medium">
-                                        {workflow.stage3_riteFoods?.paymentDate
-                                            ? new Date(workflow.stage3_riteFoods.paymentDate).toLocaleDateString()
-                                            : 'N/A'}
-                                    </span>
-                                </div>
-                                {workflow.stage3_riteFoods?.orderNumber && (
-                                    <div>
-                                        <span className="text-gray-600">RFL Order #:</span>
-                                        <span className="ml-2 font-medium">{workflow.stage3_riteFoods.orderNumber}</span>
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="mt-4 flex gap-3">
-                    {!workflow.stage3_riteFoods?.paidToRiteFoods && workflow.stage2_payment?.status === 'CONFIRMED' && (
-                        <Button onClick={() => setShowPayRiteFoods(true)} className="flex-1">
-                            <DollarSign className="h-4 w-4 mr-2" />
-                            Pay Rite Foods
-                        </Button>
-                    )}
-                    {workflow.stage3_riteFoods?.paidToRiteFoods && workflow.stage3_riteFoods?.status !== 'LOADED' && (
-                        <Button onClick={() => setShowUpdateRFL(true)} variant="outline" className="flex-1">
-                            <FileText className="h-4 w-4 mr-2" />
-                            Update Status
-                        </Button>
-                    )}
-                </div>
-            </StageCard>
-
-            {/* Stage 4: Transport */}
-            <StageCard
-                icon={<Truck className="h-6 w-6" />}
-                title="Stage 4: Transport Assignment"
-                status={getStageStatus('stage4_transport')}
-                statusText={workflow.stage4_transport?.transporter ? 'Assigned' : 'Pending'}
-            >
-                {workflow.stage4_transport?.transporter ? (
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span className="text-gray-600">Transporter:</span>
-                            <span className="ml-2 font-medium">{workflow.stage4_transport.transporter}</span>
-                        </div>
-                        <div>
-                            <span className="text-gray-600">Driver:</span>
-                            <span className="ml-2 font-medium">{workflow.stage4_transport.driver || 'N/A'}</span>
-                        </div>
-                        {workflow.stage4_transport.truck && (
-                            <div>
-                                <span className="text-gray-600">Truck #:</span>
-                                <span className="ml-2 font-medium">{workflow.stage4_transport.truck}</span>
-                            </div>
-                        )}
-                        <div>
-                            <span className="text-gray-600">Status:</span>
-                            <span className="ml-2 font-medium">{workflow.stage4_transport.status || 'N/A'}</span>
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-gray-500 text-sm">No transport assigned yet</p>
-                )}
-
-                {/* Action Button */}
-                {!workflow.stage4_transport?.transporter &&
-                    workflow.stage3_riteFoods?.status === 'LOADED' &&
-                    workflow.stage2_payment?.balance === 0 && (
-                        <div className="mt-4">
-                            <Button onClick={() => setShowAssignTransport(true)} className="w-full">
-                                <Truck className="h-4 w-4 mr-2" />
-                                Assign Transport
-                            </Button>
-                        </div>
-                    )}
-            </StageCard>
-
-            {/* Stage 5: Delivery */}
-            <StageCard
-                icon={<Package className="h-6 w-6" />}
-                title="Stage 5: Delivery"
-                status={getStageStatus('stage5_delivery')}
-                statusText={workflow.stage5_delivery?.status || 'Pending'}
-            >
-                <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                            <div className="text-xs text-blue-600 font-medium">Ordered</div>
-                            <div className="text-lg font-bold text-blue-900">
-                                {workflow.stage5_delivery?.ordered?.pallets || 0} pallets
-                            </div>
-                            <div className="text-sm text-blue-700">
-                                {workflow.stage5_delivery?.ordered?.packs || 0} packs
-                            </div>
-                        </div>
-                        <div className="bg-green-50 p-3 rounded-lg">
-                            <div className="text-xs text-green-600 font-medium">Delivered</div>
-                            <div className="text-lg font-bold text-green-900">
-                                {workflow.stage5_delivery?.delivered?.pallets || 0} pallets
-                            </div>
-                            <div className="text-sm text-green-700">
-                                {workflow.stage5_delivery?.delivered?.packs || 0} packs
-                            </div>
-                        </div>
-                    </div>
-
-                    {workflow.stage5_delivery?.deliveredAt && (
-                        <div className="text-sm">
-                            <span className="text-gray-600">Delivered On:</span>
-                            <span className="ml-2 font-medium">
-                                {new Date(workflow.stage5_delivery.deliveredAt).toLocaleString()}
-                            </span>
-                        </div>
-                    )}
-                    {workflow.stage5_delivery?.deliveredBy && (
-                        <div className="text-sm">
-                            <span className="text-gray-600">Delivered By:</span>
-                            <span className="ml-2 font-medium">{workflow.stage5_delivery.deliveredBy}</span>
-                        </div>
-                    )}
-                    {workflow.stage5_delivery?.notes && (
-                        <div className="text-sm bg-gray-50 p-3 rounded-lg">
-                            <span className="text-gray-600">Notes:</span>
-                            <p className="mt-1">{workflow.stage5_delivery.notes}</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Action Button */}
-                {workflow.stage4_transport?.transporter &&
-                    workflow.stage5_delivery?.status === 'IN_TRANSIT' && (
-                        <div className="mt-4">
-                            <Button onClick={() => setShowRecordDelivery(true)} className="w-full">
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Record Delivery
-                            </Button>
-                        </div>
-                    )}
-            </StageCard>
-
-            {/* Customer & Location Info */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <InfoCard title="Customer Information" icon={<Package />}>
-                    <dl className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <dt className="text-gray-600">Name:</dt>
-                            <dd className="font-medium">{order.customer?.name || 'N/A'}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                            <dt className="text-gray-600">Phone:</dt>
-                            <dd className="font-medium">{order.customer?.phone || 'N/A'}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                            <dt className="text-gray-600">Territory:</dt>
-                            <dd className="font-medium">{order.customer?.territory || 'N/A'}</dd>
-                        </div>
-                    </dl>
-                </InfoCard>
-
-                <InfoCard title="Delivery Location" icon={<Package />}>
-                    <dl className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <dt className="text-gray-600">Location:</dt>
-                            <dd className="font-medium">{order.location?.name || 'N/A'}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                            <dt className="text-gray-600">Address:</dt>
-                            <dd className="font-medium">{order.location?.address || 'N/A'}</dd>
-                        </div>
-                    </dl>
-                </InfoCard>
-            </div>
-
-            {/* Modals */}
-            <RecordPaymentModal
-                isOpen={showRecordPayment}
-                onClose={() => setShowRecordPayment(false)}
-                orderId={id!}
-                balance={workflow.stage2_payment?.balance || order.finalAmount}
-            />
-            <ConfirmPaymentModal
-                isOpen={showConfirmPayment}
-                onClose={() => setShowConfirmPayment(false)}
-                orderId={id!}
-                orderDetails={order}
-            />
-            <PayRiteFoodsModal
-                isOpen={showPayRiteFoods}
-                onClose={() => setShowPayRiteFoods(false)}
-                orderId={id!}
-                amount={order.finalAmount}
-            />
-            <UpdateRiteFoodsStatusModal
-                isOpen={showUpdateRFL}
-                onClose={() => setShowUpdateRFL(false)}
-                orderId={id!}
-                currentStatus={workflow.stage3_riteFoods?.status}
-            />
-            <AssignTransportModal
-                isOpen={showAssignTransport}
-                onClose={() => setShowAssignTransport(false)}
-                orderId={id!}
-            />
-            <RecordDeliveryModal
-                isOpen={showRecordDelivery}
-                onClose={() => setShowRecordDelivery(false)}
-                orderId={id!}
-                totalPallets={workflow.stage5_delivery?.ordered?.pallets || 0}
-                totalPacks={workflow.stage5_delivery?.ordered?.packs || 0}
-            />
-        </div>
-    );
-};
-
-// Helper Components
-interface WorkflowTrackerProps {
-    stages: {
-        stage1: string;
-        stage2: string;
-        stage3: string;
-        stage4: string;
-        stage5: string;
-    };
-}
-
-const WorkflowTracker: React.FC<WorkflowTrackerProps> = ({ stages }) => {
-    const stageConfig = [
-        { key: 'stage1', label: 'Order Created', icon: Package },
-        { key: 'stage2', label: 'Payment', icon: DollarSign },
-        { key: 'stage3', label: 'Rite Foods', icon: FileText },
-        { key: 'stage4', label: 'Transport', icon: Truck },
-        { key: 'stage5', label: 'Delivery', icon: CheckCircle },
-    ];
-
-    return (
-        <div className="bg-white shadow-lg rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Order Workflow Progress</h3>
-            <div className="flex items-center justify-between">
-                {stageConfig.map((stage, index) => {
-                    const status = stages[stage.key as keyof typeof stages];
-                    const Icon = stage.icon;
-
-                    return (
-                        <React.Fragment key={stage.key}>
-                            <div className="flex flex-col items-center">
-                                <div
-                                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${status === 'completed'
-                                        ? 'bg-green-500 text-white'
-                                        : status === 'current'
-                                            ? 'bg-blue-500 text-white animate-pulse'
-                                            : status === 'pending'
-                                                ? 'bg-orange-500 text-white'
-                                                : 'bg-gray-300 text-gray-500'
-                                        }`}
-                                >
-                                    <Icon className="h-6 w-6" />
-                                </div>
-                                <span className="mt-2 text-xs font-medium text-center">{stage.label}</span>
-                            </div>
-                            {index < stageConfig.length - 1 && (
-                                <div
-                                    className={`flex-1 h-1 mx-2 rounded transition-all ${status === 'completed' ? 'bg-green-500' : 'bg-gray-300'
-                                        }`}
-                                />
-                            )}
-                        </React.Fragment>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
-
-interface StageCardProps {
-    icon: React.ReactNode;
-    title: string;
-    status: string;
-    statusText: string;
-    children: React.ReactNode;
-}
-
-const StageCard: React.FC<StageCardProps> = ({ icon, title, status, statusText, children }) => {
-    const statusColors = {
-        completed: 'bg-green-50 border-green-200',
-        current: 'bg-blue-50 border-blue-200',
-        pending: 'bg-orange-50 border-orange-200',
-        locked: 'bg-gray-50 border-gray-200',
-    };
-
-    const badgeColors = {
-        completed: 'bg-green-100 text-green-800',
-        current: 'bg-blue-100 text-blue-800',
-        pending: 'bg-orange-100 text-orange-800',
-        locked: 'bg-gray-100 text-gray-600',
-    };
-
-    return (
-        <div className={`border-2 rounded-lg p-6 ${statusColors[status as keyof typeof statusColors]}`}>
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                    <div className="text-gray-700">{icon}</div>
-                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${badgeColors[status as keyof typeof badgeColors]}`}>
-                    {statusText}
+                <span className={`px-3 py-1 text-sm font-semibold rounded-full ${order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                    order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
+                        order.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                    }`}>
+                    {order.status}
                 </span>
             </div>
-            {children}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Main Order Details */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Order Information */}
+                    <div className="bg-white shadow rounded-lg">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">Order Information</h3>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-start space-x-3">
+                                <User className="h-5 w-5 text-gray-400 mt-0.5" />
+                                <div>
+                                    <div className="text-sm font-medium text-gray-900">Customer</div>
+                                    <div className="text-sm text-gray-600">{order.customer?.name}</div>
+                                    {order.customer?.email && (
+                                        <div className="text-sm text-gray-500">{order.customer.email}</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex items-start space-x-3">
+                                <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                                <div>
+                                    <div className="text-sm font-medium text-gray-900">Location</div>
+                                    <div className="text-sm text-gray-600">{order.location?.name}</div>
+                                    {order.location?.address && (
+                                        <div className="text-sm text-gray-500">{order.location.address}</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex items-start space-x-3">
+                                <Package className="h-5 w-5 text-gray-400 mt-0.5" />
+                                <div>
+                                    <div className="text-sm font-medium text-gray-900">Order Details</div>
+                                    <div className="text-sm text-gray-600">
+                                        {order.totalPallets} pallets • {order.totalPacks} packs
+                                    </div>
+                                </div>
+                            </div>
+
+                            {order.remark && (
+                                <div className="pt-4 border-t">
+                                    <div className="text-sm font-medium text-gray-900 mb-1">Remarks</div>
+                                    <div className="text-sm text-gray-600">{order.remark}</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Order Items */}
+                    <div className="bg-white shadow rounded-lg">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">Order Items</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            Product
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            Pallets
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            Packs
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                            Amount
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {order.orderItems?.map((item: any) => (
+                                        <tr key={item.id}>
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                {item.product?.name}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {item.pallets}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {item.packs}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                                                ₦{parseFloat(item.amount).toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Payment History */}
+                    <div className="bg-white shadow rounded-lg">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-medium text-gray-900">Payment History</h3>
+                                <Button
+                                    size="sm"
+                                    onClick={() => setIsPaymentModalOpen(true)}
+                                    disabled={balance <= 0}
+                                >
+                                    Record Payment
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            {payments.length > 0 ? (
+                                <div className="space-y-4">
+                                    {payments.map((payment: any) => (
+                                        <div key={payment.id} className="flex items-start justify-between border-b pb-4 last:border-0">
+                                            <div className="flex items-start space-x-3">
+                                                <div className="p-2 bg-green-100 rounded-full">
+                                                    <DollarSign className="h-4 w-4 text-green-600" />
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        ₦{parseFloat(payment.amount).toLocaleString()}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {payment.paymentMethod} • {payment.paidBy}
+                                                    </div>
+                                                    {payment.reference && (
+                                                        <div className="text-xs text-gray-500">
+                                                            Ref: {payment.reference}
+                                                        </div>
+                                                    )}
+                                                    {payment.notes && (
+                                                        <div className="text-xs text-gray-600 mt-1">
+                                                            {payment.notes}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {new Date(payment.createdAt).toLocaleDateString()}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    No payments recorded yet
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Payment Summary Sidebar */}
+                <div className="space-y-6">
+                    {/* Payment Status */}
+                    <div className="bg-white shadow rounded-lg">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">Payment Summary</h3>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Total Amount</span>
+                                <span className="text-sm font-semibold text-gray-900">
+                                    ₦{totalAmount.toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Amount Paid</span>
+                                <span className="text-sm font-semibold text-green-600">
+                                    ₦{amountPaid.toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center pt-4 border-t">
+                                <span className="text-sm font-medium text-gray-900">Balance</span>
+                                <span className={`text-lg font-bold ${balance <= 0 ? 'text-green-600' : 'text-orange-600'
+                                    }`}>
+                                    ₦{balance.toLocaleString()}
+                                </span>
+                            </div>
+
+                            {/* Payment Status Badge */}
+                            <div className="pt-4">
+                                <span className={`w-full flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg ${order.paymentStatus === 'CONFIRMED'
+                                    ? 'bg-green-100 text-green-800'
+                                    : order.paymentStatus === 'PARTIALLY_PAID'
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : 'bg-red-100 text-red-800'
+                                    }`}>
+                                    {order.paymentStatus === 'CONFIRMED' && <CheckCircle className="h-4 w-4 mr-2" />}
+                                    {order.paymentStatus === 'PARTIALLY_PAID' && <Clock className="h-4 w-4 mr-2" />}
+                                    {order.paymentStatus === 'PENDING' && <AlertCircle className="h-4 w-4 mr-2" />}
+                                    {order.paymentStatus}
+                                </span>
+                            </div>
+
+                            {/* Confirm Payment Button (Admin only) */}
+                            {order.paymentStatus !== 'CONFIRMED' && balance <= 0 && (
+                                <Button
+                                    variant="primary"
+                                    className="w-full"
+                                    onClick={() => confirmPaymentMutation.mutate()}
+                                    disabled={confirmPaymentMutation.isPending}
+                                >
+                                    {confirmPaymentMutation.isPending ? 'Confirming...' : 'Confirm Payment'}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Timeline */}
+                    <div className="bg-white shadow rounded-lg">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">Order Timeline</h3>
+                        </div>
+                        <div className="p-6">
+                            <div className="space-y-4">
+                                <div className="flex items-start space-x-3">
+                                    <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
+                                    <div>
+                                        <div className="text-sm font-medium text-gray-900">Created</div>
+                                        <div className="text-xs text-gray-500">
+                                            {new Date(order.createdAt).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                                {order.paymentConfirmedAt && (
+                                    <div className="flex items-start space-x-3">
+                                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                                        <div>
+                                            <div className="text-sm font-medium text-gray-900">Payment Confirmed</div>
+                                            <div className="text-xs text-gray-500">
+                                                {new Date(order.paymentConfirmedAt).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="flex items-start space-x-3">
+                                    <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
+                                    <div>
+                                        <div className="text-sm font-medium text-gray-900">Last Updated</div>
+                                        <div className="text-xs text-gray-500">
+                                            {new Date(order.updatedAt).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Record Payment Modal */}
+            <Modal
+                isOpen={isPaymentModalOpen}
+                onClose={() => setIsPaymentModalOpen(false)}
+                title="Record Payment"
+            >
+                <form onSubmit={handleRecordPayment} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Amount (₦)
+                        </label>
+                        <Input
+                            type="number"
+                            value={paymentData.amount}
+                            onChange={(e) => setPaymentData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                            max={balance}
+                            min={0}
+                            step="0.01"
+                            required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Remaining balance: ₦{balance.toLocaleString()}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Payment Method
+                        </label>
+                        <select
+                            value={paymentData.paymentMethod}
+                            onChange={(e) => setPaymentData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        >
+                            <option value="CASH">Cash</option>
+                            <option value="TRANSFER">Bank Transfer</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="POS">POS</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Reference (Optional)
+                        </label>
+                        <Input
+                            type="text"
+                            value={paymentData.reference}
+                            onChange={(e) => setPaymentData(prev => ({ ...prev, reference: e.target.value }))}
+                            placeholder="Transaction reference or cheque number"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Paid By
+                        </label>
+                        <Input
+                            type="text"
+                            value={paymentData.paidBy}
+                            onChange={(e) => setPaymentData(prev => ({ ...prev, paidBy: e.target.value }))}
+                            placeholder="Customer name or representative"
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Notes (Optional)
+                        </label>
+                        <textarea
+                            value={paymentData.notes}
+                            onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={3}
+                            placeholder="Additional notes about the payment"
+                        />
+                    </div>
+
+                    <div className="flex justify-end space-x-3 pt-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsPaymentModalOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={recordPaymentMutation.isPending}
+                        >
+                            {recordPaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };
-
-interface InfoCardProps {
-    title: string;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-}
-
-const InfoCard: React.FC<InfoCardProps> = ({ title, icon, children }) => (
-    <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex items-center space-x-2 mb-4">
-            {icon}
-            <h3 className="text-lg font-semibold">{title}</h3>
-        </div>
-        {children}
-    </div>
-);

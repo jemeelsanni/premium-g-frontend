@@ -1,6 +1,6 @@
 // src/components/distribution/PayRiteFoodsModal.tsx
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,7 +11,7 @@ import { Input } from '../ui/Input';
 import { toast } from 'react-hot-toast';
 
 const riteFoodsPaymentSchema = z.object({
-    amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
+    amount: z.number().min(0.01, 'Amount must be greater than 0'),
     paymentMethod: z.enum(['BANK_TRANSFER', 'CHECK']),
     reference: z.string().min(1, 'Payment reference is required'),
     riteFoodsOrderNumber: z.string().optional(),
@@ -45,6 +45,9 @@ export const PayRiteFoodsModal: React.FC<PayRiteFoodsModalProps> = ({
         defaultValues: {
             amount: amount,
             paymentMethod: 'BANK_TRANSFER',
+            reference: '',
+            riteFoodsOrderNumber: '',
+            riteFoodsInvoiceNumber: '',
         },
     });
 
@@ -81,7 +84,7 @@ export const PayRiteFoodsModal: React.FC<PayRiteFoodsModalProps> = ({
         },
     });
 
-    const onSubmit = (data: RiteFoodsPaymentFormData) => {
+    const onSubmit: SubmitHandler<RiteFoodsPaymentFormData> = (data) => {
         payRiteFoodsMutation.mutate(data);
     };
 

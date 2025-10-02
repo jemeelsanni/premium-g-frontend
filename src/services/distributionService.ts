@@ -1,89 +1,100 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseApiService } from './api';
-// import { DistributionOrder, DistributionCustomer, Product, Location } from '../types';
-
-export interface DistributionFilters {
-  page?: number;
-  limit?: number;
-  status?: string;
-  paymentStatus?: string;
-  riteFoodsStatus?: string;
-  deliveryStatus?: string;
-  customerId?: string;
-  locationId?: string;
-  startDate?: string;
-  endDate?: string;
-  search?: string;
-}
+import { DistributionOrder, DistributionCustomer } from '../types/index';
+import { PaginatedResponse, Product, Location } from '../types/common';
 
 export interface CreateOrderData {
   customerId: string;
   locationId: string;
-  orderItems: Array<{
+  orderItems: {
     productId: string;
     pallets: number;
     packs: number;
-  }>;
-  territory?: string;
+    amount: number;
+  }[];
+  remark?: string;
+  initialPayment?: {
+    amount: number;
+    method: string;
+    reference?: string;
+  };
 }
 
 export interface CreateCustomerData {
   name: string;
   email?: string;
-  phone: string;
-  address: string;
-  customerType: string;
+  phone?: string;
+  address?: string;
+  customerType?: 'BUSINESS' | 'ENTERPRISE' | 'GOVERNMENT';
   territory?: string;
-  creditLimit?: number;
 }
 
+export interface DistributionFilters {
+  page?: number;
+  limit?: number;
+  status?: string;
+  customerId?: string;
+  locationId?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string; // ✅ NOW INCLUDED
+
+  paymentStatus?: string;
+  riteFoodsStatus?: string;
+  deliveryStatus?: string;
+}
+
+// ✅ NEW: Payment History Interface
+export interface PaymentHistory {
+  id: string;
+  orderId: string;
+  amount: number;
+  paymentMethod: string;
+  reference?: string;
+  paidBy: string;
+  receivedBy: string;
+  notes?: string;
+  createdAt: string;
+}
+
+// ✅ NEW: Weekly Performance Interface
+export interface WeeklyPerformance {
+  id: string;
+  targetId: string;
+  weekNumber: number;
+  targetPacks: number;
+  actualPacks: number;
+  percentageAchieved: number;
+  weekStartDate: string;
+  weekEndDate: string;
+}
+
+// ✅ NEW: Target Interface
+export interface DistributionTarget {
+  id: string;
+  year: number;
+  month: number;
+  totalPacksTarget: number;
+  weeklyTargets: number[];
+  weeklyPerformances?: WeeklyPerformance[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ✅ NEW: Payment Recording Interface
 export interface RecordPaymentData {
   orderId: string;
   amount: number;
   paymentMethod: string;
   reference?: string;
-  paidBy?: string;
-  receivedBy: string;
+  paidBy: string;
   notes?: string;
 }
 
-export interface ConfirmPaymentData {
-  orderId: string;
+// ✅ NEW: Bulk Payment Confirmation Interface
+export interface BulkPaymentConfirmData {
+  orderIds: string[];
   notes?: string;
-}
-
-export interface PayRiteFoodsData {
-  orderId: string;
-  amount: number;
-  paymentMethod: 'BANK_TRANSFER' | 'CHECK';
-  reference: string;
-  riteFoodsOrderNumber?: string;
-  riteFoodsInvoiceNumber?: string;
-}
-
-export interface UpdateRiteFoodsStatusData {
-  orderId: string;
-  riteFoodsStatus: string;
-  orderRaisedAt?: string;
-  loadedDate?: string;
-}
-
-export interface AssignTransportData {
-  orderId: string;
-  transporterCompany: string;
-  driverNumber: string;
-  truckNumber?: string;
-}
-
-export interface RecordDeliveryData {
-  orderId: string;
-  deliveryStatus: 'FULLY_DELIVERED' | 'PARTIALLY_DELIVERED' | 'FAILED';
-  deliveredPallets?: number;
-  deliveredPacks?: number;
-  deliveredBy: string;
-  deliveryNotes?: string;
-  nonDeliveryReason?: string;
-  partialDeliveryReason?: string;
 }
 
 export class DistributionService extends BaseApiService {
@@ -91,21 +102,13 @@ export class DistributionService extends BaseApiService {
     super('/distribution');
   }
 
-  // Dashboard & Analytics
+  // Analytics
   async getDashboardStats(): Promise<any> {
     return this.get('/analytics/summary');
   }
 
-  async getWorkflowSummary(): Promise<any> {
-    return this.get('/dashboard/workflow-summary');
-  }
-
-  async getReadyForTransport(): Promise<any> {
-    return this.get('/dashboard/ready-for-transport');
-  }
-
-  // Orders
-  async getOrders(filters?: DistributionFilters): Promise<any> {
+  // Orders with proper filtering (including search)
+  async getOrders(filters?: DistributionFilters): Promise<PaginatedResponse<DistributionOrder>> {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -114,108 +117,114 @@ export class DistributionService extends BaseApiService {
         }
       });
     }
-    return this.get(`/orders?${params.toString()}`);
+    return this.get<PaginatedResponse<DistributionOrder>>(`/orders?${params.toString()}`);
   }
 
-  async getOrder(id: string): Promise<any> {
-    return this.get(`/orders/${id}`);
+  async getOrder(id: string): Promise<DistributionOrder> {
+    return this.get<DistributionOrder>(`/orders/${id}`);
   }
 
-  async createOrder(data: CreateOrderData): Promise<any> {
-    return this.post(data, '/orders');
+  async createOrder(data: CreateOrderData): Promise<DistributionOrder> {
+    return this.post<DistributionOrder>(data, '/orders');
   }
 
-  async updateOrder(id: string, data: Partial<CreateOrderData>): Promise<any> {
-    return this.put(data, `/orders/${id}`);
+  async updateOrder(id: string, data: Partial<CreateOrderData>): Promise<DistributionOrder> {
+    return this.put<DistributionOrder>(data, `/orders/${id}`);
   }
 
-  async updateOrderStatus(id: string, status: string): Promise<any> {
-    return this.put({ status }, `/orders/${id}/status`);
+  async updateOrderStatus(id: string, status: string): Promise<DistributionOrder> {
+    return this.put<DistributionOrder>({ status }, `/orders/${id}/status`);
   }
 
-  // Payment Operations
-  async recordPayment(data: RecordPaymentData): Promise<any> {
-    return this.post(data, '/payments/record');
+  // ✅ NEW: Payment History Methods
+  async getPaymentHistory(orderId: string): Promise<PaymentHistory[]> {
+    return this.get<PaymentHistory[]>(`/orders/${orderId}/payments`);
   }
 
-  async confirmPayment(data: ConfirmPaymentData): Promise<any> {
-    return this.post(data, '/payments/confirm');
+  async recordPayment(data: RecordPaymentData): Promise<PaymentHistory> {
+    return this.post<PaymentHistory>(data, '/payments');
   }
 
-  async payRiteFoods(data: PayRiteFoodsData): Promise<any> {
-    return this.post(data, '/payments/rite-foods');
+  async confirmPayment(orderId: string, notes?: string): Promise<DistributionOrder> {
+    return this.put<DistributionOrder>({ notes }, `/orders/${orderId}/confirm-payment`);
   }
 
-  async updateRiteFoodsStatus(data: UpdateRiteFoodsStatusData): Promise<any> {
-    return this.put(data, '/payments/rite-foods/status');
+  // ✅ NEW: Bulk Payment Confirmation (Admin only)
+  async bulkConfirmPayments(data: BulkPaymentConfirmData): Promise<any> {
+    return this.post<any>(data, '/orders/bulk/confirm-payments');
   }
 
-  async bulkConfirmPayments(orderIds: string[], notes?: string): Promise<any> {
-    return this.post({ orderIds, notes }, '/orders/bulk/confirm-payments');
+  // Customer Management
+  async getCustomers(page = 1, limit = 10): Promise<PaginatedResponse<DistributionCustomer>> {
+    return this.get<PaginatedResponse<DistributionCustomer>>(`/customers?page=${page}&limit=${limit}`);
   }
 
-  // Delivery Operations
-  async assignTransport(data: AssignTransportData): Promise<any> {
-    return this.post(data, '/delivery/assign-transport');
+  async getCustomer(id: string): Promise<DistributionCustomer> {
+    return this.get<DistributionCustomer>(`/customers/${id}`);
   }
 
-  async recordDelivery(data: RecordDeliveryData): Promise<any> {
-    return this.post(data, '/delivery/record');
+  async createCustomer(data: CreateCustomerData): Promise<DistributionCustomer> {
+    return this.post<DistributionCustomer>(data, '/customers');
   }
 
-  async getDeliverySummary(orderId: string): Promise<any> {
-    return this.get(`/delivery/${orderId}/summary`);
+  async updateCustomer(id: string, data: Partial<CreateCustomerData>): Promise<DistributionCustomer> {
+    return this.put<DistributionCustomer>(data, `/customers/${id}`);
   }
 
-  async getInTransitOrders(): Promise<any> {
-    return this.get('/delivery/in-transit');
+  async getCustomerOrders(customerId: string): Promise<DistributionOrder[]> {
+    return this.get<DistributionOrder[]>(`/customers/${customerId}/orders`);
   }
 
-  // Customers
-  async getCustomers(page = 1, limit = 10): Promise<any> {
-    return this.get(`/customers?page=${page}&limit=${limit}`);
+  // ✅ NEW: Targets & Performance Methods
+  async getTargets(page = 1, limit = 10): Promise<PaginatedResponse<DistributionTarget>> {
+    return this.get<PaginatedResponse<DistributionTarget>>(`/targets?page=${page}&limit=${limit}`);
   }
 
-  async getCustomer(id: string): Promise<any> {
-    return this.get(`/customers/${id}`);
-  }
-
-  async createCustomer(data: CreateCustomerData): Promise<any> {
-    return this.post(data, '/customers');
-  }
-
-  async updateCustomer(id: string, data: Partial<CreateCustomerData>): Promise<any> {
-    return this.put(data, `/customers/${id}`);
-  }
-
-  async getCustomerOrders(customerId: string): Promise<any> {
-    return this.get(`/customers/${customerId}/orders`);
-  }
-
-  // Products & Locations
-  async getProducts(): Promise<any> {
-    return this.get('/products');
-  }
-
-  async getLocations(): Promise<any> {
-    return this.get('/locations');
-  }
-
-  // Targets & Performance
-  async getTargets(): Promise<any> {
-    return this.get('/targets');
-  }
-
-  async getCurrentTarget(): Promise<any> {
+  async getCurrentTarget(): Promise<{
+    target: DistributionTarget;
+    summary: {
+      totalTarget: number;
+      totalActual: number;
+      percentageAchieved: number;
+      remainingTarget: number;
+    };
+  }> {
     return this.get('/targets/current');
   }
 
-  async setTarget(data: any): Promise<any> {
-    return this.post(data, '/targets');
+  async createTarget(data: {
+    year: number;
+    month: number;
+    totalPacksTarget: number;
+    weeklyTargets: number[];
+  }): Promise<DistributionTarget> {
+    return this.post<DistributionTarget>(data, '/targets');
   }
 
-  async getWeeklyPerformance(): Promise<any> {
-    return this.get('/performance/weekly');
+  // ✅ NEW: Weekly Performance Tracking
+  async getWeeklyPerformance(params?: {
+    year?: number;
+    month?: number;
+    week?: number;
+  }): Promise<WeeklyPerformance[]> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    return this.get<WeeklyPerformance[]>(`/performance/weekly?${queryParams.toString()}`);
+  }
+
+  // Products & Locations
+  async getProducts(): Promise<Product[]> {
+    return this.get<Product[]>('/products');
+  }
+
+  async getLocations(): Promise<Location[]> {
+    return this.get<Location[]>('/locations');
   }
 }
 

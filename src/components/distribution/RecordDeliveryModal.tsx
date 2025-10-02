@@ -12,8 +12,8 @@ import { toast } from 'react-hot-toast';
 
 const deliverySchema = z.object({
     deliveryStatus: z.enum(['FULLY_DELIVERED', 'PARTIALLY_DELIVERED', 'FAILED']),
-    deliveredPallets: z.coerce.number().min(0).optional(),
-    deliveredPacks: z.coerce.number().min(0).optional(),
+    deliveredPallets: z.number().min(0).optional(),
+    deliveredPacks: z.number().min(0).optional(),
     deliveredBy: z.string().min(1, 'Delivered by is required'),
     deliveryNotes: z.string().optional(),
     nonDeliveryReason: z.string().optional(),
@@ -51,6 +51,10 @@ export const RecordDeliveryModal: React.FC<RecordDeliveryModalProps> = ({
             deliveryStatus: 'FULLY_DELIVERED',
             deliveredPallets: totalPallets,
             deliveredPacks: totalPacks,
+            deliveredBy: '',
+            deliveryNotes: '',
+            nonDeliveryReason: '',
+            partialDeliveryReason: '',
         },
     });
 
