@@ -83,6 +83,7 @@ export interface RecordPaymentData {
   paymentMethod: string;
   reference?: string;
   paidBy: string;
+  receivedBy: string;  // ✅ ADD THIS
   notes?: string;
 }
 
@@ -131,12 +132,12 @@ export class DistributionService extends BaseApiService {
   }
 
   // ✅ FIXED: Payment History Methods - Match Backend Routes
-  async getPaymentHistory(orderId: string): Promise<PaymentHistory[]> {
-    // Backend route: GET /api/v1/distribution/payments/:orderId/summary
-    const response = await this.get<any>(`/payments/${orderId}/summary`);
-    // Extract payment history from summary response
-    return response.customerPayments || [];
-  }
+  async getPaymentHistory(orderId: string): Promise<any> {
+  // Backend route: GET /api/v1/distribution/payments/:orderId/summary
+  const response = await this.get<any>(`/payments/${orderId}/summary`);
+  // Return the full summary response
+  return response;
+}
 
   async recordPayment(data: RecordPaymentData): Promise<PaymentHistory> {
     // ✅ Backend route: POST /api/v1/distribution/payments/record

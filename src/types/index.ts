@@ -1,4 +1,8 @@
+// src/types/index.ts
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { ReactNode } from 'react';
+
 // Base API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -101,17 +105,16 @@ export interface Location {
   updatedAt: string;
 }
 
-// Audit Types (Updated to match actual API response)
+// Audit Types
 export interface AuditLog {
-  timestamp(timestamp: any): import("react").ReactNode;
+  timestamp(timestamp: any): ReactNode;
   id: string;
   action: string;
   entity: string;
-  createdAt: string;  // API uses createdAt, not timestamp
-  user?: {            // API returns nested user object
+  createdAt: string;
+  user?: {
     username: string;
   };
-  // Optional fields that may be added later
   userId?: string;
   userEmail?: string;
   entityId?: string;
@@ -137,24 +140,72 @@ export interface DistributionCustomer extends Customer {
 }
 
 export interface DistributionOrder {
-  amountPaid: number;
-  finalAmount: number;
-  orderNumber: string;
-  totalPallets: ReactNode;
-  totalPacks: ReactNode;
-  paymentStatus: string;
-  paymentConfirmedAt: any;
-  balance: number;
   id: string;
-  orderNo: string;
+  orderNo?: string;
+  orderNumber?: string;
   customerId: string;
   customer?: DistributionCustomer;
   locationId: string;
   location?: Location;
-  status: 'PENDING' | 'APPROVED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-  totalAmount: number;
-  orderItems: DistributionOrderItem[];
+  deliveryLocation?: string;
+  totalPallets: number;
+  totalPacks: number;
+  originalAmount: number;
+  finalAmount: number;
+  balance: number;
+  amountPaid: number;
+  
+  // Payment fields
+  paymentStatus: 'PENDING' | 'PARTIAL' | 'CONFIRMED';
+  paymentMethod?: string;
+  paymentReference?: string;
+  paymentConfirmedBy?: string;
+  paymentConfirmedAt?: string;
+  paymentNotes?: string;
+  
+  // Rite Foods fields
+  paidToRiteFoods: boolean;
+  amountPaidToRiteFoods?: number;
+  paymentDateToRiteFoods?: string;
+  riteFoodsOrderNumber?: string;
+  riteFoodsInvoiceNumber?: string;
+  riteFoodsStatus: 'NOT_SENT' | 'PAYMENT_SENT' | 'ORDER_RAISED' | 'PROCESSING' | 'LOADED' | 'DISPATCHED';
+  orderRaisedByRFL?: boolean;
+  orderRaisedAt?: string;
+  riteFoodsLoadedDate?: string;
+  
+  // Transport fields
+  transporterCompany?: string;
+  driverNumber?: string;
+  truckNumber?: string;
+  
+  // Delivery fields
+  deliveryStatus: 'PENDING' | 'IN_TRANSIT' | 'FULLY_DELIVERED' | 'PARTIALLY_DELIVERED' | 'FAILED';
+  deliveredPallets?: number;
+  deliveredPacks?: number;
+  deliveredAt?: string;
+  deliveredBy?: string;
+  deliveryNotes?: string;
+  nonDeliveryReason?: string;
+  partialDeliveryReason?: string;
+  deliveryReviewedBy?: string;
+  deliveryReviewedAt?: string;
+  
+  // Order status
+  status: 
+    | 'PENDING' 
+    | 'PAYMENT_CONFIRMED' 
+    | 'SENT_TO_RITE_FOODS' 
+    | 'PROCESSING_BY_RFL' 
+    | 'LOADED' 
+    | 'IN_TRANSIT' 
+    | 'DELIVERED' 
+    | 'PARTIALLY_DELIVERED' 
+    | 'CANCELLED';
+  
+  orderItems?: DistributionOrderItem[];
   remark?: string;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -166,6 +217,20 @@ export interface DistributionOrderItem {
   pallets: number;
   packs: number;
   amount: number;
+}
+
+export interface PaymentHistory {
+  id: string;
+  orderId: string;
+  amount: number;
+  paymentType: string;
+  paymentMethod: string;
+  reference?: string;
+  paidBy?: string;
+  receivedBy?: string;
+  confirmedBy?: string;
+  notes?: string;
+  createdAt: string;
 }
 
 // Warehouse Module Types
@@ -245,12 +310,12 @@ export interface Trip {
   origin: string;
   destination: string;
   distance: number;
-  tripDate: string;
-  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  amount: number;
-  fuelCost?: number;
-  driverWages?: number;
-  otherExpenses?: number;
+  fuelCost: number;
+  driverWages: number;
+  tripExpenses: number;
+  totalRevenue: number;
+  netProfit: number;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   createdAt: string;
   updatedAt: string;
 }
@@ -258,75 +323,18 @@ export interface Trip {
 // Expense Types
 export interface Expense {
   id: string;
-  module: 'DISTRIBUTION' | 'TRANSPORT' | 'WAREHOUSE';
   category: string;
-  amount: number;
   description: string;
+  amount: number;
   expenseDate: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  approvedBy?: string;
-  approvalDate?: string;
-  receiptUrl?: string;
-  createdBy: string;
   createdAt: string;
   updatedAt: string;
 }
 
 // Analytics Types
 export interface DashboardStats {
-  totalRevenue: number;
   totalOrders: number;
-  totalCustomers: number;
-  monthlyGrowth: number;
-  recentActivity: any[];
-}
-
-// Error Types
-export interface ApiError {
-  error: string;
-  message: string;
-  field?: string;
-  code?: string;
-}
-
-// Distribution Target Types
-export interface DistributionTarget {
-  id: string;
-  year: number;
-  month: number;
-  totalPacksTarget: number;
-  currentPacks: number;
-  weeklyTargets: number[];
-  isActive: boolean;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface WeeklyPerformance {
-  id: string;
-  targetId: string;
-  weekNumber: number; // 1-4 for weeks in month
-  weekStartDate: string;
-  weekEndDate: string;
-  targetPacks: number;
-  actualPacks: number;
-  achievementPercentage: number;
-  revenue: number;
-  ordersCount: number;
-  isCompleted: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Form Types
-export interface LoginCredentials {
-  username: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  user: User;
-  token: string;
-  refreshToken?: string;
+  totalRevenue: number;
+  activeCustomers: number;
+  pendingOrders: number;
 }

@@ -1,3 +1,5 @@
+// src/pages/distribution/OrderDetails.tsx
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,16 +11,21 @@ import {
     MapPin,
     User,
     CheckCircle,
-    Clock,
-    AlertCircle
+    AlertCircle,
+    Truck
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { UpdateRiteFoodsStatusModal } from '../../components/distribution/UpdateRiteFoodsStatusModal';
+import { RecordDeliveryModal } from '../../components/distribution/RecordDeliveryModal';
+import { PayRiteFoodsModal } from '../../components/distribution/PayRiteFoodsModal';
+import { AssignTransportModal } from '../../components/distribution/AssignTransportModal';
+
+
 import { toast } from 'react-hot-toast';
-import { DistributionOrder } from '../../types';
 
 export const OrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -26,12 +33,19 @@ export const OrderDetails: React.FC = () => {
     const queryClient = useQueryClient();
 
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isRiteFoodsModalOpen, setIsRiteFoodsModalOpen] = useState(false);
+    const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+    const [isPayRiteFoodsModalOpen, setIsPayRiteFoodsModalOpen] = useState(false);
+    const [isAssignTransportModalOpen, setIsAssignTransportModalOpen] = useState(false);
+
+
+
     const [paymentData, setPaymentData] = useState({
         amount: 0,
         paymentMethod: 'CASH',
         reference: '',
         paidBy: '',
-        receivedBy: '',  // ✅ Add receivedBy field
+        receivedBy: '',
         notes: ''
     });
 
@@ -41,7 +55,7 @@ export const OrderDetails: React.FC = () => {
         enabled: !!id,
     });
 
-    const { data: paymentsResponse } = useQuery({
+    const { data: paymentSummary } = useQuery({
         queryKey: ['order-payments', id],
         queryFn: () => distributionService.getPaymentHistory(id!),
         enabled: !!id,
@@ -78,18 +92,19 @@ export const OrderDetails: React.FC = () => {
             paymentMethod: 'CASH',
             reference: '',
             paidBy: '',
-            receivedBy: '',  // ✅ Add receivedBy field
+            receivedBy: '',
             notes: ''
         });
     };
 
     const handleRecordPayment = (e: React.FormEvent) => {
         e.preventDefault();
-
-        if (!id) return;
-
+        if (!paymentData.receivedBy) {
+            toast.error('Received By is required');
+            return;
+        }
         recordPaymentMutation.mutate({
-            orderId: id,
+            orderId: id!,
             ...paymentData
         });
     };
@@ -102,23 +117,11 @@ export const OrderDetails: React.FC = () => {
         );
     }
 
-    // ✅ FIX: Handle potentially nested API response structure
-    // Backend might return { data: { order: {...} } } or just the order directly
-    let order: DistributionOrder | null = null;
+    // ✅ FIX: Extract order from API response
+    const order = (orderResponse as any)?.data?.order || (orderResponse as any)?.data || orderResponse;
 
-    if (orderResponse) {
-        // Check if response has nested data.order structure
-        if ((orderResponse as any).data?.order) {
-            order = (orderResponse as any).data.order;
-        } else if ((orderResponse as any).data) {
-            order = (orderResponse as any).data;
-        } else {
-            // Response is the order directly
-            order = orderResponse as any;
-        }
-    }
-
-    const payments = paymentsResponse || [];
+    // ✅ FIX: Extract payment history from summary
+    const payments = (paymentSummary as any)?.data?.customerPayments || (paymentSummary as any)?.customerPayments || [];
 
     if (!order) {
         return (
@@ -132,39 +135,36 @@ export const OrderDetails: React.FC = () => {
         );
     }
 
-    // ✅ FIX: Safely handle payment-related fields that might not exist in type
-    const balance = parseFloat((order as any).balance || 0);
-    const amountPaid = parseFloat((order as any).amountPaid || 0);
-    const totalAmount = parseFloat((order as any).finalAmount || order.finalAmount || 0);
-    const paymentStatus = (order as any).paymentStatus || 'PENDING';
+    const balance = parseFloat(order.balance || 0);
+    const canConfirmPayment = order.paymentStatus === 'PENDING' && balance === 0;
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center space-x-4">
-                <Button
-                    variant="outline"
-                    onClick={() => navigate('/distribution/orders')}
-                    className="flex items-center"
-                >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back
-                </Button>
-                <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                        Order #{order.orderNumber || order.id.slice(-8)}
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                        Created on {new Date(order.createdAt).toLocaleDateString()}
-                    </p>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                    <button
+                        onClick={() => navigate('/distribution/orders')}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                    >
+                        <ArrowLeft className="h-5 w-5" />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">
+                            Order #{order.id?.slice(-8)}
+                        </h1>
+                        <p className="text-sm text-gray-500">
+                            Created on {new Date(order.createdAt).toLocaleDateString()}
+                        </p>
+                    </div>
                 </div>
-                <span className={`px-3 py-1 text-sm font-semibold rounded-full ${order.status === 'DELIVERED'
-                        ? 'bg-green-100 text-green-800'
-                        : order.status === 'PROCESSING'
-                            ? 'bg-blue-100 text-blue-800'
-                            : order.status === 'PENDING'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${order.status === 'DELIVERED' || order.status === 'PARTIALLY_DELIVERED'
+                    ? 'bg-green-100 text-green-800'
+                    : order.status === 'PROCESSING' || order.status === 'PROCESSING_BY_RFL'
+                        ? 'bg-blue-100 text-blue-800'
+                        : order.status === 'PENDING' || order.status === 'PAYMENT_CONFIRMED'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
                     }`}>
                     {order.status}
                 </span>
@@ -183,10 +183,10 @@ export const OrderDetails: React.FC = () => {
                             {order.customer?.name || 'N/A'}
                         </p>
                         <p className="text-sm text-gray-600">
-                            {(order.customer as any)?.phone || 'No phone'}
+                            {order.customer?.phone || 'No phone'}
                         </p>
                         <p className="text-sm text-gray-600">
-                            {(order.customer as any)?.email || 'No email'}
+                            {order.customer?.email || 'No email'}
                         </p>
                     </div>
                 </div>
@@ -199,32 +199,32 @@ export const OrderDetails: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                         <p className="text-sm font-medium text-gray-900">
-                            {(order.location as any)?.name || 'N/A'}
+                            {order.location?.name || 'N/A'}
                         </p>
                         <p className="text-sm text-gray-600">
-                            {(order.location as any)?.address || 'No address'}
+                            {order.deliveryLocation || 'No specific location'}
                         </p>
                     </div>
                 </div>
 
-                {/* Order Summary */}
+                {/* Summary */}
                 <div className="bg-white shadow rounded-lg p-6">
                     <div className="flex items-center mb-4">
                         <Package className="h-5 w-5 text-gray-400 mr-2" />
                         <h3 className="text-lg font-medium text-gray-900">Summary</h3>
                     </div>
                     <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Total Pallets:</span>
-                            <span className="font-medium">{order.totalPallets || 0}</span>
+                        <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Total Pallets:</span>
+                            <span className="text-sm font-medium">{order.totalPallets}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Total Packs:</span>
-                            <span className="font-medium">{order.totalPacks || 0}</span>
+                        <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Total Packs:</span>
+                            <span className="text-sm font-medium">{order.totalPacks}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Created:</span>
-                            <span className="font-medium">
+                        <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Created:</span>
+                            <span className="text-sm font-medium">
                                 {new Date(order.createdAt).toLocaleDateString()}
                             </span>
                         </div>
@@ -233,10 +233,8 @@ export const OrderDetails: React.FC = () => {
             </div>
 
             {/* Order Items */}
-            <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Order Items</h3>
-                </div>
+            <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Order Items</h3>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -250,7 +248,7 @@ export const OrderDetails: React.FC = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Packs
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Amount
                                 </th>
                             </tr>
@@ -258,17 +256,17 @@ export const OrderDetails: React.FC = () => {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {order.orderItems?.map((item: any) => (
                                 <tr key={item.id}>
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                        {item.product?.name || 'Unknown Product'}
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {item.product?.name || 'N/A'}
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">
-                                        {item.pallets || 0}
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {item.pallets}
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">
-                                        {item.packs || 0}
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {item.packs}
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                                        ₦{parseFloat(item.amount || 0).toLocaleString()}
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        ₦{parseFloat(item.amount?.toString() || '0').toLocaleString()}
                                     </td>
                                 </tr>
                             ))}
@@ -277,108 +275,242 @@ export const OrderDetails: React.FC = () => {
                 </div>
             </div>
 
-            {/* Payment Status */}
-            <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Payment Summary</h3>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Total Amount</span>
-                        <span className="text-sm font-semibold text-gray-900">
-                            ₦{totalAmount.toLocaleString()}
+            {/* Payment Summary */}
+            <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Summary</h3>
+
+                <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Total Amount</span>
+                        <span className="font-medium">
+                            ₦{parseFloat(order.finalAmount?.toString() || '0').toLocaleString()}
                         </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Amount Paid</span>
-                        <span className="text-sm font-semibold text-green-600">
-                            ₦{amountPaid.toLocaleString()}
+                    <div className="flex justify-between text-sm border-t pt-3">
+                        <span className="text-gray-600">Amount Paid</span>
+                        <span className="font-medium text-green-600">
+                            ₦{parseFloat(order.amountPaid?.toString() || '0').toLocaleString()}
                         </span>
                     </div>
-                    <div className="flex justify-between items-center pt-4 border-t">
-                        <span className="text-sm font-medium text-gray-900">Balance</span>
-                        <span className={`text-lg font-bold ${balance <= 0 ? 'text-green-600' : 'text-orange-600'
-                            }`}>
+                    <div className="flex justify-between text-base font-semibold border-t pt-3">
+                        <span>Balance</span>
+                        <span className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
                             ₦{balance.toLocaleString()}
                         </span>
                     </div>
+                </div>
 
-                    {/* Payment Status Badge */}
-                    <div className="pt-4">
-                        <span className={`w-full flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg ${paymentStatus === 'CONFIRMED'
-                                ? 'bg-green-100 text-green-800'
-                                : paymentStatus === 'PARTIAL'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-gray-100 text-gray-800'
-                            }`}>
-                            {paymentStatus === 'CONFIRMED' && <CheckCircle className="h-4 w-4 mr-2" />}
-                            {paymentStatus === 'PENDING' && <Clock className="h-4 w-4 mr-2" />}
-                            {paymentStatus}
-                        </span>
+                {order.paymentStatus === 'CONFIRMED' && (
+                    <div className="mt-4 p-3 bg-green-50 rounded-lg flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                        <span className="text-sm font-medium text-green-800">CONFIRMED</span>
                     </div>
+                )}
 
-                    {/* Action Buttons */}
-                    <div className="flex space-x-3 pt-4">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setIsPaymentModalOpen(true)}
-                            disabled={balance <= 0}
-                            className="flex-1"
-                        >
-                            <DollarSign className="h-4 w-4 mr-2" />
-                            Record Payment
-                        </Button>
-                        {paymentStatus !== 'CONFIRMED' && balance <= 0 && (
+                {order.paymentStatus === 'PENDING' && balance > 0 && (
+                    <Button
+                        onClick={() => setIsPaymentModalOpen(true)}
+                        className="mt-4 w-full"
+                    >
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Record Payment
+                    </Button>
+                )}
+
+                {canConfirmPayment && (
+                    <Button
+                        onClick={() => confirmPaymentMutation.mutate()}
+                        disabled={confirmPaymentMutation.isPending}
+                        className="mt-4 w-full bg-green-600 hover:bg-green-700"
+                    >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        {confirmPaymentMutation.isPending ? 'Confirming...' : 'Confirm Payment'}
+                    </Button>
+                )}
+            </div>
+
+            {/* Rite Foods & Delivery Actions */}
+            <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Order Status Management</h3>
+
+                {/* Rite Foods Payment & Status Section */}
+                <div className="border-b pb-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-700">Rite Foods Payment</h4>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Payment Status: <span className="font-medium">
+                                    {order.paidToRiteFoods ? '✓ Paid' : 'Not Paid'}
+                                </span>
+                            </p>
+                            {order.paidToRiteFoods && (
+                                <p className="text-xs text-gray-500">
+                                    Rite Foods Status: <span className="font-medium">{order.riteFoodsStatus}</span>
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Show Pay Rite Foods button if not paid yet */}
+                        {!order.paidToRiteFoods && (
                             <Button
+                                variant="outline"
                                 size="sm"
-                                onClick={() => confirmPaymentMutation.mutate()}
-                                className="flex-1"
+                                onClick={() => setIsPayRiteFoodsModalOpen(true)}
+                                disabled={order.paymentStatus !== 'CONFIRMED'}
+                                className="flex items-center"
                             >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Confirm Payment
+                                <DollarSign className="h-4 w-4 mr-2" />
+                                Pay Rite Foods
+                            </Button>
+                        )}
+
+                        {/* Show Update Status button if already paid */}
+                        {order.paidToRiteFoods && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsRiteFoodsModalOpen(true)}
+                                className="flex items-center"
+                            >
+                                <Package className="h-4 w-4 mr-2" />
+                                Update Rite Foods Status
                             </Button>
                         )}
                     </div>
+
+                    {/* Show requirements */}
+                    {!order.paidToRiteFoods && order.paymentStatus !== 'CONFIRMED' && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
+                            <p className="text-yellow-800">
+                                ⚠️ Customer payment must be confirmed before paying Rite Foods
+                            </p>
+                        </div>
+                    )}
+
+                    {order.paidToRiteFoods && (
+                        <div className="bg-green-50 border border-green-200 rounded p-3 text-xs">
+                            <p className="text-green-800">
+                                ✓ Payment sent to Rite Foods on {new Date(order.paymentDateToRiteFoods || '').toLocaleDateString()}
+                            </p>
+                            {order.riteFoodsOrderNumber && (
+                                <p className="text-green-800 mt-1">
+                                    Order #: {order.riteFoodsOrderNumber}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Delivery Status Section */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-700">Delivery Status</h4>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Current: <span className="font-medium">{order.deliveryStatus || 'PENDING'}</span>
+                            </p>
+                            {order.transporterCompany && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Transport: {order.transporterCompany}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex space-x-2">
+                            {/* Show Assign Transport button if not assigned and Rite Foods is LOADED */}
+                            {!order.transporterCompany && order.riteFoodsStatus === 'LOADED' && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsAssignTransportModalOpen(true)}
+                                    className="flex items-center"
+                                >
+                                    <Truck className="h-4 w-4 mr-2" />
+                                    Assign Transport
+                                </Button>
+                            )}
+
+                            {/* Show Record Delivery button if transport is assigned */}
+                            {order.transporterCompany && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsDeliveryModalOpen(true)}
+                                    disabled={order.deliveryStatus === 'FULLY_DELIVERED'}
+                                    className="flex items-center"
+                                >
+                                    <Truck className="h-4 w-4 mr-2" />
+                                    Record Delivery
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Show requirements/status messages */}
+                    {!order.transporterCompany && order.riteFoodsStatus !== 'LOADED' && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
+                            <p className="text-yellow-800">
+                                ⚠️ Rite Foods status must be LOADED before assigning transport
+                            </p>
+                        </div>
+                    )}
+
+                    {order.transporterCompany && order.deliveryStatus === 'PENDING' && (
+                        <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs">
+                            <p className="text-blue-800">
+                                🚚 Transport assigned - Ready to record delivery
+                            </p>
+                        </div>
+                    )}
+
+                    {order.deliveryStatus === 'FULLY_DELIVERED' && (
+                        <div className="bg-green-50 border border-green-200 rounded p-3 text-xs">
+                            <p className="text-green-800">
+                                ✓ Delivery has been completed
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Payment History */}
-            <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Payment History</h3>
-                </div>
-                <div className="p-6">
-                    {payments.length > 0 ? (
-                        <div className="space-y-4">
-                            {payments.map((payment: any) => (
-                                <div
-                                    key={payment.id}
-                                    className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
-                                >
+            <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Payment History</h3>
+                {payments.length === 0 ? (
+                    <p className="text-sm text-gray-500">No payment history</p>
+                ) : (
+                    <div className="space-y-3">
+                        {payments.map((payment: any) => (
+                            <div key={payment.id} className="border-b pb-3 last:border-b-0">
+                                <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-sm font-medium text-gray-900">
-                                            ₦{parseFloat(payment.amount).toLocaleString()}
+                                            ₦{parseFloat(payment.amount?.toString() || '0').toLocaleString()}
                                         </p>
                                         <p className="text-xs text-gray-500">
-                                            {payment.paymentMethod} • {new Date(payment.createdAt).toLocaleString()}
+                                            {payment.method}
                                         </p>
                                         {payment.reference && (
-                                            <p className="text-xs text-gray-500">Ref: {payment.reference}</p>
+                                            <p className="text-xs text-gray-500">
+                                                Ref: {payment.reference}
+                                            </p>
                                         )}
                                     </div>
-                                    <span className="text-xs text-gray-500">
-                                        By {payment.paidBy || 'Unknown'}
-                                    </span>
+                                    <div className="text-right">
+                                        <p className="text-xs text-gray-500">
+                                            {new Date(payment.date).toLocaleDateString()}
+                                        </p>
+                                        {payment.receivedBy && (
+                                            <p className="text-xs text-gray-500">
+                                                By: {payment.receivedBy}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-gray-500 text-center py-8">
-                            No payment history available
-                        </p>
-                    )}
-                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Record Payment Modal */}
@@ -396,7 +528,7 @@ export const OrderDetails: React.FC = () => {
                             type="number"
                             step="0.01"
                             value={paymentData.amount}
-                            onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) })}
+                            onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })}
                             required
                             className="mt-1"
                         />
@@ -418,7 +550,9 @@ export const OrderDetails: React.FC = () => {
                             <option value="CASH">Cash</option>
                             <option value="BANK_TRANSFER">Bank Transfer</option>
                             <option value="CHECK">Check</option>
+                            <option value="WHATSAPP_TRANSFER">WhatsApp Transfer</option>
                             <option value="POS">POS</option>
+                            <option value="MOBILE_MONEY">Mobile Money</option>
                         </select>
                     </div>
 
@@ -430,19 +564,19 @@ export const OrderDetails: React.FC = () => {
                             type="text"
                             value={paymentData.reference}
                             onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
+                            placeholder="Transaction reference"
                             className="mt-1"
                         />
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">
-                            Paid By *
+                            Paid By
                         </label>
                         <Input
                             type="text"
                             value={paymentData.paidBy}
                             onChange={(e) => setPaymentData({ ...paymentData, paidBy: e.target.value })}
-                            required
                             placeholder="Name of person who paid"
                             className="mt-1"
                         />
@@ -457,7 +591,7 @@ export const OrderDetails: React.FC = () => {
                             value={paymentData.receivedBy}
                             onChange={(e) => setPaymentData({ ...paymentData, receivedBy: e.target.value })}
                             required
-                            placeholder="Name of person who received payment"
+                            placeholder="Your name"
                             className="mt-1"
                         />
                     </div>
@@ -491,6 +625,36 @@ export const OrderDetails: React.FC = () => {
                     </div>
                 </form>
             </Modal>
+
+            {/* Update Rite Foods Status Modal */}
+            <UpdateRiteFoodsStatusModal
+                isOpen={isRiteFoodsModalOpen}
+                onClose={() => setIsRiteFoodsModalOpen(false)}
+                orderId={order.id}
+                currentStatus={order.riteFoodsStatus}
+            />
+
+            {/* Record Delivery Modal */}
+            <RecordDeliveryModal
+                isOpen={isDeliveryModalOpen}
+                onClose={() => setIsDeliveryModalOpen(false)}
+                orderId={order.id}
+                totalPallets={order.totalPallets}
+                totalPacks={order.totalPacks}
+            />
+
+            <PayRiteFoodsModal
+                isOpen={isPayRiteFoodsModalOpen}
+                onClose={() => setIsPayRiteFoodsModalOpen(false)}
+                orderId={order.id}
+                amount={parseFloat(order.finalAmount?.toString() || '0')}
+            />
+
+            <AssignTransportModal
+                isOpen={isAssignTransportModalOpen}
+                onClose={() => setIsAssignTransportModalOpen(false)}
+                orderId={order.id}
+            />
         </div>
     );
 };
