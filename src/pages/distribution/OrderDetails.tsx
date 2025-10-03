@@ -23,8 +23,7 @@ import { UpdateRiteFoodsStatusModal } from '../../components/distribution/Update
 import { RecordDeliveryModal } from '../../components/distribution/RecordDeliveryModal';
 import { PayRiteFoodsModal } from '../../components/distribution/PayRiteFoodsModal';
 import { AssignTransportModal } from '../../components/distribution/AssignTransportModal';
-
-
+import { PriceAdjustmentModal } from '@/components/distribution/PriceAdjustmentModal';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '@/utils/dateUtils';
 
@@ -33,13 +32,13 @@ export const OrderDetails: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
+    // State management
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isRiteFoodsModalOpen, setIsRiteFoodsModalOpen] = useState(false);
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
     const [isPayRiteFoodsModalOpen, setIsPayRiteFoodsModalOpen] = useState(false);
     const [isAssignTransportModalOpen, setIsAssignTransportModalOpen] = useState(false);
-
-
+    const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
 
     const [paymentData, setPaymentData] = useState({
         amount: 0,
@@ -50,6 +49,7 @@ export const OrderDetails: React.FC = () => {
         notes: ''
     });
 
+    // Data fetching
     const { data: orderResponse, isLoading } = useQuery({
         queryKey: ['distribution-order', id],
         queryFn: () => distributionService.getOrder(id!),
@@ -62,6 +62,7 @@ export const OrderDetails: React.FC = () => {
         enabled: !!id,
     });
 
+    // Mutations
     const recordPaymentMutation = useMutation({
         mutationFn: (data: any) => distributionService.recordPayment(data),
         onSuccess: () => {
@@ -87,6 +88,7 @@ export const OrderDetails: React.FC = () => {
         }
     });
 
+    // Helper functions
     const resetPaymentForm = () => {
         setPaymentData({
             amount: 0,
@@ -110,6 +112,7 @@ export const OrderDetails: React.FC = () => {
         });
     };
 
+    // Loading state
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -118,12 +121,11 @@ export const OrderDetails: React.FC = () => {
         );
     }
 
-    // ✅ FIX: Extract order from API response
+    // Extract data from API response
     const order = (orderResponse as any)?.data?.order || (orderResponse as any)?.data || orderResponse;
-
-    // ✅ FIX: Extract payment history from summary
     const payments = (paymentSummary as any)?.data?.customerPayments || (paymentSummary as any)?.customerPayments || [];
 
+    // Not found state
     if (!order) {
         return (
             <div className="text-center py-12">
@@ -136,8 +138,12 @@ export const OrderDetails: React.FC = () => {
         );
     }
 
+    // Calculate values
     const balance = parseFloat(order.balance || 0);
     const canConfirmPayment = order.paymentStatus === 'PENDING' && balance === 0;
+
+    // TODO: Replace with actual user role from auth context/state
+    const userRole = 'ADMIN'; // This should come from your auth context
 
     return (
         <div className="space-y-6">
@@ -160,12 +166,12 @@ export const OrderDetails: React.FC = () => {
                     </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${order.status === 'DELIVERED' || order.status === 'PARTIALLY_DELIVERED'
-                    ? 'bg-green-100 text-green-800'
-                    : order.status === 'PROCESSING' || order.status === 'PROCESSING_BY_RFL'
-                        ? 'bg-blue-100 text-blue-800'
-                        : order.status === 'PENDING' || order.status === 'PAYMENT_CONFIRMED'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
+                        ? 'bg-green-100 text-green-800'
+                        : order.status === 'PROCESSING' || order.status === 'PROCESSING_BY_RFL'
+                            ? 'bg-blue-100 text-blue-800'
+                            : order.status === 'PENDING' || order.status === 'PAYMENT_CONFIRMED'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
                     }`}>
                     {order.status}
                 </span>
@@ -308,27 +314,77 @@ export const OrderDetails: React.FC = () => {
                     </div>
                 )}
 
-                {order.paymentStatus === 'PENDING' && balance > 0 && (
-                    <Button
-                        onClick={() => setIsPaymentModalOpen(true)}
-                        className="mt-4 w-full"
-                    >
-                        <DollarSign className="h-4 w-4 mr-2" />
-                        Record Payment
-                    </Button>
-                )}
+                <div className="mt-4 space-y-2">
+                    {order.paymentStatus === 'PENDING' && balance > 0 && (
+                        <Button
+                            onClick={() => setIsPaymentModalOpen(true)}
+                            className="w-full"
+                        >
+                            <DollarSign className="h-4 w-4 mr-2" />
+                            Record Payment
+                        </Button>
+                    )}
 
-                {canConfirmPayment && (
-                    <Button
-                        onClick={() => confirmPaymentMutation.mutate()}
-                        disabled={confirmPaymentMutation.isPending}
-                        className="mt-4 w-full bg-green-600 hover:bg-green-700"
-                    >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        {confirmPaymentMutation.isPending ? 'Confirming...' : 'Confirm Payment'}
-                    </Button>
-                )}
+                    {canConfirmPayment && (
+                        <Button
+                            onClick={() => confirmPaymentMutation.mutate()}
+                            disabled={confirmPaymentMutation.isPending}
+                            className="w-full bg-green-600 hover:bg-green-700"
+                        >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            {confirmPaymentMutation.isPending ? 'Confirming...' : 'Confirm Payment'}
+                        </Button>
+                    )}
+
+                    {/* Price Adjustment Button - Only for admins after payment confirmed */}
+                    {userRole === 'ADMIN' && order?.paymentStatus === 'CONFIRMED' && (
+                        <Button
+                            onClick={() => setShowAdjustmentModal(true)}
+                            className="w-full bg-orange-600 hover:bg-orange-700"
+                        >
+                            Adjust Price
+                        </Button>
+                    )}
+                </div>
             </div>
+
+            {/* Price Adjustment History */}
+            {order?.priceAdjustments && order.priceAdjustments.length > 0 && (
+                <div className="bg-white shadow rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-3">Price Adjustment History</h3>
+                    <div className="space-y-3">
+                        {order.priceAdjustments.map((adjustment: any) => (
+                            <div key={adjustment.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <span className="font-medium text-gray-700">Original: </span>
+                                        <span className="line-through text-gray-600">
+                                            ₦{parseFloat(adjustment.originalAmount).toLocaleString()}
+                                        </span>
+                                        <span className="mx-2 text-gray-400">→</span>
+                                        <span className="font-medium text-gray-700">New: </span>
+                                        <span className="text-green-600 font-semibold">
+                                            ₦{parseFloat(adjustment.adjustedAmount).toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                        {formatDate(adjustment.createdAt)}
+                                    </span>
+                                </div>
+                                <div className="text-sm mt-2">
+                                    <strong className="text-gray-700">Reason:</strong>
+                                    <p className="text-gray-600 mt-1">{adjustment.reason}</p>
+                                </div>
+                                {adjustment.riteFoodsInvoiceReference && (
+                                    <div className="text-sm text-gray-600 mt-1">
+                                        <strong>Invoice Ref:</strong> {adjustment.riteFoodsInvoiceReference}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Rite Foods & Delivery Actions */}
             <div className="bg-white shadow rounded-lg p-6">
@@ -351,7 +407,6 @@ export const OrderDetails: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Show Pay Rite Foods button if not paid yet */}
                         {!order.paidToRiteFoods && (
                             <Button
                                 variant="outline"
@@ -365,7 +420,6 @@ export const OrderDetails: React.FC = () => {
                             </Button>
                         )}
 
-                        {/* Show Update Status button if already paid */}
                         {order.paidToRiteFoods && (
                             <Button
                                 variant="outline"
@@ -379,7 +433,6 @@ export const OrderDetails: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Show requirements */}
                     {!order.paidToRiteFoods && order.paymentStatus !== 'CONFIRMED' && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
                             <p className="text-yellow-800">
@@ -418,7 +471,6 @@ export const OrderDetails: React.FC = () => {
                         </div>
 
                         <div className="flex space-x-2">
-                            {/* Show Assign Transport button if not assigned and Rite Foods is LOADED */}
                             {!order.transporterCompany && order.riteFoodsStatus === 'LOADED' && (
                                 <Button
                                     variant="outline"
@@ -431,7 +483,6 @@ export const OrderDetails: React.FC = () => {
                                 </Button>
                             )}
 
-                            {/* Show Record Delivery button if transport is assigned */}
                             {order.transporterCompany && (
                                 <Button
                                     variant="outline"
@@ -447,7 +498,6 @@ export const OrderDetails: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Show requirements/status messages */}
                     {!order.transporterCompany && order.riteFoodsStatus !== 'LOADED' && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
                             <p className="text-yellow-800">
@@ -514,7 +564,7 @@ export const OrderDetails: React.FC = () => {
                 )}
             </div>
 
-            {/* Record Payment Modal */}
+            {/* Modals */}
             <Modal
                 isOpen={isPaymentModalOpen}
                 onClose={() => setIsPaymentModalOpen(false)}
@@ -627,7 +677,6 @@ export const OrderDetails: React.FC = () => {
                 </form>
             </Modal>
 
-            {/* Update Rite Foods Status Modal */}
             <UpdateRiteFoodsStatusModal
                 isOpen={isRiteFoodsModalOpen}
                 onClose={() => setIsRiteFoodsModalOpen(false)}
@@ -635,7 +684,6 @@ export const OrderDetails: React.FC = () => {
                 currentStatus={order.riteFoodsStatus}
             />
 
-            {/* Record Delivery Modal */}
             <RecordDeliveryModal
                 isOpen={isDeliveryModalOpen}
                 onClose={() => setIsDeliveryModalOpen(false)}
@@ -656,6 +704,14 @@ export const OrderDetails: React.FC = () => {
                 onClose={() => setIsAssignTransportModalOpen(false)}
                 orderId={order.id}
             />
+
+            {showAdjustmentModal && (
+                <PriceAdjustmentModal
+                    orderId={order.id}
+                    currentAmount={order.finalAmount}
+                    onClose={() => setShowAdjustmentModal(false)}
+                />
+            )}
         </div>
     );
 };

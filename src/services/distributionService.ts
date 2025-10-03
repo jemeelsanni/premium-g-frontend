@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BaseApiService, apiClient } from './api';
+import api, { BaseApiService, apiClient } from './api';
 import { DistributionOrder, DistributionCustomer } from '../types/index';
 import { PaginatedResponse } from '../types/common';
 
@@ -136,9 +136,14 @@ export class DistributionService extends BaseApiService {
     return this.get<PaginatedResponse<DistributionOrder>>(`/orders?${params.toString()}`);
   }
 
-  async getOrder(id: string): Promise<DistributionOrder> {
-    return this.get<DistributionOrder>(`/orders/${id}`);
-  }
+  async getOrder(id: string) {
+    const response = await api.get(`/api/v1/distribution/orders/${id}`, {
+        params: {
+            include: 'priceAdjustments' // Ensure backend includes this
+        }
+    });
+    return response.data;
+}
 
   async createOrder(data: CreateOrderData): Promise<DistributionOrder> {
     return this.post<DistributionOrder>(data, '/orders');
