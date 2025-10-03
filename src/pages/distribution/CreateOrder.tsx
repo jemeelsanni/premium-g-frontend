@@ -166,6 +166,7 @@ export const CreateOrder: React.FC = () => {
         }
     }, [existingOrder, isEditing, setValue]);
 
+
     const onSubmit = (data: OrderFormData) => {
         // Format the data exactly as the backend expects
         const orderData = {
@@ -211,6 +212,61 @@ export const CreateOrder: React.FC = () => {
     let customers: any[] = [];
     let products: any[] = [];
     let locations: any[] = [];
+
+    useEffect(() => {
+        const subscription = watch((value, { name, type }) => {
+            // Only trigger on productId or pallets changes
+            if (!name || (!name.includes('.productId') && !name.includes('.pallets'))) {
+                return;
+            }
+
+            // Extract the index from the field name (e.g., "orderItems.0.productId" -> 0)
+            const match = name.match(/orderItems\.(\d+)\./);
+            if (!match) return;
+
+            const index = parseInt(match[1]);
+            const item = value.orderItems?.[index];
+
+            if (!item?.productId) return;
+
+            // Find the selected product
+            const selectedProduct = products?.find((p: any) => p.id === item.productId);
+            if (!selectedProduct) return;
+
+            const pallets = Number(item.pallets) || 0;
+            const packsPerPallet = Number(selectedProduct.packsPerPallet) || 0;
+            const pricePerPack = parseFloat(selectedProduct.costPerPack || 0);
+
+            // Validate maximum pallets
+            if (pallets > 12) {
+                setValue(`orderItems.${index}.pallets`, 12, { shouldValidate: false });
+                toast.error('Maximum 12 pallets allowed per product');
+                return;
+            }
+
+            // Calculate total packs
+            const calculatedPacks = pallets * packsPerPallet;
+
+            // Calculate amount
+            const calculatedAmount = calculatedPacks * pricePerPack;
+
+            // Get current values
+            const currentPacks = Number(item.packs) || 0;
+            const currentAmount = Number(item.amount) || 0;
+
+            // Only update if different (prevents infinite loop)
+            if (calculatedPacks !== currentPacks) {
+                setValue(`orderItems.${index}.packs`, calculatedPacks, { shouldValidate: false });
+            }
+
+            if (Math.abs(calculatedAmount - currentAmount) > 0.01) {
+                setValue(`orderItems.${index}.amount`, parseFloat(calculatedAmount.toFixed(2)), { shouldValidate: false });
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [watch, products, setValue]);
+
 
     if (customersResponse) {
         if ((customersResponse as any).data?.customers) {
@@ -446,41 +502,62 @@ export const CreateOrder: React.FC = () => {
                                 {/* Pallets */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">
-                                        Pallets
+                                        Pallets (Max: 12) *
                                     </label>
                                     <Input
                                         type="number"
                                         min="0"
-                                        {...register(`orderItems.${index}.pallets`, { valueAsNumber: true })}
+                                        max="12"
+                                        {...register(`orderItems.${index}.pallets`, {
+                                            valueAsNumber: true
+                                        })}
                                         className="mt-1"
+                                        placeholder="0-12"
+                                        onBlur={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            if (val > 12) {
+                                                setValue(`orderItems.${index}.pallets`, 12);
+                                                toast.error('Maximum 12 pallets allowed');
+                                            }
+                                        }}
                                     />
                                 </div>
 
-                                {/* Packs */}
+                                {/* Packs - Read-only */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">
-                                        Packs *
+                                        Total Packs
                                     </label>
                                     <Input
                                         type="number"
-                                        min="1"
-                                        {...register(`orderItems.${index}.packs`, { valueAsNumber: true })}
-                                        className="mt-1"
+                                        {...register(`orderItems.${index}.packs`)}
+                                        className="mt-1 bg-gray-100"
+                                        readOnly
+                                        tabIndex={-1}
                                     />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Auto-calculated
+                                    </p>
                                 </div>
 
-                                {/* Amount */}
+                                {/* Amount - Read-only with formatted display */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">
-                                        Amount (₦) *
+                                        Amount (₦)
                                     </label>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        {...register(`orderItems.${index}.amount`, { valueAsNumber: true })}
-                                        className="mt-1"
+                                    <div className="mt-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm">
+                                        ₦{(Number(watchedItems[index]?.amount) || 0).toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        })}
+                                    </div>
+                                    <input
+                                        type="hidden"
+                                        {...register(`orderItems.${index}.amount`)}
                                     />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Auto-calculated
+                                    </p>
                                 </div>
 
                                 {/* Remove Button */}

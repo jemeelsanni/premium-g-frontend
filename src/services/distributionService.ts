@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BaseApiService } from './api';
+import { BaseApiService, apiClient } from './api';
 import { DistributionOrder, DistributionCustomer } from '../types/index';
 import { PaginatedResponse } from '../types/common';
 
 export interface CreateOrderData {
   customerId: string;
-  deliveryLocation: string;  // ✅ Changed from locationId to deliveryLocation (text input)
+  deliveryLocation: string;
   orderItems: {
     productId: string;
     pallets: number;
@@ -83,7 +83,7 @@ export interface RecordPaymentData {
   paymentMethod: string;
   reference?: string;
   paidBy: string;
-  receivedBy: string;  // ✅ ADD THIS
+  receivedBy: string;
   notes?: string;
 }
 
@@ -131,21 +131,17 @@ export class DistributionService extends BaseApiService {
     return this.put<DistributionOrder>({ status }, `/orders/${id}/status`);
   }
 
-  // ✅ FIXED: Payment History Methods - Match Backend Routes
+  // Payment History Methods
   async getPaymentHistory(orderId: string): Promise<any> {
-  // Backend route: GET /api/v1/distribution/payments/:orderId/summary
-  const response = await this.get<any>(`/payments/${orderId}/summary`);
-  // Return the full summary response
-  return response;
-}
+    const response = await this.get<any>(`/payments/${orderId}/summary`);
+    return response;
+  }
 
   async recordPayment(data: RecordPaymentData): Promise<PaymentHistory> {
-    // ✅ Backend route: POST /api/v1/distribution/payments/record
     return this.post<PaymentHistory>(data, '/payments/record');
   }
 
   async confirmPayment(orderId: string, notes?: string): Promise<DistributionOrder> {
-    // ✅ Backend route: POST /api/v1/distribution/payments/confirm
     return this.post<DistributionOrder>({ orderId, notes }, '/payments/confirm');
   }
 
@@ -153,13 +149,10 @@ export class DistributionService extends BaseApiService {
     return this.post<any>(data, '/orders/bulk/confirm-payments');
   }
 
-  // ✅ FIXED: Customer Management with proper response handling
+  // Customer Management
   async getCustomers(page = 1, limit = 10): Promise<any> {
     const response = await this.get<any>(`/customers?page=${page}&limit=${limit}`);
     console.log('Raw customers response:', response);
-    
-    // Backend returns: { success: true, data: { customers: [...], pagination: {...} } }
-    // But BaseApiService already extracts response.data, so we get: { customers: [...], pagination: {...} }
     return response;
   }
 
@@ -179,9 +172,11 @@ export class DistributionService extends BaseApiService {
     return this.get<DistributionOrder[]>(`/customers/${customerId}/orders`);
   }
 
-  // Targets & Performance Methods
+  // ✅ FIXED: Targets & Performance Methods - Use apiClient directly
+  // These routes are at /api/v1/targets, NOT /api/v1/distribution/targets
   async getTargets(page = 1, limit = 10): Promise<PaginatedResponse<DistributionTarget>> {
-    return this.get<PaginatedResponse<DistributionTarget>>(`/targets?page=${page}&limit=${limit}`);
+    const response = await apiClient.get(`/targets?page=${page}&limit=${limit}`);
+    return response.data;
   }
 
   async getCurrentTarget(): Promise<{
@@ -193,7 +188,8 @@ export class DistributionService extends BaseApiService {
       remainingTarget: number;
     };
   }> {
-    return this.get('/targets/current');
+    const response = await apiClient.get('/targets/current');
+    return response.data;
   }
 
   async createTarget(data: {
@@ -202,7 +198,8 @@ export class DistributionService extends BaseApiService {
     totalPacksTarget: number;
     weeklyTargets: number[];
   }): Promise<DistributionTarget> {
-    return this.post<DistributionTarget>(data, '/targets');
+    const response = await apiClient.post('/targets', data);
+    return response.data;
   }
 
   async getWeeklyPerformance(params?: {
@@ -218,25 +215,21 @@ export class DistributionService extends BaseApiService {
         }
       });
     }
-    return this.get<WeeklyPerformance[]>(`/performance/weekly?${queryParams.toString()}`);
+    // ✅ The route is registered at /api/v1/targets, so use /targets/weekly
+    const response = await apiClient.get(`/targets/weekly?${queryParams.toString()}`);
+    return response.data;
   }
 
-  // ✅ FIXED: Products & Locations with proper response handling
+  // Products & Locations
   async getProducts(): Promise<any> {
     const response = await this.get<any>('/products');
     console.log('Raw products response:', response);
-    
-    // Backend returns: { success: true, data: { products: [...] } }
-    // But BaseApiService already extracts response.data, so we get: { products: [...] }
     return response;
   }
 
   async getLocations(): Promise<any> {
     const response = await this.get<any>('/locations');
     console.log('Raw locations response:', response);
-    
-    // Backend returns: { success: true, data: { locations: [...] } }
-    // But BaseApiService already extracts response.data, so we get: { locations: [...] }
     return response;
   }
 }
