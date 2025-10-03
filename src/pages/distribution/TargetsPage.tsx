@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Target, Plus, Calendar, AlertCircle } from 'lucide-react';
+import { Target, Plus, Calendar, AlertCircle, Eye, Trash2 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -11,6 +11,8 @@ import { toast } from 'react-hot-toast';
 
 export const TargetsPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [selectedTarget, setSelectedTarget] = useState<any>(null);
     const [formData, setFormData] = useState({
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
@@ -48,6 +50,18 @@ export const TargetsPage: React.FC = () => {
         }
     });
 
+    const deleteTargetMutation = useMutation({
+        mutationFn: (targetId: string) => distributionService.deleteTarget(targetId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['current-target'] });
+            queryClient.invalidateQueries({ queryKey: ['targets-history'] });
+            toast.success('Target deleted successfully!');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Failed to delete target');
+        }
+    });
+
     const resetForm = () => {
         setFormData({
             year: new Date().getFullYear(),
@@ -80,6 +94,17 @@ export const TargetsPage: React.FC = () => {
             totalPacksTarget: formData.totalPacksTarget,
             weeklyTargets: [formData.week1, formData.week2, formData.week3, formData.week4]
         });
+    };
+
+    const handleViewTarget = (target: any) => {
+        setSelectedTarget(target);
+        setIsViewModalOpen(true);
+    };
+
+    const handleDeleteTarget = (targetId: string, month: string, year: number) => {
+        if (window.confirm(`Are you sure you want to delete the target for ${month} ${year}?`)) {
+            deleteTargetMutation.mutate(targetId);
+        }
     };
 
     if (isLoading) {
@@ -136,84 +161,77 @@ export const TargetsPage: React.FC = () => {
                                         summary.percentageAchieved >= 50 ? 'bg-yellow-100 text-yellow-800' :
                                             'bg-red-100 text-red-800'
                                 }`}>
-                                {summary.percentageAchieved.toFixed(1)}% Achieved
+                                {summary.percentageAchieved.toFixed(1)}%
                             </span>
                         </div>
                     </div>
                     <div className="p-6">
-                        {/* Summary Stats */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                             <div className="text-center">
-                                <div className="text-3xl font-bold text-gray-900">
+                                <p className="text-sm text-gray-600">Target</p>
+                                <p className="text-2xl font-bold text-gray-900">
                                     {summary.totalTarget.toLocaleString()}
-                                </div>
-                                <div className="text-sm text-gray-500 mt-1">Target Packs</div>
+                                </p>
+                                <p className="text-xs text-gray-500">packs</p>
                             </div>
                             <div className="text-center">
-                                <div className="text-3xl font-bold text-indigo-600">
+                                <p className="text-sm text-gray-600">Actual</p>
+                                <p className="text-2xl font-bold text-blue-600">
                                     {summary.totalActual.toLocaleString()}
-                                </div>
-                                <div className="text-sm text-gray-500 mt-1">Actual Packs</div>
+                                </p>
+                                <p className="text-xs text-gray-500">packs</p>
                             </div>
                             <div className="text-center">
-                                <div className={`text-3xl font-bold ${summary.remainingTarget <= 0 ? 'text-green-600' : 'text-orange-600'
-                                    }`}>
-                                    {Math.abs(summary.remainingTarget).toLocaleString()}
-                                </div>
-                                <div className="text-sm text-gray-500 mt-1">
-                                    {summary.remainingTarget <= 0 ? 'Exceeded by' : 'Remaining'}
-                                </div>
+                                <p className="text-sm text-gray-600">Achievement</p>
+                                <p className="text-2xl font-bold text-green-600">
+                                    {summary.percentageAchieved.toFixed(1)}%
+                                </p>
                             </div>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="mb-6">
-                            <div className="w-full bg-gray-200 rounded-full h-4">
-                                <div
-                                    className={`h-4 rounded-full transition-all ${summary.percentageAchieved >= 100 ? 'bg-green-600' :
-                                            summary.percentageAchieved >= 75 ? 'bg-blue-600' :
-                                                summary.percentageAchieved >= 50 ? 'bg-yellow-600' :
-                                                    'bg-red-600'
-                                        }`}
-                                    style={{ width: `${Math.min(summary.percentageAchieved, 100)}%` }}
-                                ></div>
+                            <div className="text-center">
+                                <p className="text-sm text-gray-600">Remaining</p>
+                                <p className="text-2xl font-bold text-orange-600">
+                                    {summary.remainingTarget.toLocaleString()}
+                                </p>
+                                <p className="text-xs text-gray-500">packs</p>
                             </div>
                         </div>
 
                         {/* Weekly Performance */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-4">
+                            <h4 className="text-sm font-medium text-gray-900">Weekly Breakdown</h4>
                             {weeklyPerformances.map((week: any) => (
-                                <div key={week.weekNumber} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-sm font-medium text-gray-700">
-                                            Week {week.weekNumber}
-                                        </span>
-                                        <Calendar className="h-4 w-4 text-gray-400" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div>
-                                            <div className="text-2xl font-bold text-gray-900">
-                                                {week.actualPacks.toLocaleString()}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                of {week.targetPacks.toLocaleString()} target
-                                            </div>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className={`h-2 rounded-full ${week.percentageAchieved >= 100 ? 'bg-green-600' :
-                                                        week.percentageAchieved >= 75 ? 'bg-blue-600' :
-                                                            'bg-yellow-600'
-                                                    }`}
-                                                style={{ width: `${Math.min(week.percentageAchieved, 100)}%` }}
-                                            ></div>
+                                <div key={week.id} className="border rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center space-x-2">
+                                            <Calendar className="h-4 w-4 text-gray-400" />
+                                            <span className="text-sm font-medium">Week {week.weekNumber}</span>
+                                            <span className="text-xs text-gray-500">
+                                                ({new Date(week.weekStartDate).toLocaleDateString()} - {new Date(week.weekEndDate).toLocaleDateString()})
+                                            </span>
                                         </div>
                                         <div className={`text-sm font-semibold ${week.percentageAchieved >= 100 ? 'text-green-600' :
                                                 week.percentageAchieved >= 75 ? 'text-blue-600' :
                                                     'text-yellow-600'
                                             }`}>
-                                            {week.percentageAchieved.toFixed(1)}% Complete
+                                            {week.percentageAchieved.toFixed(1)}%
                                         </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-600">
+                                            Target: <span className="font-medium">{week.targetPacks.toLocaleString()}</span>
+                                        </span>
+                                        <span className="text-gray-600">
+                                            Actual: <span className="font-medium">{week.actualPacks.toLocaleString()}</span>
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                            className={`h-2 rounded-full ${week.percentageAchieved >= 100 ? 'bg-green-600' :
+                                                    week.percentageAchieved >= 75 ? 'bg-blue-600' :
+                                                        'bg-yellow-600'
+                                                }`}
+                                            style={{ width: `${Math.min(week.percentageAchieved, 100)}%` }}
+                                        />
                                     </div>
                                 </div>
                             ))}
@@ -234,34 +252,41 @@ export const TargetsPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Historical Targets */}
-            {historicalTargets.length > 0 && (
-                <div className="bg-white shadow rounded-lg">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900">
-                            Target History
-                        </h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+            {/* Target History */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">Target History</h3>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Period
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Target
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Achieved
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Performance
+                                </th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {historicalTargets.length === 0 ? (
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Period
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Target
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Achieved
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                        Performance
-                                    </th>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                        No historical targets found
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {historicalTargets.map((target: any) => {
+                            ) : (
+                                historicalTargets.map((target: any) => {
                                     const totalAchieved = target.weeklyPerformances?.reduce(
                                         (sum: number, w: any) => sum + w.actualPacks, 0
                                     ) || 0;
@@ -289,14 +314,39 @@ export const TargetsPage: React.FC = () => {
                                                     {percentage.toFixed(1)}%
                                                 </span>
                                             </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex items-center justify-end space-x-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleViewTarget(target)}
+                                                    >
+                                                        <Eye className="h-4 w-4 mr-1" />
+                                                        View
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteTarget(
+                                                            target.id,
+                                                            months[target.month - 1],
+                                                            target.year
+                                                        )}
+                                                        className="text-red-600 hover:text-red-700 hover:border-red-600"
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-1" />
+                                                        Delete
+                                                    </Button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                })
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+            </div>
 
             {/* Create Target Modal */}
             <Modal
@@ -315,7 +365,7 @@ export const TargetsPage: React.FC = () => {
                                 value={formData.year}
                                 onChange={(e) => handleInputChange('year', parseInt(e.target.value))}
                                 min={2020}
-                                max={2050}
+                                max={2030}
                                 required
                             />
                         </div>
@@ -326,11 +376,11 @@ export const TargetsPage: React.FC = () => {
                             <select
                                 value={formData.month}
                                 onChange={(e) => handleInputChange('month', parseInt(e.target.value))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                 required
                             >
-                                {months.map((month, idx) => (
-                                    <option key={idx} value={idx + 1}>
+                                {months.map((month, index) => (
+                                    <option key={index} value={index + 1}>
                                         {month}
                                     </option>
                                 ))}
@@ -344,7 +394,7 @@ export const TargetsPage: React.FC = () => {
                         </label>
                         <Input
                             type="number"
-                            value={formData.totalPacksTarget}
+                            value={formData.totalPacksTarget || ''}
                             onChange={(e) => handleInputChange('totalPacksTarget', parseInt(e.target.value) || 0)}
                             min={0}
                             required
@@ -352,31 +402,55 @@ export const TargetsPage: React.FC = () => {
                     </div>
 
                     <div className="border-t pt-4">
-                        <h4 className="text-sm font-medium text-gray-900 mb-3">Weekly Breakdown</h4>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Weekly Targets</h4>
                         <div className="grid grid-cols-2 gap-4">
-                            {[1, 2, 3, 4].map((week) => (
-                                <div key={week}>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Week {week}
-                                    </label>
-                                    <Input
-                                        type="number"
-                                        value={formData[`week${week}` as keyof typeof formData]}
-                                        onChange={(e) =>
-                                            handleInputChange(`week${week}`, parseInt(e.target.value) || 0)
-                                        }
-                                        min={0}
-                                        required
-                                    />
-                                </div>
-                            ))}
+                            <div>
+                                <label className="block text-xs text-gray-600 mb-1">Week 1</label>
+                                <Input
+                                    type="number"
+                                    value={formData.week1 || ''}
+                                    onChange={(e) => handleInputChange('week1', parseInt(e.target.value) || 0)}
+                                    min={0}
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-gray-600 mb-1">Week 2</label>
+                                <Input
+                                    type="number"
+                                    value={formData.week2 || ''}
+                                    onChange={(e) => handleInputChange('week2', parseInt(e.target.value) || 0)}
+                                    min={0}
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-gray-600 mb-1">Week 3</label>
+                                <Input
+                                    type="number"
+                                    value={formData.week3 || ''}
+                                    onChange={(e) => handleInputChange('week3', parseInt(e.target.value) || 0)}
+                                    min={0}
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-gray-600 mb-1">Week 4</label>
+                                <Input
+                                    type="number"
+                                    value={formData.week4 || ''}
+                                    onChange={(e) => handleInputChange('week4', parseInt(e.target.value) || 0)}
+                                    min={0}
+                                    required
+                                />
+                            </div>
                         </div>
-                        <div className="mt-3 text-sm text-gray-600">
-                            Weekly Total: {(formData.week1 + formData.week2 + formData.week3 + formData.week4).toLocaleString()} packs
-                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                            Weekly total: {(formData.week1 + formData.week2 + formData.week3 + formData.week4).toLocaleString()} packs
+                        </p>
                     </div>
 
-                    <div className="flex justify-end space-x-3 pt-4">
+                    <div className="flex justify-end space-x-3 pt-4 border-t">
                         <Button
                             type="button"
                             variant="outline"
@@ -392,6 +466,76 @@ export const TargetsPage: React.FC = () => {
                         </Button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* View Target Detail Modal */}
+            <Modal
+                isOpen={isViewModalOpen}
+                onClose={() => setIsViewModalOpen(false)}
+                title={selectedTarget ? `${months[selectedTarget.month - 1]} ${selectedTarget.year} Target Details` : 'Target Details'}
+            >
+                {selectedTarget && (
+                    <div className="space-y-6">
+                        {/* Summary */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-600">Total Target</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {selectedTarget.totalPacksTarget.toLocaleString()}
+                                </p>
+                                <p className="text-xs text-gray-500">packs</p>
+                            </div>
+                            <div className="bg-blue-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-600">Total Achieved</p>
+                                <p className="text-2xl font-bold text-blue-600">
+                                    {selectedTarget.weeklyPerformances?.reduce(
+                                        (sum: number, w: any) => sum + w.actualPacks, 0
+                                    ).toLocaleString() || 0}
+                                </p>
+                                <p className="text-xs text-gray-500">packs</p>
+                            </div>
+                        </div>
+
+                        {/* Weekly Breakdown */}
+                        <div>
+                            <h4 className="text-sm font-medium text-gray-900 mb-3">Weekly Performance</h4>
+                            <div className="space-y-3">
+                                {selectedTarget.weeklyPerformances?.map((week: any) => (
+                                    <div key={week.id} className="border rounded-lg p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-medium">Week {week.weekNumber}</span>
+                                            <span className={`text-sm font-semibold ${week.percentageAchieved >= 100 ? 'text-green-600' :
+                                                    week.percentageAchieved >= 75 ? 'text-blue-600' :
+                                                        'text-yellow-600'
+                                                }`}>
+                                                {week.percentageAchieved.toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+                                            <span>Target: {week.targetPacks.toLocaleString()}</span>
+                                            <span>Actual: {week.actualPacks.toLocaleString()}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div
+                                                className={`h-2 rounded-full ${week.percentageAchieved >= 100 ? 'bg-green-600' :
+                                                        week.percentageAchieved >= 75 ? 'bg-blue-600' :
+                                                            'bg-yellow-600'
+                                                    }`}
+                                                style={{ width: `${Math.min(week.percentageAchieved, 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4 border-t">
+                            <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                                Close
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );

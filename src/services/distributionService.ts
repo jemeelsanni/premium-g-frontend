@@ -92,6 +92,27 @@ export interface BulkPaymentConfirmData {
   notes?: string;
 }
 
+export interface PayRiteFoodsData {
+  orderId: string;
+  amount: number;
+  paymentMethod: string;
+  reference?: string;
+  riteFoodsOrderNumber?: string;
+  riteFoodsInvoiceNumber?: string;
+}
+
+export interface PayRiteFoodsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    order: DistributionOrder;
+    payment: PaymentHistory;
+    paymentReference: string;
+    riteFoodsOrderNumber: string;
+    riteFoodsInvoiceNumber: string;
+  };
+}
+
 export class DistributionService extends BaseApiService {
   constructor() {
     super('/distribution');
@@ -145,6 +166,11 @@ export class DistributionService extends BaseApiService {
     return this.post<DistributionOrder>({ orderId, notes }, '/payments/confirm');
   }
 
+  // ✅ Pay Rite Foods
+  async payRiteFoods(data: PayRiteFoodsData): Promise<PayRiteFoodsResponse> {
+    return this.post<PayRiteFoodsResponse>(data, '/payments/rite-foods');
+  }
+
   async bulkConfirmPayments(data: BulkPaymentConfirmData): Promise<any> {
     return this.post<any>(data, '/orders/bulk/confirm-payments');
   }
@@ -172,10 +198,14 @@ export class DistributionService extends BaseApiService {
     return this.get<DistributionOrder[]>(`/customers/${customerId}/orders`);
   }
 
-  // ✅ FIXED: Targets & Performance Methods - Use apiClient directly
-  // These routes are at /api/v1/targets, NOT /api/v1/distribution/targets
+  // Targets & Performance Methods
   async getTargets(page = 1, limit = 10): Promise<PaginatedResponse<DistributionTarget>> {
     const response = await apiClient.get(`/targets?page=${page}&limit=${limit}`);
+    return response.data;
+  }
+
+  async deleteTarget(targetId: string): Promise<void> {
+    const response = await apiClient.delete(`/targets/${targetId}`);
     return response.data;
   }
 
@@ -215,9 +245,29 @@ export class DistributionService extends BaseApiService {
         }
       });
     }
-    // ✅ The route is registered at /api/v1/targets, so use /targets/weekly
     const response = await apiClient.get(`/targets/weekly?${queryParams.toString()}`);
     return response.data;
+  }
+
+  // Rite Foods Status & Delivery
+  async updateRiteFoodsStatus(orderId: string, status: string): Promise<DistributionOrder> {
+    return this.put<DistributionOrder>({ riteFoodsStatus: status }, `/orders/${orderId}/rite-foods-status`);
+  }
+
+  async assignTransport(orderId: string, data: {
+    transporterCompany: string;
+    driverNumber: string;
+    truckNumber: string;
+  }): Promise<DistributionOrder> {
+    return this.post<DistributionOrder>(data, `/orders/${orderId}/assign-transport`);
+  }
+
+  async recordDelivery(orderId: string, data: {
+    palletsDelivered: number;
+    packsDelivered: number;
+    deliveryNotes?: string;
+  }): Promise<DistributionOrder> {
+    return this.post<DistributionOrder>(data, `/orders/${orderId}/record-delivery`);
   }
 
   // Products & Locations
@@ -231,6 +281,46 @@ export class DistributionService extends BaseApiService {
     const response = await this.get<any>('/locations');
     console.log('Raw locations response:', response);
     return response;
+  }
+
+  // Export Methods
+  async exportOrdersToCSV(filters?: DistributionFilters): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    
+    const response = await apiClient.get(`/distribution/orders/export/csv?${params.toString()}`, {
+      responseType: 'blob'
+    });
+    
+    return response.data;
+  }
+
+  async exportOrdersToPDF(filters?: DistributionFilters): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    
+    const response = await apiClient.get(`/distribution/orders/export/pdf?${params.toString()}`, {
+      responseType: 'blob'
+    });
+    
+    return response.data;
+  }
+
+  // Workflow Summary
+  async getWorkflowSummary(): Promise<any> {
+    return this.get('/dashboard/workflow-summary');
   }
 }
 

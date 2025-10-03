@@ -23,16 +23,19 @@ export const DistributionDashboard: React.FC = () => {
     const { data: statsResponse, isLoading, error } = useQuery({
         queryKey: ['distribution-dashboard'],
         queryFn: () => distributionService.getDashboardStats(),
+        refetchInterval: 30000, // Refresh every 30 seconds
     });
 
     const { data: recentOrdersResponse } = useQuery({
         queryKey: ['distribution-orders-recent'],
         queryFn: () => distributionService.getOrders({ page: 1, limit: 5 }),
+        refetchInterval: 30000, // Refresh every 30 seconds
     });
 
     const { data: targetData } = useQuery({
         queryKey: ['current-target'],
         queryFn: () => distributionService.getCurrentTarget(),
+        refetchInterval: 30000, // Refresh every 30 seconds
         retry: 1,
     });
 
@@ -106,23 +109,59 @@ export const DistributionDashboard: React.FC = () => {
     ];
 
     const orderColumns = [
-        { key: 'orderNumber', title: 'ORDER #' },
-        { key: 'customer', title: 'CUSTOMER' },
         {
-            key: 'amount',
+            key: 'orderNumber',
+            title: 'ORDER #',
+            render: (value: string | null, record: any) => {
+                // Handle null orderNumber - use ID as fallback
+                const displayNumber = value || `ORD-${record.id?.slice(-8) || 'N/A'}`;
+
+                return (
+                    <Link
+                        to={`/distribution/orders/${record.id}`}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                        {displayNumber}
+                    </Link>
+                );
+            }
+        },
+        {
+            key: 'customer',
+            title: 'CUSTOMER',
+            render: (value: any, record: any) => {
+                // Handle nested customer object or plain string
+                return record.customer?.name || record.customerName || value || 'Unknown';
+            }
+        },
+        {
+            key: 'finalAmount',
             title: 'AMOUNT',
-            render: (row: any) => {
-                const amount = typeof row.amount === 'number' ? row.amount : parseFloat(row.amount || 0);
+            render: (value: any, record: any) => {
+                // value contains the finalAmount directly from the key
+                const amount = typeof value === 'number' ? value : parseFloat(value || 0);
                 return `₦${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             }
         },
-        { key: 'status', title: 'STATUS' },
+        {
+            key: 'status',
+            title: 'STATUS',
+            render: (value: string) => (
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${value === 'COMPLETED' || value === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                    value === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
+                        value === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                    }`}>
+                    {value}
+                </span>
+            )
+        },
         {
             key: 'createdAt',
             title: 'DATE',
-            render: (row: any) => {
+            render: (value: any) => {
                 try {
-                    const date = new Date(row.createdAt);
+                    const date = new Date(value);
                     if (isNaN(date.getTime())) {
                         return 'Invalid Date';
                     }

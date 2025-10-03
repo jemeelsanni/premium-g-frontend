@@ -26,6 +26,7 @@ import { AssignTransportModal } from '../../components/distribution/AssignTransp
 
 
 import { toast } from 'react-hot-toast';
+import { formatDate } from '@/utils/dateUtils';
 
 export const OrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -154,7 +155,7 @@ export const OrderDetails: React.FC = () => {
                             Order #{order.id?.slice(-8)}
                         </h1>
                         <p className="text-sm text-gray-500">
-                            Created on {new Date(order.createdAt).toLocaleDateString()}
+                            Created on {formatDate(order.createdAt)}
                         </p>
                     </div>
                 </div>
@@ -225,7 +226,7 @@ export const OrderDetails: React.FC = () => {
                         <div className="flex justify-between">
                             <span className="text-sm text-gray-600">Created:</span>
                             <span className="text-sm font-medium">
-                                {new Date(order.createdAt).toLocaleDateString()}
+                                {formatDate(order.createdAt)}
                             </span>
                         </div>
                     </div>
@@ -390,7 +391,7 @@ export const OrderDetails: React.FC = () => {
                     {order.paidToRiteFoods && (
                         <div className="bg-green-50 border border-green-200 rounded p-3 text-xs">
                             <p className="text-green-800">
-                                ✓ Payment sent to Rite Foods on {new Date(order.paymentDateToRiteFoods || '').toLocaleDateString()}
+                                ✓ Payment sent to Rite Foods on {formatDate(order.paymentDateToRiteFoods)}
                             </p>
                             {order.riteFoodsOrderNumber && (
                                 <p className="text-green-800 mt-1">
@@ -498,7 +499,7 @@ export const OrderDetails: React.FC = () => {
                                     </div>
                                     <div className="text-right">
                                         <p className="text-xs text-gray-500">
-                                            {new Date(payment.date).toLocaleDateString()}
+                                            {formatDate(payment.date)}
                                         </p>
                                         {payment.receivedBy && (
                                             <p className="text-xs text-gray-500">

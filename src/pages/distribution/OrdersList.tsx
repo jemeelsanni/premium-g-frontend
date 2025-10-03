@@ -1,14 +1,17 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/distribution/OrdersListEnhanced.tsx
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Filter, X, Eye } from 'lucide-react';
+import { Plus, Search, Filter, X, Eye, Download, FileText } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { formatDate } from '../../utils/dateUtils';
+import toast from 'react-hot-toast';
 
 export const OrdersList: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -35,6 +38,7 @@ export const OrdersList: React.FC = () => {
             deliveryStatus: deliveryStatusFilter || undefined,
             status: orderStatusFilter || undefined,
         }),
+        refetchInterval: 30000, // Refresh every 30 seconds
     });
 
     const handleSearch = (value: string) => {
@@ -99,18 +103,74 @@ export const OrdersList: React.FC = () => {
         );
     };
 
+    const handleExportCSV = async () => {
+        try {
+            const blob = await distributionService.exportOrdersToCSV({
+                paymentStatus: paymentStatusFilter || undefined,
+                riteFoodsStatus: riteFoodsStatusFilter || undefined,
+                deliveryStatus: deliveryStatusFilter || undefined,
+                status: orderStatusFilter || undefined,
+                search: searchTerm || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `distribution-orders-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Orders exported to CSV successfully');
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (error) {
+            toast.error('Failed to export orders to CSV');
+        }
+    };
+
+    const handleExportPDF = async () => {
+        try {
+            const blob = await distributionService.exportOrdersToPDF({
+                paymentStatus: paymentStatusFilter || undefined,
+                riteFoodsStatus: riteFoodsStatusFilter || undefined,
+                deliveryStatus: deliveryStatusFilter || undefined,
+                status: orderStatusFilter || undefined,
+                search: searchTerm || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `distribution-orders-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Orders exported to PDF successfully');
+        } catch (error) {
+            toast.error('Failed to export orders to PDF');
+        }
+    };
+
     const orderColumns = [
         {
-            key: 'id',
+            key: 'orderNumber',
             title: 'Order #',
-            render: (value: string, record: any) => (
-                <Link
-                    to={`/distribution/orders/${record.id}`}
-                    className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
-                >
-                    #{value.slice(-8)}
-                </Link>
-            )
+            render: (value: string | null, record: any) => {
+                // Handle null orderNumber - use ID as fallback
+                const displayNumber = value || `ORD-${record.id?.slice(-8) || 'N/A'}`;
+
+                return (
+                    <Link
+                        to={`/distribution/orders/${record.id}`}
+                        className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
+                    >
+                        {displayNumber}
+                    </Link>
+                );
+            }
         },
         {
             key: 'customer',
@@ -152,7 +212,11 @@ export const OrdersList: React.FC = () => {
         {
             key: 'createdAt',
             title: 'Created',
-            render: (value: string) => new Date(value).toLocaleDateString()
+            render: (value: any, record: any) => {
+                // Use record.createdAt instead of value
+                console.log('Date value:', value, 'Record createdAt:', record.createdAt);
+                return formatDate(record.createdAt);
+            }
         },
         {
             key: 'actions',
@@ -265,6 +329,17 @@ export const OrdersList: React.FC = () => {
                             New Order
                         </Button>
                     </Link>
+                </div>
+                <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
+                    <Button variant="outline" onClick={handleExportCSV}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export CSV
+                    </Button>
+                    <Button variant="outline" onClick={handleExportPDF}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Export PDF
+                    </Button>
+
                 </div>
             </div>
 

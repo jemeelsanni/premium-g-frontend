@@ -1,24 +1,12 @@
-// src/components/distribution/PayRiteFoodsModal.tsx
-import React from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { DollarSign, Building } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { distributionService } from '../../services/distributionService';
 import { toast } from 'react-hot-toast';
-
-const riteFoodsPaymentSchema = z.object({
-    amount: z.number().min(0.01, 'Amount must be greater than 0'),
-    paymentMethod: z.enum(['BANK_TRANSFER', 'CHECK']),
-    reference: z.string().min(1, 'Payment reference is required'),
-    riteFoodsOrderNumber: z.string().optional(),
-    riteFoodsInvoiceNumber: z.string().optional(),
-});
-
-type RiteFoodsPaymentFormData = z.infer<typeof riteFoodsPaymentSchema>;
 
 interface PayRiteFoodsModalProps {
     isOpen: boolean;
@@ -31,194 +19,107 @@ export const PayRiteFoodsModal: React.FC<PayRiteFoodsModalProps> = ({
     isOpen,
     onClose,
     orderId,
-    amount,
+    amount
 }) => {
     const queryClient = useQueryClient();
-
-    const {
-        register,
-        handleSubmit,
-        reset,
-        formState: { errors, isSubmitting },
-    } = useForm<RiteFoodsPaymentFormData>({
-        resolver: zodResolver(riteFoodsPaymentSchema),
-        defaultValues: {
-            amount: amount,
-            paymentMethod: 'BANK_TRANSFER',
-            reference: '',
-            riteFoodsOrderNumber: '',
-            riteFoodsInvoiceNumber: '',
-        },
+    const [formData, setFormData] = useState({
+        paymentMethod: 'BANK_TRANSFER',
+        amount: amount
     });
 
     const payRiteFoodsMutation = useMutation({
-        mutationFn: async (data: RiteFoodsPaymentFormData) => {
-            const response = await fetch(`/api/v1/distribution/payments/rite-foods`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
-                body: JSON.stringify({
-                    orderId,
-                    ...data,
-                }),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to record payment to Rite Foods');
-            }
-
-            return response.json();
-        },
-        onSuccess: () => {
+        mutationFn: (data: any) => distributionService.payRiteFoods(data),
+        onSuccess: (response) => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });
-            queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
-            toast.success('Payment to Rite Foods recorded successfully!');
-            reset();
+
+            // Show success with generated numbers
+            const { paymentReference, riteFoodsOrderNumber, riteFoodsInvoiceNumber } = response.data;
+            toast.success(
+                `Payment recorded!\nRef: ${paymentReference}\nOrder: ${riteFoodsOrderNumber}\nInvoice: ${riteFoodsInvoiceNumber}`,
+                { duration: 5000 }
+            );
             onClose();
+            resetForm();
         },
-        onError: (error: Error) => {
-            toast.error(error.message || 'Failed to record payment');
-        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Failed to record payment');
+        }
     });
 
-    const onSubmit: SubmitHandler<RiteFoodsPaymentFormData> = (data) => {
-        payRiteFoodsMutation.mutate(data);
+    const resetForm = () => {
+        setFormData({
+            paymentMethod: 'BANK_TRANSFER',
+            amount: amount
+        });
     };
 
-    const handleClose = () => {
-        reset();
-        onClose();
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        payRiteFoodsMutation.mutate({
+            orderId,
+            amount: formData.amount,
+            paymentMethod: formData.paymentMethod
+            // reference, riteFoodsOrderNumber, and riteFoodsInvoiceNumber will be auto-generated
+        });
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={handleClose} title="Pay Rite Foods" maxWidth="lg">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                {/* Info Banner */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start">
-                        <Building className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-                        <div>
-                            <h4 className="text-sm font-medium text-blue-800">Payment to Supplier</h4>
-                            <p className="text-sm text-blue-700 mt-1">
-                                Record payment made to Rite Foods Ltd for this order. This will update the order status
-                                to allow for order processing.
-                            </p>
-                        </div>
-                    </div>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Pay Rite Foods"
+        >
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-blue-800">
+                        Payment reference, order number, and invoice number will be auto-generated
+                    </p>
                 </div>
 
-                {/* Amount */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Amount <span className="text-red-500">*</span>
+                        Amount
                     </label>
-                    <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-gray-500">₦</span>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            {...register('amount', { valueAsNumber: true })}
-                            placeholder="Enter payment amount"
-                            className={`pl-8 ${errors.amount ? 'border-red-500' : ''}`}
-                        />
-                    </div>
-                    {errors.amount && (
-                        <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
-                    )}
+                    <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                        required
+                        min={0.01}
+                    />
                 </div>
 
-                {/* Payment Method */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Payment Method <span className="text-red-500">*</span>
+                        Payment Method
                     </label>
                     <select
-                        {...register('paymentMethod')}
+                        value={formData.paymentMethod}
+                        onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
                         className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
                     >
                         <option value="BANK_TRANSFER">Bank Transfer</option>
                         <option value="CHECK">Check</option>
                     </select>
-                    {errors.paymentMethod && (
-                        <p className="mt-1 text-sm text-red-600">{errors.paymentMethod.message}</p>
-                    )}
                 </div>
 
-                {/* Reference */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Payment Reference <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                        {...register('reference')}
-                        placeholder="e.g., TRX-RF-123456789"
-                        className={errors.reference ? 'border-red-500' : ''}
-                    />
-                    {errors.reference && (
-                        <p className="mt-1 text-sm text-red-600">{errors.reference.message}</p>
-                    )}
-                    <p className="mt-1 text-xs text-gray-500">Bank transaction reference or check number</p>
-                </div>
-
-                {/* Rite Foods Order Number */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Rite Foods Order Number
-                    </label>
-                    <Input
-                        {...register('riteFoodsOrderNumber')}
-                        placeholder="e.g., RFL-ORD-2024-001"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Reference number from Rite Foods (if available)</p>
-                </div>
-
-                {/* Rite Foods Invoice Number */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Rite Foods Invoice Number
-                    </label>
-                    <Input
-                        {...register('riteFoodsInvoiceNumber')}
-                        placeholder="e.g., RFL-INV-2024-001"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Invoice number from Rite Foods (if available)</p>
-                </div>
-
-                {/* Summary */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Payment Summary</h4>
-                    <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Payee:</span>
-                            <span className="font-medium">Rite Foods Limited</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Order Amount:</span>
-                            <span className="font-medium">₦{amount.toLocaleString()}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Actions */}
                 <div className="flex justify-end space-x-3 pt-4 border-t">
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={handleClose}
-                        disabled={isSubmitting}
+                        onClick={onClose}
                     >
                         Cancel
                     </Button>
                     <Button
                         type="submit"
-                        disabled={isSubmitting}
-                        loading={isSubmitting}
+                        disabled={payRiteFoodsMutation.isPending}
                     >
                         <DollarSign className="h-4 w-4 mr-2" />
-                        Record Payment
+                        {payRiteFoodsMutation.isPending ? 'Processing...' : 'Record Payment'}
                     </Button>
                 </div>
             </form>
