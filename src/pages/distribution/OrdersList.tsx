@@ -12,12 +12,16 @@ import { Table } from '../../components/ui/Table';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { formatDate } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
+import { ExportOptionsModal, ExportOptions } from '../../components/distribution/ExportOptionsModal';
+
 
 export const OrdersList: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     // Get filters from URL
     const paymentStatusFilter = searchParams.get('paymentStatus') || '';
@@ -65,6 +69,71 @@ export const OrdersList: React.FC = () => {
 
     const hasActiveFilters = paymentStatusFilter || riteFoodsStatusFilter || deliveryStatusFilter || orderStatusFilter || searchTerm;
 
+    const handleExport = async (options: ExportOptions) => {
+        setIsExporting(true);
+
+        try {
+            let url = '/api/v1/distribution/orders/export/pdf?';
+
+            // Build query parameters based on export type
+            if (options.type === 'duration') {
+                url += `startDate=${options.startDate}&endDate=${options.endDate}`;
+            } else if (options.type === 'count') {
+                url += `limit=${options.count}`;
+            } else if (options.type === 'all') {
+                url += `all=true`;
+            }
+
+            // Get token for authorization
+            const token = localStorage.getItem('token');
+
+            // Fetch the PDF
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Export failed');
+            }
+
+            // Create blob from response
+            const blob = await response.blob();
+
+            // Create download link
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().split('T')[0];
+            let filename = `distribution-orders-${timestamp}`;
+
+            if (options.type === 'duration') {
+                filename = `orders-${options.startDate}-to-${options.endDate}.pdf`;
+            } else if (options.type === 'count') {
+                filename = `orders-last-${options.count}.pdf`;
+            } else {
+                filename = `orders-all-${timestamp}.pdf`;
+            }
+
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
+
+            toast.success('Orders exported successfully!');
+        } catch (error) {
+            console.error('Export error:', error);
+            toast.error('Failed to export orders');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const getStatusBadge = (status: string, type: 'payment' | 'ritefoods' | 'delivery' | 'order' = 'order') => {
         const configs: Record<string, { class: string; label: string }> = {
@@ -103,56 +172,7 @@ export const OrdersList: React.FC = () => {
         );
     };
 
-    const handleExportCSV = async () => {
-        try {
-            const blob = await distributionService.exportOrdersToCSV({
-                paymentStatus: paymentStatusFilter || undefined,
-                riteFoodsStatus: riteFoodsStatusFilter || undefined,
-                deliveryStatus: deliveryStatusFilter || undefined,
-                status: orderStatusFilter || undefined,
-                search: searchTerm || undefined
-            });
 
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `distribution-orders-${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
-            toast.success('Orders exported to CSV successfully');
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error) {
-            toast.error('Failed to export orders to CSV');
-        }
-    };
-
-    const handleExportPDF = async () => {
-        try {
-            const blob = await distributionService.exportOrdersToPDF({
-                paymentStatus: paymentStatusFilter || undefined,
-                riteFoodsStatus: riteFoodsStatusFilter || undefined,
-                deliveryStatus: deliveryStatusFilter || undefined,
-                status: orderStatusFilter || undefined,
-                search: searchTerm || undefined
-            });
-
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `distribution-orders-${new Date().toISOString().split('T')[0]}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
-            toast.success('Orders exported to PDF successfully');
-        } catch (error) {
-            toast.error('Failed to export orders to PDF');
-        }
-    };
 
     const orderColumns = [
         {
@@ -331,13 +351,23 @@ export const OrdersList: React.FC = () => {
                     </Link>
                 </div>
                 <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
-                    <Button variant="outline" onClick={handleExportCSV}>
-                        <Download className="h-4 w-4 mr-2" />
+                    <Button
+                        variant="outline"
+                        onClick={() => {/* CSV export logic */ }}
+                        className="flex items-center"
+                    >
+                        <FileText className="h-4 w-4 mr-2" />
                         Export CSV
                     </Button>
-                    <Button variant="outline" onClick={handleExportPDF}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Export PDF
+
+                    {/* Export PDF Button */}
+                    <Button
+                        onClick={() => setShowExportModal(true)}
+                        disabled={isExporting}
+                        className="flex items-center"
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        {isExporting ? 'Exporting...' : 'Export PDF'}
                     </Button>
 
                 </div>
@@ -533,6 +563,12 @@ export const OrdersList: React.FC = () => {
                     </button>
                 </div>
             </div>
+            {/* Export Options Modal */}
+            <ExportOptionsModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                onExport={handleExport}
+            />
         </div>
     );
 };

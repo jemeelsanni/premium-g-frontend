@@ -12,7 +12,8 @@ import {
     User,
     CheckCircle,
     AlertCircle,
-    Truck
+    Truck,
+    FileDown
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
@@ -39,6 +40,8 @@ export const OrderDetails: React.FC = () => {
     const [isPayRiteFoodsModalOpen, setIsPayRiteFoodsModalOpen] = useState(false);
     const [isAssignTransportModalOpen, setIsAssignTransportModalOpen] = useState(false);
     const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
+
 
     const [paymentData, setPaymentData] = useState({
         amount: 0,
@@ -142,6 +145,41 @@ export const OrderDetails: React.FC = () => {
     const balance = parseFloat(order.balance || 0);
     const canConfirmPayment = order.paymentStatus === 'PENDING' && balance === 0;
 
+    const handleExportOrderPDF = async () => {
+        setIsExportingPDF(true);
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/v1/distribution/orders/${id}/export/pdf`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Export failed');
+            }
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = `order-${order.orderNumber || order.id.slice(-8)}-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
+
+            toast.success('Order exported successfully!');
+        } catch (error) {
+            console.error('Export error:', error);
+            toast.error('Failed to export order');
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
+
     // TODO: Replace with actual user role from auth context/state
     const userRole = 'ADMIN'; // This should come from your auth context
 
@@ -165,16 +203,28 @@ export const OrderDetails: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${order.status === 'DELIVERED' || order.status === 'PARTIALLY_DELIVERED'
+                <div className="flex items-center gap-3">
+                    <Button
+                        onClick={handleExportOrderPDF}
+                        disabled={isExportingPDF}
+                        variant="outline"
+                        className="flex items-center"
+                    >
+                        <FileDown className="h-4 w-4 mr-2" />
+                        {isExportingPDF ? 'Exporting...' : 'Export PDF'}
+                    </Button>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${order.status === 'DELIVERED' || order.status === 'PARTIALLY_DELIVERED'
                         ? 'bg-green-100 text-green-800'
                         : order.status === 'PROCESSING' || order.status === 'PROCESSING_BY_RFL'
                             ? 'bg-blue-100 text-blue-800'
                             : order.status === 'PENDING' || order.status === 'PAYMENT_CONFIRMED'
                                 ? 'bg-yellow-100 text-yellow-800'
                                 : 'bg-gray-100 text-gray-800'
-                    }`}>
-                    {order.status}
-                </span>
+                        }`}>
+                        {order.status}
+                    </span>
+                </div>
+
             </div>
 
             {/* Order Details Grid */}

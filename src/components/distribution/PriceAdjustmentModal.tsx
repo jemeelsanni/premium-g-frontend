@@ -1,8 +1,13 @@
+// src/components/distribution/PriceAdjustmentModal.tsx
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// components/distribution/PriceAdjustmentModal.tsx
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import apiClient from '@/services/api'; // Import the configured axios instance
 
 interface PriceAdjustmentModalProps {
     orderId: string;
@@ -19,13 +24,12 @@ export const PriceAdjustmentModal = ({ orderId, currentAmount, onClose }: PriceA
 
     const adjustmentMutation = useMutation({
         mutationFn: async (data: any) => {
-            const response = await fetch(`/api/v1/distribution/orders/${orderId}/price-adjustments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
-            if (!response.ok) throw new Error('Failed to create price adjustment');
-            return response.json();
+            // ✅ FIXED - Use apiClient which has auth interceptor
+            const response = await apiClient.post(
+                `/distribution/orders/${orderId}/price-adjustments`,
+                data
+            );
+            return response.data;
         },
         onSuccess: () => {
             toast.success('Price adjustment created successfully');
@@ -33,7 +37,8 @@ export const PriceAdjustmentModal = ({ orderId, currentAmount, onClose }: PriceA
             onClose();
         },
         onError: (error: any) => {
-            toast.error(error.message || 'Failed to create price adjustment');
+            const errorMessage = error.response?.data?.message || 'Failed to create price adjustment';
+            toast.error(errorMessage);
         },
     });
 
@@ -45,8 +50,14 @@ export const PriceAdjustmentModal = ({ orderId, currentAmount, onClose }: PriceA
             return;
         }
 
+        const amount = parseFloat(adjustedAmount);
+        if (isNaN(amount) || amount <= 0) {
+            toast.error('Please enter a valid amount');
+            return;
+        }
+
         adjustmentMutation.mutate({
-            adjustedAmount: parseFloat(adjustedAmount),
+            adjustedAmount: amount,
             adjustmentType: 'RITE_FOODS_PRICE_CHANGE',
             reason: reason.trim(),
             riteFoodsInvoiceReference: invoiceRef.trim() || undefined,
@@ -54,81 +65,83 @@ export const PriceAdjustmentModal = ({ orderId, currentAmount, onClose }: PriceA
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                <h2 className="text-xl font-semibold mb-4">Price Adjustment</h2>
+        <Modal isOpen={true} onClose={onClose} title="Price Adjustment">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Current Amount
+                    </label>
+                    <Input
+                        type="text"
+                        value={`₦${currentAmount.toLocaleString()}`}
+                        disabled
+                        className="bg-gray-100"
+                    />
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium mb-1">Current Amount</label>
-                        <input
-                            type="text"
-                            value={`₦${currentAmount.toLocaleString()}`}
-                            disabled
-                            className="w-full px-3 py-2 border rounded bg-gray-100"
-                        />
-                    </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        New Amount <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                        type="number"
+                        step="0.01"
+                        value={adjustedAmount}
+                        onChange={(e) => setAdjustedAmount(e.target.value)}
+                        placeholder="Enter new amount"
+                        required
+                    />
+                    {adjustedAmount && (
+                        <p className="text-xs text-gray-500 mt-1">
+                            Difference: ₦{(parseFloat(adjustedAmount) - currentAmount).toLocaleString()}
+                        </p>
+                    )}
+                </div>
 
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium mb-1">
-                            New Amount <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            value={adjustedAmount}
-                            onChange={(e) => setAdjustedAmount(e.target.value)}
-                            className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter new amount"
-                            required
-                        />
-                    </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Reason <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        rows={3}
+                        placeholder="Explain reason for Rite Foods price change"
+                        required
+                    />
+                </div>
 
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium mb-1">
-                            Reason <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-                            rows={3}
-                            placeholder="Explain reason for Rite Foods price change"
-                            required
-                        />
-                    </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Rite Foods Invoice Reference (Optional)
+                    </label>
+                    <Input
+                        type="text"
+                        value={invoiceRef}
+                        onChange={(e) => setInvoiceRef(e.target.value)}
+                        placeholder="Enter invoice reference"
+                    />
+                </div>
 
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium mb-1">
-                            Rite Foods Invoice Reference (Optional)
-                        </label>
-                        <input
-                            type="text"
-                            value={invoiceRef}
-                            onChange={(e) => setInvoiceRef(e.target.value)}
-                            className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter invoice reference"
-                        />
-                    </div>
-
-                    <div className="flex gap-2 justify-end">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 border rounded hover:bg-gray-100"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={adjustmentMutation.isPending}
-                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            {adjustmentMutation.isPending ? 'Saving...' : 'Save Adjustment'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
+                        disabled={adjustmentMutation.isPending}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={adjustmentMutation.isPending}
+                        className="bg-orange-600 hover:bg-orange-700"
+                    >
+                        {adjustmentMutation.isPending ? 'Saving...' : 'Save Adjustment'}
+                    </Button>
+                </div>
+            </form>
+        </Modal>
     );
 };
