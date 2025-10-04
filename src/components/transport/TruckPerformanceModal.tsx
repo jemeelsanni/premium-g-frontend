@@ -4,7 +4,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-    X,
     TrendingUp,
     DollarSign,
     Fuel,
@@ -18,8 +17,6 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import {
-    LineChart,
-    Line,
     BarChart,
     Bar,
     XAxis,
@@ -68,7 +65,7 @@ export const TruckPerformanceModal: React.FC<TruckPerformanceModalProps> = ({
             isOpen={isOpen}
             onClose={onClose}
             title={`Performance Analytics - ${truckName}`}
-            size="xl"
+            maxWidth="7xl"
         >
             <div className="space-y-6">
                 {/* Date Filters */}
@@ -126,19 +123,21 @@ export const TruckPerformanceModal: React.FC<TruckPerformanceModalProps> = ({
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
-                                    <p className="text-xs text-gray-600">Plate Number</p>
-                                    <p className="text-sm font-semibold text-gray-900">{truck?.plateNumber}</p>
+                                    <p className="text-xs text-gray-600">Registration Number</p>
+                                    <p className="text-sm font-semibold text-gray-900">
+                                        {truck?.registrationNumber || 'N/A'}
+                                    </p>
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-600">Make/Model</p>
                                     <p className="text-sm font-semibold text-gray-900">
-                                        {truck?.make} {truck?.model}
+                                        {truck?.make || 'N/A'} {truck?.model || ''}
                                     </p>
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-600">Capacity</p>
                                     <p className="text-sm font-semibold text-gray-900">
-                                        {truck?.maxPallets} pallets
+                                        {truck?.maxPallets || 0} pallets
                                     </p>
                                 </div>
                                 <div>
@@ -160,7 +159,7 @@ export const TruckPerformanceModal: React.FC<TruckPerformanceModalProps> = ({
                                     <div className="ml-3">
                                         <p className="text-xs text-gray-600">Total Trips</p>
                                         <p className="text-xl font-bold text-gray-900">
-                                            {performance?.totalTrips || 0}
+                                            {performance?.totalTrips ?? 0}
                                         </p>
                                     </div>
                                 </div>
@@ -174,7 +173,7 @@ export const TruckPerformanceModal: React.FC<TruckPerformanceModalProps> = ({
                                     <div className="ml-3">
                                         <p className="text-xs text-gray-600">Total Revenue</p>
                                         <p className="text-xl font-bold text-gray-900">
-                                            ₦{(performance?.totalRevenue || 0).toLocaleString()}
+                                            ₦{(performance?.totalRevenue ?? 0).toLocaleString()}
                                         </p>
                                     </div>
                                 </div>
@@ -188,7 +187,7 @@ export const TruckPerformanceModal: React.FC<TruckPerformanceModalProps> = ({
                                     <div className="ml-3">
                                         <p className="text-xs text-gray-600">Fuel Used</p>
                                         <p className="text-xl font-bold text-gray-900">
-                                            {(performance?.totalFuelUsed || 0).toLocaleString()}L
+                                            {(performance?.totalFuelUsed ?? 0).toLocaleString()}L
                                         </p>
                                     </div>
                                 </div>
@@ -202,7 +201,7 @@ export const TruckPerformanceModal: React.FC<TruckPerformanceModalProps> = ({
                                     <div className="ml-3">
                                         <p className="text-xs text-gray-600">Net Profit</p>
                                         <p className="text-xl font-bold text-gray-900">
-                                            ₦{(performance?.netProfit || 0).toLocaleString()}
+                                            ₦{(performance?.netProfit ?? 0).toLocaleString()}
                                         </p>
                                     </div>
                                 </div>
@@ -217,40 +216,40 @@ export const TruckPerformanceModal: React.FC<TruckPerformanceModalProps> = ({
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Total Revenue</span>
                                         <span className="font-semibold text-gray-900">
-                                            ₦{(performance?.totalRevenue || 0).toLocaleString()}
+                                            ₦{(performance?.totalRevenue ?? 0).toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Trip Expenses</span>
                                         <span className="font-semibold text-gray-900">
-                                            ₦{(performance?.totalTripExpenses || 0).toLocaleString()}
+                                            ₦{(performance?.totalTripExpenses ?? 0).toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Maintenance Expenses</span>
                                         <span className="font-semibold text-gray-900">
-                                            ₦{(performance?.totalMaintenanceExpenses || 0).toLocaleString()}
+                                            ₦{(performance?.totalMaintenanceExpenses ?? 0).toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm pt-2 border-t">
                                         <span className="text-gray-600">Total Expenses</span>
                                         <span className="font-semibold text-red-600">
-                                            ₦{(performance?.totalExpenses || 0).toLocaleString()}
+                                            ₦{(performance?.totalExpenses ?? 0).toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between pt-2 border-t">
                                         <span className="font-medium text-gray-700">Net Profit</span>
                                         <span className="font-bold text-green-600">
-                                            ₦{(performance?.netProfit || 0).toLocaleString()}
+                                            ₦{(performance?.netProfit ?? 0).toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Profit Margin</span>
-                                        <span className={`font-bold ${(performance?.profitMargin || 0) >= 15 ? 'text-green-600' :
-                                                (performance?.profitMargin || 0) >= 10 ? 'text-yellow-600' :
-                                                    'text-red-600'
+                                        <span className={`font-bold ${(performance?.profitMargin ?? 0) >= 15 ? 'text-green-600' :
+                                            (performance?.profitMargin ?? 0) >= 10 ? 'text-yellow-600' :
+                                                'text-red-600'
                                             }`}>
-                                            {(performance?.profitMargin || 0).toFixed(2)}%
+                                            {(performance?.profitMargin ?? 0).toFixed(2)}%
                                         </span>
                                     </div>
                                 </div>
@@ -262,27 +261,27 @@ export const TruckPerformanceModal: React.FC<TruckPerformanceModalProps> = ({
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Avg Revenue/Trip</span>
                                         <span className="font-semibold text-gray-900">
-                                            ₦{(performance?.averageRevenuePerTrip || 0).toLocaleString()}
+                                            ₦{(performance?.averageRevenuePerTrip ?? 0).toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Avg Fuel/Trip</span>
                                         <span className="font-semibold text-gray-900">
-                                            {(performance?.averageFuelPerTrip || 0).toFixed(1)}L
+                                            {(performance?.averageFuelPerTrip ?? 0).toFixed(1)}L
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Total Fuel Cost</span>
                                         <span className="font-semibold text-gray-900">
-                                            ₦{(performance?.totalFuelCost || 0).toLocaleString()}
+                                            ₦{(performance?.totalFuelCost ?? 0).toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Fuel Efficiency</span>
                                         <span className="font-semibold text-gray-900">
-                                            {performance?.totalTrips > 0 && performance?.totalFuelUsed > 0
-                                                ? (performance.totalFuelUsed / performance.totalTrips).toFixed(1)
-                                                : 0}L per trip
+                                            {(performance?.totalTrips ?? 0) > 0 && (performance?.totalFuelUsed ?? 0) > 0
+                                                ? ((performance?.totalFuelUsed ?? 0) / (performance?.totalTrips ?? 1)).toFixed(1)
+                                                : '0.0'}L per trip
                                         </span>
                                     </div>
                                 </div>

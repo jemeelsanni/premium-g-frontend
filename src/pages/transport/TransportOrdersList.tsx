@@ -20,8 +20,13 @@ export const TransportOrdersList: React.FC = () => {
     const pageSize = 10;
 
     const { data: ordersData, isLoading, error } = useQuery({
-        queryKey: ['transport-orders', currentPage, pageSize],
-        queryFn: () => transportService.getOrders(currentPage, pageSize),
+        queryKey: ['transport-orders', currentPage, pageSize, searchTerm, statusFilter],
+        queryFn: () => transportService.getOrders({
+            page: currentPage,
+            limit: pageSize,
+            search: searchTerm,
+            status: statusFilter || undefined
+        }),
     });
 
     const handleSearch = (value: string) => {
@@ -32,22 +37,6 @@ export const TransportOrdersList: React.FC = () => {
     const handleStatusFilter = (status: TransportOrderStatus | '') => {
         setStatusFilter(status);
         setCurrentPage(1);
-    };
-
-    const getStatusBadge = (status: string) => {
-        const baseClasses = 'inline-flex px-2 py-1 text-xs font-semibold rounded-full';
-        switch (status) {
-            case 'DELIVERED':
-                return `${baseClasses} bg-green-100 text-green-800`;
-            case 'IN_TRANSIT':
-                return `${baseClasses} bg-blue-100 text-blue-800`;
-            case 'PENDING':
-                return `${baseClasses} bg-yellow-100 text-yellow-800`;
-            case 'CANCELLED':
-                return `${baseClasses} bg-red-100 text-red-800`;
-            default:
-                return `${baseClasses} bg-gray-100 text-gray-800`;
-        }
     };
 
     const orderColumns = [
@@ -77,15 +66,15 @@ export const TransportOrdersList: React.FC = () => {
                 <div className="text-sm">
                     <div className="flex items-center text-gray-600">
                         <MapPin className="h-3 w-3 mr-1" />
-                        <span className="truncate max-w-24" title={record.pickupLocation}>
+                        <span className="truncate max-w-24" title={record.pickupLocation || ''}>
                             {record.pickupLocation}
                         </span>
                     </div>
                     <div className="text-xs text-gray-400">↓</div>
                     <div className="flex items-center text-gray-600">
                         <MapPin className="h-3 w-3 mr-1" />
-                        <span className="truncate max-w-24" title={record.deliveryLocation}>
-                            {record.deliveryLocation}
+                        <span className="truncate max-w-24" title={record.deliveryAddress || ''}>
+                            {record.deliveryAddress}
                         </span>
                     </div>
                 </div>
@@ -149,7 +138,7 @@ export const TransportOrdersList: React.FC = () => {
     const Pagination = () => {
         if (!ordersData) return null;
 
-        const { page, totalPages, total } = ordersData;
+        const { page, totalPages, total } = ordersData.pagination;
         const startItem = ((page - 1) * pageSize) + 1;
         const endItem = Math.min(page * pageSize, total);
 
@@ -289,7 +278,7 @@ export const TransportOrdersList: React.FC = () => {
             {/* Orders Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
                 <Table
-                    data={ordersData?.data || []}
+                    data={ordersData?.data?.orders || []}
                     columns={orderColumns}
                     loading={isLoading}
                     emptyMessage="No transport orders found"

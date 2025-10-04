@@ -290,7 +290,7 @@ export const CreateTransportOrder: React.FC = () => {
                                     {...register('locationId')}
                                     error={errors.locationId?.message}                                >
                                     <option value="">Select location</option>
-                                    {locations?.data?.locations?.map((location: any) => (
+                                    {locations?.map((location: any) => (
                                         <option key={location.id} value={location.id}>
                                             {location.name}
                                         </option>
@@ -351,9 +351,9 @@ export const CreateTransportOrder: React.FC = () => {
                                     {...register('truckId')}
                                     error={errors.truckId?.message}                                >
                                     <option value="">Select truck (optional)</option>
-                                    {trucks?.data?.trucks?.map((truck: any) => (
+                                    {trucks?.map((truck: any) => (
                                         <option key={truck.id} value={truck.id}>
-                                            {truck.plateNumber} - {truck.capacity}kg
+                                            {truck.registrationNumber} - {truck.maxPallets} pallets
                                         </option>
                                     ))}
                                 </Select>

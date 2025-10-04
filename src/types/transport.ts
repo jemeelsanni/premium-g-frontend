@@ -296,6 +296,12 @@ export interface ExpenseSummary {
       totalAmount: number;
       totalCount: number;
       averageAmount: number;
+      pendingCount?: number;      // ADD THIS
+      pendingAmount?: number;      // ADD THIS
+      approvedCount?: number;      // ADD THIS
+      approvedAmount?: number;     // ADD THIS
+      rejectedCount?: number;      // ADD THIS
+      rejectedAmount?: number;     // ADD THIS
     };
     byCategory: {
       category: string;
@@ -316,5 +322,19 @@ export interface ExpenseSummary {
       startDate?: string;
       endDate?: string;
     };
+    byStatus?: { 
+      status: string; 
+      amount: number; 
+      count: number; 
+    }[];  // ADD THIS
+    monthly?: { 
+      month: string; 
+      tripExpenses: number; 
+      nonTripExpenses: number; 
+      total: number; 
+    }[];  // ADD THIS
+
+
+    
   };
 }

@@ -16,9 +16,7 @@ import { globalToast } from '../../components/ui/Toast';
 const expenseSchema = z.object({
     truckId: z.string().optional(),
     locationId: z.string().optional(),
-    expenseType: z.enum(['TRIP', 'NON_TRIP'], {
-        required_error: 'Expense type is required'
-    }),
+    expenseType: z.enum(['TRIP', 'NON_TRIP']),
     category: z.string().min(1, 'Category is required'),
     amount: z.number().min(1, 'Amount must be greater than 0'),
     description: z.string().min(5, 'Description must be at least 5 characters'),

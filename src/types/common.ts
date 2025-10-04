@@ -20,6 +20,7 @@ export interface Location {
 }
 
 export interface PaginatedResponse<T> {
+  pagination: { page: any; totalPages: any; total: any; };
   success: boolean;
   data: {
     orders?: T[];      // For transport/distribution orders

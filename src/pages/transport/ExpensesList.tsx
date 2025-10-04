@@ -285,7 +285,7 @@ export const ExpensesList: React.FC = () => {
                 </div>
 
                 {/* Pagination */}
-                {expensesData?.data?.pagination && expensesData.data.pagination.pages > 1 && (
+                {expensesData?.pagination && expensesData.pagination.totalPages > 1 && (
                     <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
                             Showing page {expensesData.data.pagination.page} of {expensesData.data.pagination.pages}
@@ -301,7 +301,7 @@ export const ExpensesList: React.FC = () => {
                             <Button
                                 variant="outline"
                                 onClick={() => setCurrentPage(currentPage + 1)}
-                                disabled={currentPage >= expensesData.data.pagination.pages}
+                                disabled={currentPage >= (expensesData.pagination.totalPages || 1)}
                             >
                                 Next
                             </Button>

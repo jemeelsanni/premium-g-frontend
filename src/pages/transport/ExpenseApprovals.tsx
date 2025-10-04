@@ -125,14 +125,7 @@ export const ExpenseApprovals: React.FC = () => {
     const expenseColumns = [
         {
             key: 'select',
-            title: (
-                <input
-                    type="checkbox"
-                    checked={selectedExpenses.length === (expensesData?.data?.expenses?.length || 0) && selectedExpenses.length > 0}
-                    onChange={toggleSelectAll}
-                    className="rounded border-gray-300"
-                />
-            ),
+            title: '',
             render: (_: any, record: any) => (
                 <input
                     type="checkbox"
@@ -284,6 +277,23 @@ export const ExpenseApprovals: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            </div>
+            <div className="p-6">
+                <div className="mb-4 flex items-center">
+                    <input
+                        type="checkbox"
+                        checked={selectedExpenses.length === pendingExpenses.length && selectedExpenses.length > 0}
+                        onChange={toggleSelectAll}
+                        className="rounded border-gray-300 mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Select All</span>
+                </div>
+                <Table
+                    data={pendingExpenses}
+                    columns={expenseColumns}
+                    loading={isLoading}
+                    emptyMessage="No pending expenses"
+                />
             </div>
 
             {/* Expenses Table */}

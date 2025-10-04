@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/transport/TransportAnalytics.tsx - COMPLETE VERSION
 
@@ -44,6 +45,9 @@ export const TransportAnalytics: React.FC = () => {
     const [endDate, setEndDate] = useState('');
     const [selectedTab, setSelectedTab] = useState<'overview' | 'trucks' | 'clients' | 'expenses'>('overview');
 
+
+
+
     const { data: analyticsData, isLoading } = useQuery({
         queryKey: ['transport-analytics', startDate, endDate],
         queryFn: () => transportService.getAnalyticsSummary({
@@ -77,10 +81,12 @@ export const TransportAnalytics: React.FC = () => {
         })
     });
 
+
+
     // Export Analytics
     const handleExportAnalytics = async () => {
         try {
-            globalToast.info('Generating analytics report...');
+            globalToast.loading('Generating analytics report...');
             // You can implement CSV export here
             const csvData = generateCSVReport();
             downloadCSV(csvData, `transport-analytics-${Date.now()}.csv`);
@@ -130,8 +136,7 @@ export const TransportAnalytics: React.FC = () => {
     const breakdown = analyticsData?.data?.breakdown;
     const profitSummary = profitData?.data?.summary;
     const monthlyTrend = profitData?.data?.monthlyTrend || [];
-    const clients = clientsData?.data?.clients || [];
-    const expenseSummary = expensesData?.data;
+    const clients = clientsData || [];
 
     // Prepare data for charts
     const expenseBreakdownData = breakdown?.expensesByCategory
@@ -169,6 +174,11 @@ export const TransportAnalytics: React.FC = () => {
     const profitGrowth = monthlyTrend.length > 1
         ? ((monthlyTrend[monthlyTrend.length - 1]?.profit - monthlyTrend[0]?.profit) / monthlyTrend[0]?.profit * 100)
         : 0;
+
+    const expenseSummary = expensesData?.data;
+    const pendingExpenses = expenseSummary?.byType?.find((s: any) => s.type === 'PENDING');
+    const approvedExpenses = expenseSummary?.byType?.find((s: any) => s.type === 'APPROVED');
+    const rejectedExpenses = expenseSummary?.byType?.find((s: any) => s.type === 'REJECTED');
 
     return (
         <div className="space-y-6">
@@ -402,7 +412,7 @@ export const TransportAnalytics: React.FC = () => {
                                             cx="50%"
                                             cy="50%"
                                             labelLine={false}
-                                            label={(entry) => `${entry.name}: ₦${entry.value.toLocaleString()}`}
+                                            label={(entry: any) => `${entry.name}: ₦${(entry.value as number).toLocaleString()}`}
                                             outerRadius={80}
                                             fill="#8884d8"
                                             dataKey="value"
@@ -631,8 +641,8 @@ export const TransportAnalytics: React.FC = () => {
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-right">
                                                     <span className={`px-2 py-1 rounded ${client.profitMargin > 15 ? 'bg-green-100 text-green-800' :
-                                                            client.profitMargin > 10 ? 'bg-yellow-100 text-yellow-800' :
-                                                                'bg-red-100 text-red-800'
+                                                        client.profitMargin > 10 ? 'bg-yellow-100 text-yellow-800' :
+                                                            'bg-red-100 text-red-800'
                                                         }`}>
                                                         {client.profitMargin?.toFixed(1) || 0}%
                                                     </span>
@@ -692,10 +702,10 @@ export const TransportAnalytics: React.FC = () => {
                                 <div className="ml-4">
                                     <p className="text-sm font-medium text-gray-600">Pending Approval</p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {expenseSummary?.summary?.pendingCount || 0}
+                                        {(pendingExpenses?.count || 0).toLocaleString()}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                        ₦{(expenseSummary?.summary?.pendingAmount || 0).toLocaleString()}
+                                        ₦{(pendingExpenses?.amount || 0).toLocaleString()}
                                     </p>
                                 </div>
                             </div>
@@ -709,10 +719,10 @@ export const TransportAnalytics: React.FC = () => {
                                 <div className="ml-4">
                                     <p className="text-sm font-medium text-gray-600">Approved</p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {expenseSummary?.summary?.approvedCount || 0}
+                                        {approvedExpenses?.count || 0}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                        ₦{(expenseSummary?.summary?.approvedAmount || 0).toLocaleString()}
+                                        ₦{(approvedExpenses?.amount || 0).toLocaleString()}
                                     </p>
                                 </div>
                             </div>
@@ -778,19 +788,19 @@ export const TransportAnalytics: React.FC = () => {
                                     <div className="text-center p-3 bg-yellow-50 rounded-lg">
                                         <p className="text-xs text-gray-600">Pending</p>
                                         <p className="text-lg font-bold text-yellow-700">
-                                            {expenseSummary?.summary?.pendingCount || 0}
+                                            {pendingExpenses?.count || 0}
                                         </p>
                                     </div>
                                     <div className="text-center p-3 bg-green-50 rounded-lg">
                                         <p className="text-xs text-gray-600">Approved</p>
                                         <p className="text-lg font-bold text-green-700">
-                                            {expenseSummary?.summary?.approvedCount || 0}
+                                            {approvedExpenses?.count || 0}
                                         </p>
                                     </div>
                                     <div className="text-center p-3 bg-red-50 rounded-lg">
                                         <p className="text-xs text-gray-600">Rejected</p>
                                         <p className="text-lg font-bold text-red-700">
-                                            {expenseSummary?.summary?.rejectedCount || 0}
+                                            {rejectedExpenses?.count || 0}
                                         </p>
                                     </div>
                                 </div>
@@ -804,7 +814,7 @@ export const TransportAnalytics: React.FC = () => {
                             Monthly Expense Trend
                         </h3>
                         <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={expenseSummary?.monthlyTrend || []}>
+                            <LineChart data={expenseSummary?.monthly || []}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis
                                     dataKey="month"

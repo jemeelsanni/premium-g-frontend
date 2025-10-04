@@ -191,29 +191,30 @@ export const TruckManagement: React.FC = () => {
             render: (value: any, row: TruckType) => (
                 <div className="flex items-center space-x-2">
                     <Button
-                        variant="secondary"
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleEdit(row)}
+                        onClick={() => handleOpenModal(row)}
+                        className="p-1"
                     >
                         <Edit className="h-4 w-4" />
                     </Button>
                     <Button
-                        variant="secondary"
+                        variant="outline"
                         size="sm"
                         onClick={() => setSelectedTruckForPerformance({
                             id: row.id,
-                            name: row.plateNumber
+                            name: row.registrationNumber
                         })}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="p-1"
+                        title="View Performance"
                     >
-                        <TrendingUp className="h-4 w-4 mr-1" />
-                        Performance
+                        <TrendingUp className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="danger"
                         size="sm"
-                        onClick={() => handleDelete(row.id)}
-                        className="text-red-600 hover:text-red-800"
+                        onClick={() => handleDelete(row)}
+                        className="p-1"
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>
@@ -388,6 +389,4 @@ export const TruckManagement: React.FC = () => {
     );
 };
 
-function handleEdit(row: TruckType): void {
-    throw new Error('Function not implemented.');
-}
+
