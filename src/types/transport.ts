@@ -1,3 +1,7 @@
+// src/types/transport.ts - COMPLETE TYPE DEFINITIONS
+
+import { Location } from './index';
+
 export enum TransportOrderStatus {
   PENDING = 'PENDING',
   CONFIRMED = 'CONFIRMED',
@@ -8,6 +12,17 @@ export enum TransportOrderStatus {
   CANCELLED = 'CANCELLED'
 }
 
+export enum ExpenseType {
+  TRIP = 'TRIP',
+  NON_TRIP = 'NON_TRIP'
+}
+
+export enum ExpenseStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED'
+}
+
 export interface TransportOrder {
   id: string;
   orderNumber: string;
@@ -15,19 +30,21 @@ export interface TransportOrder {
   clientName: string;
   clientPhone?: string;
   pickupLocation: string;
-  deliveryAddress: string;  // ✅ Added
-  locationId: string;  // ✅ Added
+  deliveryAddress: string;
+  locationId: string;
   location?: Location;
   totalOrderAmount: number;
   
   // Fuel & Expenses
-  fuelRequired: number;  // ✅ Added
-  fuelPricePerLiter: number;  // ✅ Added
+  fuelRequired: number;
+  fuelPricePerLiter: number;
   totalFuelCost: number;
   serviceChargeExpense: number;
   driverWages: number;
+  tripAllowance: number;
+  motorBoyWages: number;
   truckExpenses: number;
-  totalExpenses: number;
+  totalTripExpenses: number;
   
   // Profit
   grossProfit: number;
@@ -49,10 +66,10 @@ export interface TransportOrder {
 export interface Truck {
   id: string;
   truckId: string;
-  registrationNumber?: string;  // ✅ Updated to match schema
-  maxPallets: number;  // ✅ Updated to match schema
-  currentLoad?: number;
-  availableSpace?: number;
+  registrationNumber: string;
+  maxPallets: number;
+  currentLoad: number;
+  availableSpace: number;
   isActive: boolean;
   make?: string;
   model?: string;
@@ -62,5 +79,226 @@ export interface Truck {
   updatedAt?: string;
 }
 
-// Import Location type from index if needed
-import { Location } from './index';
+export interface TransportExpense {
+  id: string;
+  truckId?: string;
+  truck?: Truck;
+  locationId?: string;
+  location?: Location;
+  expenseType: ExpenseType;
+  category: string;
+  amount: number;
+  description: string;
+  expenseDate: string;
+  status: ExpenseStatus;
+  approvedBy?: string;
+  approvedByUser?: { username: string };
+  rejectedBy?: string;
+  rejectedByUser?: { username: string };
+  approvedAt?: string;
+  rejectedAt?: string;
+  approvalNotes?: string;
+  isPaid: boolean;
+  paidAt?: string;
+  createdBy: string;
+  createdByUser?: { username: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TransportAnalytics {
+  success: boolean;
+  data: {
+    summary: {
+      totalRevenue: number;
+      tripExpenses: {
+        fuel: number;
+        wages: number;
+        serviceCharges: number;
+        total: number;
+      };
+      nonTripExpenses: number;
+      totalExpenses: number;
+      grossProfit: number;
+      netProfit: number;
+      profitMargin: number;
+      totalTrips: number;
+      averageTripRevenue: number;
+      totalFuelLiters: number;
+    };
+    breakdown: {
+      byClient: {
+        name: string;
+        trips: number;
+        revenue: number;
+        profit: number;
+      }[];
+      byTruck: {
+        truck: string;
+        trips: number;
+        revenue: number;
+        fuelUsed: number;
+        profit: number;
+      }[];
+      byLocation: {
+        name: string;
+        trips: number;
+        revenue: number;
+      }[];
+      expensesByCategory: Record<string, number>;
+    };
+    period: {
+      startDate?: string;
+      endDate?: string;
+    };
+  };
+}
+
+export interface TruckPerformance {
+  success: boolean;
+  data: {
+    truck: {
+      truckId: string;
+      registrationNumber: string;
+      make?: string;
+      model?: string;
+      maxPallets: number;
+    };
+    performance: {
+      totalTrips: number;
+      totalRevenue: number;
+      totalTripExpenses: number;
+      totalMaintenanceExpenses: number;
+      totalExpenses: number;
+      netProfit: number;
+      profitMargin: number;
+      totalFuelUsed: number;
+      totalFuelCost: number;
+      averageRevenuePerTrip: number;
+      averageFuelPerTrip: number;
+    };
+    monthlyBreakdown: {
+      month: string;
+      trips: number;
+      revenue: number;
+      fuelUsed: number;
+    }[];
+    recentTrips: {
+      id: string;
+      orderNumber: string;
+      client: string;
+      location?: string;
+      revenue: number;
+      profit: number;
+      fuelUsed: number;
+      date: string;
+    }[];
+    recentExpenses: {
+      id: string;
+      category: string;
+      amount: number;
+      description: string;
+      date: string;
+    }[];
+    period: {
+      startDate?: string;
+      endDate?: string;
+    };
+  };
+}
+
+export interface ClientStats {
+  success: boolean;
+  data: {
+    clients: {
+      clientName: string;
+      totalTrips: number;
+      totalRevenue: number;
+      totalProfit: number;
+      averageRevenuePerTrip: number;
+      profitMargin: number;
+      lastTrip: string;
+    }[];
+    summary: {
+      totalClients: number;
+      totalRevenue: number;
+      totalProfit: number;
+    };
+    period: {
+      startDate?: string;
+      endDate?: string;
+    };
+  };
+}
+
+export interface ProfitAnalysis {
+  success: boolean;
+  data: {
+    summary: {
+      totalTrips: number;
+      totalRevenue: number;
+      totalExpenses: number;
+      totalProfit: number;
+      averageMargin: number;
+      breakdown: {
+        fuel: number;
+        wages: number;
+        serviceCharges: number;
+      };
+    };
+    byLocation: {
+      location: string;
+      trips: number;
+      revenue: number;
+      profit: number;
+    }[];
+    monthlyTrend: {
+      month: string;
+      trips: number;
+      revenue: number;
+      profit: number;
+      avgMargin: number;
+    }[];
+    recentOrders: {
+      id: string;
+      orderNumber: string;
+      client: string;
+      location?: string;
+      revenue: number;
+      expenses: number;
+      profit: number;
+      margin: number;
+      date: string;
+    }[];
+  };
+}
+
+export interface ExpenseSummary {
+  success: boolean;
+  data: {
+    summary: {
+      totalAmount: number;
+      totalCount: number;
+      averageAmount: number;
+    };
+    byCategory: {
+      category: string;
+      amount: number;
+      count: number;
+    }[];
+    byType: {
+      type: string;
+      amount: number;
+      count: number;
+    }[];
+    byTruck: {
+      truckId: string;
+      amount: number;
+      count: number;
+    }[];
+    period: {
+      startDate?: string;
+      endDate?: string;
+    };
+  };
+}

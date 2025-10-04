@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Product {
   id: string;
@@ -26,6 +28,7 @@ export interface PaginatedResponse<T> {
     inventory?: T[];   // For inventory
     [key: string]: any; // Allow dynamic keys
     pagination: {
+      pages: ReactNode;
       page: number;
       limit: number;
       total: number;
