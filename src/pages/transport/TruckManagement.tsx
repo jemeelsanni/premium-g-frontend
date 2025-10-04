@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/transport/TruckManagement.tsx
 import React, { useState } from 'react';
@@ -5,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Edit, Trash2, Truck, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Truck, Search, TrendingUp } from 'lucide-react';
 import { transportService } from '../../services/transportService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -13,6 +14,8 @@ import { Table } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
 import { Truck as TruckType } from '../../types/transport';
 import { globalToast } from '../../components/ui/Toast';
+import { TruckPerformanceModal } from '../../components/transport/TruckPerformanceModal';
+
 
 const truckSchema = z.object({
     plateNumber: z.string().min(1, 'Plate number is required'),
@@ -26,6 +29,8 @@ export const TruckManagement: React.FC = () => {
     const [editingTruck, setEditingTruck] = useState<TruckType | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const queryClient = useQueryClient();
+    const [selectedTruckForPerformance, setSelectedTruckForPerformance] = useState<{ id: string, name: string } | null>(null);
+
 
     const {
         register,
@@ -174,6 +179,41 @@ export const TruckManagement: React.FC = () => {
                         size="sm"
                         onClick={() => handleDelete(record)}
                         className="p-1"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
+            )
+        },
+        {
+            key: 'actions',
+            title: 'Actions',
+            render: (value: any, row: TruckType) => (
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleEdit(row)}
+                    >
+                        <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSelectedTruckForPerformance({
+                            id: row.id,
+                            name: row.plateNumber
+                        })}
+                        className="text-blue-600 hover:text-blue-800"
+                    >
+                        <TrendingUp className="h-4 w-4 mr-1" />
+                        Performance
+                    </Button>
+                    <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDelete(row.id)}
+                        className="text-red-600 hover:text-red-800"
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>
@@ -336,6 +376,18 @@ export const TruckManagement: React.FC = () => {
                     </div>
                 </form>
             </Modal>
+            {selectedTruckForPerformance && (
+                <TruckPerformanceModal
+                    isOpen={!!selectedTruckForPerformance}
+                    onClose={() => setSelectedTruckForPerformance(null)}
+                    truckId={selectedTruckForPerformance.id}
+                    truckName={selectedTruckForPerformance.name}
+                />
+            )}
         </div>
     );
 };
+
+function handleEdit(row: TruckType): void {
+    throw new Error('Function not implemented.');
+}

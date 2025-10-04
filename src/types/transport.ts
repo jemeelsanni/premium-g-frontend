@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/types/transport.ts - COMPLETE TYPE DEFINITIONS
 
+import { ReactNode } from 'react';
 import { Location } from './index';
 
 export enum TransportOrderStatus {
@@ -11,6 +13,17 @@ export enum TransportOrderStatus {
   PARTIALLY_DELIVERED = 'PARTIALLY_DELIVERED',
   CANCELLED = 'CANCELLED'
 }
+
+export enum DeliveryStatus {
+    PENDING = 'PENDING',
+    CONFIRMED = 'CONFIRMED',
+    PROCESSING = 'PROCESSING',
+    IN_TRANSIT = 'IN_TRANSIT',
+    DELIVERED = 'DELIVERED',
+    PARTIALLY_DELIVERED = 'PARTIALLY_DELIVERED',
+    CANCELLED = 'CANCELLED'
+}
+
 
 export enum ExpenseType {
   TRIP = 'TRIP',
@@ -24,6 +37,7 @@ export enum ExpenseStatus {
 }
 
 export interface TransportOrder {
+  deliveryLocation: ReactNode;
   id: string;
   orderNumber: string;
   invoiceNumber?: string;
@@ -34,6 +48,7 @@ export interface TransportOrder {
   locationId: string;
   location?: Location;
   totalOrderAmount: number;
+  deliveryStatus: DeliveryStatus;
   
   // Fuel & Expenses
   fuelRequired: number;
@@ -52,7 +67,6 @@ export interface TransportOrder {
   profitMargin: number;
   
   // Status & Assignment
-  deliveryStatus: TransportOrderStatus;
   deliveryDate?: string;
   truckId?: string;
   truck?: Truck;
@@ -64,6 +78,8 @@ export interface TransportOrder {
 }
 
 export interface Truck {
+  capacity: any;
+  plateNumber: string;
   id: string;
   truckId: string;
   registrationNumber: string;

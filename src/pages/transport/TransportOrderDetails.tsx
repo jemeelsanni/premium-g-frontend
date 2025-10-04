@@ -20,6 +20,8 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Modal } from '../../components/ui/Modal';
 import { TransportOrderStatus } from '../../types/transport';
 import { globalToast } from '../../components/ui/Toast';
+import { StatusUpdateDropdown } from '../../components/transport/StatusUpdateDropdown';
+// import { OrderStatusBadge } from '../../components/transport/OrderStatusBadge';
 
 export const TransportOrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -141,18 +143,31 @@ export const TransportOrderDetails: React.FC = () => {
             </div>
 
             {/* Order Status */}
-            <div className="bg-white shadow rounded-lg p-6">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                        <Package className="h-8 w-8 text-blue-600" />
-                        <div>
-                            <h3 className="text-lg font-medium text-gray-900">Order Status</h3>
-                            <p className="text-sm text-gray-500">Current delivery status</p>
-                        </div>
-                    </div>
-                    <span className={getStatusBadge(order.deliveryStatus)}>
-                        {order.deliveryStatus.replace('_', ' ')}
-                    </span>
+            <div className="flex items-center space-x-3">
+                <div>
+                    <p className="text-xs text-gray-500 mb-1">Delivery Status</p>
+                    <StatusUpdateDropdown
+                        orderId={order.id}
+                        currentStatus={order.deliveryStatus}
+                    />
+                </div>
+
+                {/* Optional: Add Edit and Delete buttons */}
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        onClick={() => navigate(`/transport/orders/${id}/edit`)}
+                    >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => navigate('/transport/orders')}
+                    >
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back
+                    </Button>
                 </div>
             </div>
 

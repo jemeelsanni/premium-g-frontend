@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { TransportOrder, TransportOrderStatus } from '../../types/transport';
+import { StatusUpdateDropdown } from '../../components/transport/StatusUpdateDropdown';
+
 
 export const TransportOrdersList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
@@ -112,10 +114,11 @@ export const TransportOrdersList: React.FC = () => {
         {
             key: 'deliveryStatus',
             title: 'Status',
-            render: (value: string) => (
-                <span className={getStatusBadge(value)}>
-                    {value.replace('_', ' ')}
-                </span>
+            render: (value: any, row: TransportOrder) => (
+                <StatusUpdateDropdown
+                    orderId={row.id}
+                    currentStatus={row.deliveryStatus}
+                />
             )
         },
         {

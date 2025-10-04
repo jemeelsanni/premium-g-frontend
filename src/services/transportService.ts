@@ -274,6 +274,15 @@ export class TransportService extends BaseApiService {
   }
 
   // ================================
+  // LOCATION RATES
+  // ================================
+
+  async getLocationRates(locationId: string): Promise<any> {
+    const response = await this.get<{ success: boolean; data: any }>(`/locations/${locationId}/rates`);
+    return response.data;
+  }
+
+  // ================================
   // EXPORT FUNCTIONS
   // ================================
 
