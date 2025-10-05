@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/services/transportService.ts - COMPLETE VERSION
+// src/services/transportService.ts - FIXED VERSION
 
 import { BaseApiService, apiClient } from './api';
 import { 
@@ -24,6 +24,9 @@ export interface CreateTransportOrderData {
   totalOrderAmount: number;
   fuelRequired: number;
   fuelPricePerLiter: number;
+  driverWages: number;      // ✅ ADD THIS
+  tripAllowance: number;    // ✅ ADD THIS
+  motorBoyWages: number;    // ✅ ADD THIS
   truckId?: string;
   driverDetails?: string;
   invoiceNumber?: string;
@@ -210,10 +213,11 @@ export class TransportService extends BaseApiService {
   }
 
   // ================================
-  // ANALYTICS
+  // ANALYTICS - Use apiClient directly for separate analytics routes
   // ================================
 
   async getDashboardStats(): Promise<any> {
+    // ✅ Analytics are on separate routes: /api/v1/analytics/transport/*
     const response = await apiClient.get('/analytics/transport/dashboard');
     return response.data;
   }

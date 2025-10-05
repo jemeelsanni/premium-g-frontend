@@ -25,6 +25,9 @@ const transportOrderSchema = z.object({
     totalOrderAmount: z.number().min(1, 'Order amount must be greater than 0'),
     fuelRequired: z.number().min(0, 'Fuel required must be 0 or greater'),
     fuelPricePerLiter: z.number().min(0, 'Fuel price must be 0 or greater'),
+    driverWages: z.number().min(0, 'Driver wages must be positive'),
+    tripAllowance: z.number().min(0, 'Trip allowance must be positive'),
+    motorBoyWages: z.number().min(0, 'Motor boy wages must be positive'),
     truckId: z.string().optional(),
     driverDetails: z.string().optional(),
     invoiceNumber: z.string().optional(),
@@ -119,20 +122,22 @@ export const CreateTransportOrder: React.FC = () => {
         }
     }, [existingOrder, isEditing, setValue]);
 
+    const watchedDriverWages = watch('driverWages') || 0;
+    const watchedTripAllowance = watch('tripAllowance') || 0;
+    const watchedMotorBoyWages = watch('motorBoyWages') || 0;
+
     // ============================================
     // REAL-TIME CALCULATION LOGIC
     // ============================================
     const calculations = React.useMemo(() => {
         // Default rates (will be overridden by location-specific rates)
-        const DEFAULT_DRIVER_WAGES = 5000;
-        const DEFAULT_TRIP_ALLOWANCE = 2000;
-        const DEFAULT_MOTOR_BOY_WAGES = 3000;
         const DEFAULT_SERVICE_CHARGE_PERCENT = 10;
 
         // Use location-specific rates if available
-        const driverWages = locationRates?.salaryRate?.driverRate || DEFAULT_DRIVER_WAGES;
-        const tripAllowance = locationRates?.salaryRate?.tripAllowance || DEFAULT_TRIP_ALLOWANCE;
-        const motorBoyWages = locationRates?.salaryRate?.motorBoyRate || DEFAULT_MOTOR_BOY_WAGES;
+        const driverWages = watchedDriverWages;
+        const tripAllowance = watchedTripAllowance;
+        const motorBoyWages = watchedMotorBoyWages;
+
         const baseHaulageRate = locationRates?.haulageRate?.rate || totalOrderAmount;
 
         // Calculate costs
@@ -161,7 +166,7 @@ export const CreateTransportOrder: React.FC = () => {
             profitMargin,
             hasLocationRates: !!locationRates
         };
-    }, [fuelRequired, fuelPricePerLiter, totalOrderAmount, locationRates]);
+    }, [fuelRequired, fuelPricePerLiter, totalOrderAmount, locationRates, watchedDriverWages, watchedTripAllowance, watchedMotorBoyWages]);
 
     // Create/Update mutations
     const createMutation = useMutation({
@@ -339,6 +344,34 @@ export const CreateTransportOrder: React.FC = () => {
                                     error={errors.fuelPricePerLiter?.message}
                                     placeholder="500"
                                 />
+
+                                <Input
+                                    label="Driver Wages (₦) *"
+                                    type="number"
+                                    step="0.01"
+                                    {...register('driverWages', { valueAsNumber: true })}
+                                    error={errors.driverWages?.message}
+                                    placeholder="e.g., 5000"
+                                />
+
+                                <Input
+                                    label="Trip Allowance (₦) *"
+                                    type="number"
+                                    step="0.01"
+                                    {...register('tripAllowance', { valueAsNumber: true })}
+                                    error={errors.tripAllowance?.message}
+                                    placeholder="e.g., 2000"
+                                />
+
+                                <Input
+                                    label="Motor Boy Wages (₦) *"
+                                    type="number"
+                                    step="0.01"
+                                    {...register('motorBoyWages', { valueAsNumber: true })}
+                                    error={errors.motorBoyWages?.message}
+                                    placeholder="e.g., 3000"
+                                />
+
                             </div>
                         </div>
 
