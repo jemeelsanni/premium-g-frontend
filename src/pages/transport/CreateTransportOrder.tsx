@@ -380,16 +380,17 @@ export const CreateTransportOrder: React.FC = () => {
                             <h3 className="text-lg font-medium text-gray-900 mb-4">Truck & Driver Details</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Select
-                                    options={[]} label="Assign Truck"
+                                    label="Assign Truck"
+                                    options={[
+                                        { value: '', label: 'Select truck (optional)' },
+                                        ...(trucks?.map(truck => ({
+                                            value: truck.truckId,  // ✅ Use truckId, not id
+                                            label: `${truck.registrationNumber} - ${truck.maxPallets} pallets`
+                                        })) || [])
+                                    ]}
                                     {...register('truckId')}
-                                    error={errors.truckId?.message}                                >
-                                    <option value="">Select truck (optional)</option>
-                                    {trucks?.map((truck: any) => (
-                                        <option key={truck.id} value={truck.id}>
-                                            {truck.registrationNumber} - {truck.maxPallets} pallets
-                                        </option>
-                                    ))}
-                                </Select>
+                                    error={errors.truckId?.message}
+                                />
 
                                 <Input
                                     label="Driver Details"

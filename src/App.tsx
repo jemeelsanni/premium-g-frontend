@@ -16,6 +16,9 @@ import { DistributionRoutes } from './pages/distribution/DistributionRoutes';
 import { TransportRoutes } from './pages/transport/TransportRoutes';
 import { WarehouseRoutes } from './pages/warehouse/WarehouseRoutes';
 
+import { AdminRoutes } from './pages/admin/AdminRoutes';
+
+
 // Dashboard
 import { MainDashboard } from './pages/dashboard/MainDashboard';
 
@@ -113,6 +116,19 @@ function App() {
               >
                 <DashboardLayout>
                   <WarehouseRoutes />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute
+                allowedRoles={[UserRole.SUPER_ADMIN]}
+              >
+                <DashboardLayout>
+                  <AdminRoutes />
                 </DashboardLayout>
               </ProtectedRoute>
             }

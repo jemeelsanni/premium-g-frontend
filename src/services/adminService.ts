@@ -236,7 +236,7 @@ export class AdminService extends BaseApiService {
     };
     recentActivity: AuditLog[];
   }>> {
-    return this.get<ApiResponse<any>>('/stats');
+    return this.get<ApiResponse<any>>('/dashboard');
   }
 }
 
