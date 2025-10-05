@@ -385,7 +385,7 @@ export const CreateTransportOrder: React.FC = () => {
                                     options={[
                                         { value: '', label: 'Select truck (optional)' },
                                         ...(trucks?.map(truck => ({
-                                            value: truck.id,  // ✅ Use truckId, not id
+                                            value: truck.truckId,  // ✅ CHANGE: Use truckId instead of truck.id
                                             label: `${truck.registrationNumber} - ${truck.maxPallets} pallets`
                                         })) || [])
                                     ]}
