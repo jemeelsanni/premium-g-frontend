@@ -11,6 +11,18 @@ export interface ApiResponse<T = any> {
   timestamp?: string;
 }
 
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+
+
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {
