@@ -44,8 +44,8 @@ export const UserManagement: React.FC = () => {
     });
 
     // Calculate pagination values
-    const totalPages = usersData?.pagination?.totalPages || 1;
-    const total = usersData?.pagination?.total || 0;
+    const totalPages = usersData?.data?.pagination?.totalPages || 1;
+    const total = usersData?.data?.pagination?.total || 0;
     const hasNext = currentPage < totalPages;
     const hasPrev = currentPage > 1;
 
@@ -158,8 +158,8 @@ export const UserManagement: React.FC = () => {
             render: (value: boolean) => (
                 <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${value
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
                         }`}
                 >
                     {value ? 'Active' : 'Inactive'}
@@ -214,7 +214,7 @@ export const UserManagement: React.FC = () => {
                 </div>
 
                 <Table
-                    data={usersData?.data || []}
+                    data={usersData?.data?.users || []}
                     columns={userColumns}
                 />
 

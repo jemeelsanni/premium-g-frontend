@@ -10,13 +10,10 @@ import { Table } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { globalToast } from '../../components/ui/Toast';
-import { formatCurrency } from '../../utils/formatters';
 
 interface LocationFormData {
     name: string;
     address: string;
-    fuelAdjustment: number;
-    driverWagesPerTrip: number;
 }
 
 export const LocationManagement: React.FC = () => {
@@ -27,8 +24,6 @@ export const LocationManagement: React.FC = () => {
     const [formData, setFormData] = useState<LocationFormData>({
         name: '',
         address: '',
-        fuelAdjustment: 0,
-        driverWagesPerTrip: 0,
     });
 
     const queryClient = useQueryClient();
@@ -45,8 +40,8 @@ export const LocationManagement: React.FC = () => {
     });
 
     // Calculate pagination values
-    const totalPages = locationsData?.pagination?.totalPages || 1;
-    const total = locationsData?.pagination?.total || 0;
+    const totalPages = locationsData?.data?.pagination?.totalPages || 1;
+    const total = locationsData?.data?.pagination?.total || 0;
     const hasNext = currentPage < totalPages;
     const hasPrev = currentPage > 1;
 
@@ -100,8 +95,6 @@ export const LocationManagement: React.FC = () => {
         setFormData({
             name: location.name || '',
             address: location.address || '',
-            fuelAdjustment: location.fuelAdjustment || 0,
-            driverWagesPerTrip: location.driverWagesPerTrip || 0,
         });
         setIsModalOpen(true);
     };
@@ -118,8 +111,6 @@ export const LocationManagement: React.FC = () => {
         setFormData({
             name: '',
             address: '',
-            fuelAdjustment: 0,
-            driverWagesPerTrip: 0,
         });
     };
 
@@ -141,28 +132,15 @@ export const LocationManagement: React.FC = () => {
                 <span className="text-gray-600">{value || 'N/A'}</span>
             ),
         },
-        {
-            key: 'fuelAdjustment',
-            title: 'Fuel Adjustment',
-            render: (value: number) => (
-                <span className="text-gray-900">{formatCurrency(value || 0)}</span>
-            ),
-        },
-        {
-            key: 'driverWagesPerTrip',
-            title: 'Driver Wages/Trip',
-            render: (value: number) => (
-                <span className="text-gray-900">{formatCurrency(value || 0)}</span>
-            ),
-        },
+
         {
             key: 'isActive',
             title: 'Status',
             render: (value: boolean) => (
                 <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${value
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
                         }`}
                 >
                     {value ? 'Active' : 'Inactive'}
@@ -223,7 +201,7 @@ export const LocationManagement: React.FC = () => {
                 </div>
 
                 <Table
-                    data={locationsData?.data || []}
+                    data={locationsData?.data?.locations || []}
                     columns={locationColumns}
                 />
 
@@ -318,39 +296,9 @@ export const LocationManagement: React.FC = () => {
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Fuel Adjustment (₦)
-                        </label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.fuelAdjustment}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    fuelAdjustment: parseFloat(e.target.value) || 0,
-                                })
-                            }
-                        />
-                    </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Driver Wages Per Trip (₦)
-                        </label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.driverWagesPerTrip}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    driverWagesPerTrip: parseFloat(e.target.value) || 0,
-                                })
-                            }
-                        />
-                    </div>
+
+
 
                     <div className="flex justify-end gap-3 pt-4">
                         <Button type="button" variant="outline" onClick={handleCloseModal}>

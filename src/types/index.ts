@@ -24,14 +24,19 @@ export interface LoginCredentials {
 
 
 export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
+  success: boolean;
+  data: {
+    users?: T[];      // For user endpoints
+    products?: T[];   // For product endpoints
+    customers?: T[];  // For customer endpoints
+    locations?: T[];  // For location endpoints
+    logs?: T[];       // For audit logs
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   };
 }
 

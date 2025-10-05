@@ -48,8 +48,8 @@ export const CustomerManagement: React.FC = () => {
     });
 
     // Calculate pagination values AFTER customersData is defined
-    const totalPages = customersData?.pagination?.totalPages || 1;
-    const total = customersData?.pagination?.total || 0;
+    const totalPages = customersData?.data?.pagination?.totalPages || 1;
+    const total = customersData?.data?.pagination?.total || 0;
     const hasNext = currentPage < totalPages;
     const hasPrev = currentPage > 1;
 
@@ -239,7 +239,7 @@ export const CustomerManagement: React.FC = () => {
                 </div>
 
                 <Table
-                    data={customersData?.data || []}
+                    data={customersData?.data?.customers || []}
                     columns={customerColumns}
                 />
 

@@ -149,8 +149,9 @@ export interface SystemConfig {
 }
 
 export class AdminService extends BaseApiService {
+  
   constructor() {
-    super('/admin');
+    super('');
   }
 
   // ================================
@@ -170,7 +171,7 @@ export class AdminService extends BaseApiService {
   }
 
   async createUser(userData: CreateUserData): Promise<ApiResponse<{ user: User }>> {
-    return this.post<ApiResponse<{ user: User }>>(userData, '/users');
+    return this.post<ApiResponse<{ user: User }>>(userData, '/auth/register');
   }
 
   async updateUser(id: string, userData: Partial<User>): Promise<ApiResponse<{ user: User }>> {
@@ -204,19 +205,23 @@ export class AdminService extends BaseApiService {
         }
       });
     }
-    return this.get<PaginatedResponse<Product>>(`/products?${params.toString()}`);
+    return this.get<PaginatedResponse<Product>>(`/admin/products?${params.toString()}`);
   }
 
   async createProduct(productData: CreateProductData): Promise<ApiResponse<{ product: Product }>> {
-    return this.post<ApiResponse<{ product: Product }>>(productData, '/products');
+    return this.post<ApiResponse<{ product: Product }>>(productData, '/admin/products');
   }
 
+  async getNextProductNumber(): Promise<ApiResponse<{ productNumber: string }>> {
+    return this.get<ApiResponse<{ productNumber: string }>>('/admin/products/next-number');
+}
+
   async updateProduct(id: string, productData: Partial<Product>): Promise<ApiResponse<{ product: Product }>> {
-    return this.put<ApiResponse<{ product: Product }>>(productData, `/products/${id}`);
+    return this.put<ApiResponse<{ product: Product }>>(productData, `/admin/products/${id}`);
   }
 
   async deleteProduct(id: string): Promise<ApiResponse<null>> {
-    return this.delete<ApiResponse<null>>(`/products/${id}`);
+    return this.delete<ApiResponse<null>>(`/admin/products/${id}`);
   }
 
   // ================================
@@ -232,19 +237,19 @@ export class AdminService extends BaseApiService {
         }
       });
     }
-    return this.get<PaginatedResponse<Customer>>(`/customers?${params.toString()}`);
+    return this.get<PaginatedResponse<Customer>>(`admin/customers?${params.toString()}`);
   }
 
   async createCustomer(customerData: CreateCustomerData): Promise<ApiResponse<{ customer: Customer }>> {
-    return this.post<ApiResponse<{ customer: Customer }>>(customerData, '/customers');
+    return this.post<ApiResponse<{ customer: Customer }>>(customerData, 'admin/customers');
   }
 
   async updateCustomer(id: string, customerData: Partial<Customer>): Promise<ApiResponse<{ customer: Customer }>> {
-    return this.put<ApiResponse<{ customer: Customer }>>(customerData, `/customers/${id}`);
+    return this.put<ApiResponse<{ customer: Customer }>>(customerData, `admin/customers/${id}`);
   }
 
   async deleteCustomer(id: string): Promise<ApiResponse<null>> {
-    return this.delete<ApiResponse<null>>(`/customers/${id}`);
+    return this.delete<ApiResponse<null>>(`admin/customers/${id}`);
   }
 
   // ================================
@@ -260,19 +265,19 @@ export class AdminService extends BaseApiService {
         }
       });
     }
-    return this.get<PaginatedResponse<Location>>(`/locations?${params.toString()}`);
+    return this.get<PaginatedResponse<Location>>(`admin/locations?${params.toString()}`);
   }
 
   async createLocation(locationData: CreateLocationData): Promise<ApiResponse<{ location: Location }>> {
-    return this.post<ApiResponse<{ location: Location }>>(locationData, '/locations');
+    return this.post<ApiResponse<{ location: Location }>>(locationData, 'admin/locations');
   }
 
   async updateLocation(id: string, locationData: Partial<Location>): Promise<ApiResponse<{ location: Location }>> {
-    return this.put<ApiResponse<{ location: Location }>>(locationData, `/locations/${id}`);
+    return this.put<ApiResponse<{ location: Location }>>(locationData, `admin/locations/${id}`);
   }
 
   async deleteLocation(id: string): Promise<ApiResponse<null>> {
-    return this.delete<ApiResponse<null>>(`/locations/${id}`);
+    return this.delete<ApiResponse<null>>(`admin/locations/${id}`);
   }
 
   // ================================
@@ -289,7 +294,7 @@ export class AdminService extends BaseApiService {
         }
       });
     }
-    return this.get<PaginatedResponse<AuditLog>>(`/audit-trail?${params.toString()}`);
+    return this.get<PaginatedResponse<AuditLog>>(`admin/audit-trail?${params.toString()}`);
   }
 
   // ================================
@@ -298,12 +303,12 @@ export class AdminService extends BaseApiService {
 
   // ✅ NEW: Get system configuration
   async getSystemConfig(): Promise<ApiResponse<{ configs: SystemConfig[] }>> {
-    return this.get<ApiResponse<{ configs: SystemConfig[] }>>('/system-config');
+    return this.get<ApiResponse<{ configs: SystemConfig[] }>>('admin/system-config');
   }
 
   // ✅ NEW: Update system configuration
   async updateSystemConfig(key: string, value: string): Promise<ApiResponse<{ config: SystemConfig }>> {
-    return this.put<ApiResponse<{ config: SystemConfig }>>({ value }, `/system-config/${key}`);
+    return this.put<ApiResponse<{ config: SystemConfig }>>({ value }, `/admin/system-config/${key}`);
   }
 }
 

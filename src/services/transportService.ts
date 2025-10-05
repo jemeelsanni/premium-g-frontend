@@ -171,6 +171,10 @@ export class TransportService extends BaseApiService {
     return response.data.locations;
   }
 
+  async deleteLocation(id: string): Promise<void> {
+    return this.delete(`/locations/${id}`);
+  }
+
   // ================================
   // EXPENSES
   // ================================

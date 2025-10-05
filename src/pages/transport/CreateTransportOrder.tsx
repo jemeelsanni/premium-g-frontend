@@ -291,16 +291,17 @@ export const CreateTransportOrder: React.FC = () => {
                                 />
 
                                 <Select
-                                    options={[]} label="Delivery Location *"
+                                    label="Delivery Location *"
+                                    options={[
+                                        { value: '', label: 'Select location' },
+                                        ...(locations?.map(location => ({
+                                            value: location.id,
+                                            label: location.name
+                                        })) || [])
+                                    ]}
                                     {...register('locationId')}
-                                    error={errors.locationId?.message}                                >
-                                    <option value="">Select location</option>
-                                    {locations?.map((location: any) => (
-                                        <option key={location.id} value={location.id}>
-                                            {location.name}
-                                        </option>
-                                    ))}
-                                </Select>
+                                    error={errors.locationId?.message}
+                                />
 
                                 {locationRates && (
                                     <div className="flex items-start bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -384,7 +385,7 @@ export const CreateTransportOrder: React.FC = () => {
                                     options={[
                                         { value: '', label: 'Select truck (optional)' },
                                         ...(trucks?.map(truck => ({
-                                            value: truck.truckId,  // ✅ Use truckId, not id
+                                            value: truck.id,  // ✅ Use truckId, not id
                                             label: `${truck.registrationNumber} - ${truck.maxPallets} pallets`
                                         })) || [])
                                     ]}

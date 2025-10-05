@@ -24,7 +24,7 @@ export const UserActivityDashboard: React.FC = () => {
     });
 
     const activity = activityData?.data?.activity;
-    const users = usersData?.data || [];
+    const users = usersData?.data?.users || [];
 
     return (
         <div className="space-y-6">

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/admin/ProductManagement.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, Package, ChevronLeft, ChevronRight } from 'lucide-react';
 import { adminService } from '../../services/adminService';
@@ -16,9 +16,9 @@ interface ProductFormData {
     productNo: string;
     name: string;
     description: string;
-    packsPerPallet: number;
-    pricePerPack: number;
-    costPerPack: number;
+    packsPerPallet?: number;
+    pricePerPack?: number;
+    costPerPack?: number;
     module: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
 }
 
@@ -31,9 +31,9 @@ export const ProductManagement: React.FC = () => {
         productNo: '',
         name: '',
         description: '',
-        packsPerPallet: 0,
-        pricePerPack: 0,
-        costPerPack: 0,
+        packsPerPallet: undefined,
+        pricePerPack: undefined,
+        costPerPack: undefined,
         module: 'DISTRIBUTION',
     });
 
@@ -50,16 +50,39 @@ export const ProductManagement: React.FC = () => {
             }),
     });
 
+    // Fetch next product number when creating new product
+    const { data: productNumberData } = useQuery({
+        queryKey: ['next-product-number'],
+        queryFn: () => adminService.getNextProductNumber(),
+        enabled: isModalOpen && !editingProduct, // Only fetch when creating new
+    });
+
+    // Auto-fill product number when it's fetched
+    useEffect(() => {
+        if (productNumberData && !editingProduct) {
+            setFormData(prev => ({
+                ...prev,
+                productNo: productNumberData.data.productNumber
+            }));
+        }
+    }, [productNumberData, editingProduct]);
+
     // Calculate pagination values
-    const totalPages = productsData?.pagination?.totalPages || 1;
-    const total = productsData?.pagination?.total || 0;
+    const totalPages = productsData?.data?.pagination?.totalPages || 1;
+    const total = productsData?.data?.pagination?.total || 0;
     const hasNext = currentPage < totalPages;
     const hasPrev = currentPage > 1;
 
     const createMutation = useMutation({
-        mutationFn: (data: ProductFormData) => adminService.createProduct(data),
+        mutationFn: (data: ProductFormData) => adminService.createProduct({
+            ...data,
+            packsPerPallet: data.packsPerPallet || 0,
+            pricePerPack: data.pricePerPack || 0,
+            costPerPack: data.costPerPack || 0
+        }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+            queryClient.invalidateQueries({ queryKey: ['next-product-number'] });
             globalToast.success('Product created successfully!');
             handleCloseModal();
         },
@@ -94,10 +117,22 @@ export const ProductManagement: React.FC = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Prepare data based on module type
+        const submitData = {
+            productNo: formData.productNo,
+            name: formData.name,
+            description: formData.description,
+            module: formData.module,
+            packsPerPallet: formData.packsPerPallet || 0,
+            pricePerPack: formData.pricePerPack || 0,
+            costPerPack: formData.costPerPack || 0
+        };
+
         if (editingProduct) {
-            updateMutation.mutate({ id: editingProduct.id, data: formData });
+            updateMutation.mutate({ id: editingProduct.id, data: submitData });
         } else {
-            createMutation.mutate(formData);
+            createMutation.mutate(submitData);
         }
     };
 
@@ -128,11 +163,23 @@ export const ProductManagement: React.FC = () => {
             productNo: '',
             name: '',
             description: '',
-            packsPerPallet: 0,
-            pricePerPack: 0,
-            costPerPack: 0,
+            packsPerPallet: undefined,
+            pricePerPack: undefined,
+            costPerPack: undefined,
             module: 'DISTRIBUTION',
         });
+    };
+
+    // Get required fields based on module
+    const getRequiredFields = () => {
+        const module = formData.module;
+        if (module === 'DISTRIBUTION') {
+            return ['packsPerPallet', 'costPerPack'];
+        } else if (module === 'WAREHOUSE') {
+            return ['pricePerPack', 'costPerPack'];
+        } else { // BOTH
+            return ['packsPerPallet', 'pricePerPack', 'costPerPack'];
+        }
     };
 
     const productColumns = [
@@ -157,14 +204,16 @@ export const ProductManagement: React.FC = () => {
             key: 'packsPerPallet',
             title: 'Packs/Pallet',
             render: (value: number) => (
-                <span className="text-gray-600">{value}</span>
+                <span className="text-gray-600">{value || 'N/A'}</span>
             ),
         },
         {
             key: 'pricePerPack',
             title: 'Price/Pack',
             render: (value: number) => (
-                <span className="text-gray-900 font-medium">{formatCurrency(value)}</span>
+                <span className="text-gray-900 font-medium">
+                    {value ? formatCurrency(value) : 'N/A'}
+                </span>
             ),
         },
         {
@@ -172,8 +221,8 @@ export const ProductManagement: React.FC = () => {
             title: 'Module',
             render: (value: string) => (
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${value === 'DISTRIBUTION' ? 'bg-blue-100 text-blue-800' :
-                        value === 'WAREHOUSE' ? 'bg-purple-100 text-purple-800' :
-                            'bg-green-100 text-green-800'
+                    value === 'WAREHOUSE' ? 'bg-purple-100 text-purple-800' :
+                        'bg-green-100 text-green-800'
                     }`}>
                     {value}
                 </span>
@@ -183,12 +232,8 @@ export const ProductManagement: React.FC = () => {
             key: 'isActive',
             title: 'Status',
             render: (value: boolean) => (
-                <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${value
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                >
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
                     {value ? 'Active' : 'Inactive'}
                 </span>
             ),
@@ -196,16 +241,16 @@ export const ProductManagement: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (_: any, record: any) => (
+            render: (_: any, product: any) => (
                 <div className="flex gap-2">
                     <button
-                        onClick={() => handleEdit(record)}
+                        onClick={() => handleEdit(product)}
                         className="p-1 text-blue-600 hover:text-blue-800"
                     >
                         <Edit className="h-4 w-4" />
                     </button>
                     <button
-                        onClick={() => handleDelete(record.id)}
+                        onClick={() => handleDelete(product.id)}
                         className="p-1 text-red-600 hover:text-red-800"
                     >
                         <Trash2 className="h-4 w-4" />
@@ -218,6 +263,8 @@ export const ProductManagement: React.FC = () => {
     if (isLoading) {
         return <LoadingSpinner />;
     }
+
+    const requiredFields = getRequiredFields();
 
     return (
         <div className="space-y-6">
@@ -247,63 +294,40 @@ export const ProductManagement: React.FC = () => {
                 </div>
 
                 <Table
-                    data={productsData?.data || []}
+                    data={productsData?.data?.products || []}
                     columns={productColumns}
                 />
 
-                {/* Custom Pagination */}
+                {/* Pagination */}
                 <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 sm:px-6">
                     <div className="flex items-center justify-between">
-                        {/* Mobile Pagination */}
-                        <div className="flex-1 flex justify-between sm:hidden">
-                            <Button
-                                onClick={() => setCurrentPage(currentPage - 1)}
-                                disabled={!hasPrev}
-                                variant="outline"
-                                size="sm"
-                            >
-                                Previous
-                            </Button>
-                            <Button
-                                onClick={() => setCurrentPage(currentPage + 1)}
-                                disabled={!hasNext}
-                                variant="outline"
-                                size="sm"
-                            >
-                                Next
-                            </Button>
+                        <div>
+                            <p className="text-sm text-gray-700">
+                                Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                                <span className="font-medium">{totalPages}</span>
+                                {' '}({total} total records)
+                            </p>
                         </div>
-
-                        {/* Desktop Pagination */}
-                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                            <div>
-                                <p className="text-sm text-gray-700">
-                                    Showing page <span className="font-medium">{currentPage}</span> of{' '}
-                                    <span className="font-medium">{totalPages}</span>
-                                    {' '}({total || 0} total records)
-                                </p>
-                            </div>
-                            <div>
-                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                    <button
-                                        onClick={() => setCurrentPage(currentPage - 1)}
-                                        disabled={!hasPrev}
-                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <ChevronLeft className="h-5 w-5" />
-                                    </button>
-                                    <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                                        {currentPage}
-                                    </span>
-                                    <button
-                                        onClick={() => setCurrentPage(currentPage + 1)}
-                                        disabled={!hasNext}
-                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <ChevronRight className="h-5 w-5" />
-                                    </button>
-                                </nav>
-                            </div>
+                        <div>
+                            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                <button
+                                    onClick={() => setCurrentPage(currentPage - 1)}
+                                    disabled={!hasPrev}
+                                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronLeft className="h-5 w-5" />
+                                </button>
+                                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    {currentPage}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(currentPage + 1)}
+                                    disabled={!hasNext}
+                                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <ChevronRight className="h-5 w-5" />
+                                </button>
+                            </nav>
                         </div>
                     </div>
                 </div>
@@ -315,9 +339,35 @@ export const ProductManagement: React.FC = () => {
                 title={editingProduct ? 'Edit Product' : 'Add New Product'}
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* MODULE SELECTION - FIRST FIELD */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Product Number *
+                            Module * (Select First)
+                        </label>
+                        <select
+                            value={formData.module}
+                            onChange={(e) =>
+                                setFormData({ ...formData, module: e.target.value as any })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                            disabled={!!editingProduct}
+                        >
+                            <option value="DISTRIBUTION">Distribution Product</option>
+                            <option value="WAREHOUSE">Warehouse Product</option>
+                            <option value="BOTH">Both Modules</option>
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                            {formData.module === 'DISTRIBUTION' && 'For distribution sales only'}
+                            {formData.module === 'WAREHOUSE' && 'For warehouse retail sales only'}
+                            {formData.module === 'BOTH' && 'Available in both distribution and warehouse'}
+                        </p>
+                    </div>
+
+                    {/* PRODUCT NUMBER - AUTO-GENERATED */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Product Number
                         </label>
                         <Input
                             type="text"
@@ -325,12 +375,17 @@ export const ProductManagement: React.FC = () => {
                             onChange={(e) =>
                                 setFormData({ ...formData, productNo: e.target.value })
                             }
-                            placeholder="e.g., P001"
+                            placeholder="PRD-2025-001"
                             required
-                            disabled={!!editingProduct}
+                            disabled={true} // Always disabled - auto-generated
+                            className="bg-gray-50"
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                            Auto-generated in format: PRD-YEAR-XXX
+                        </p>
                     </div>
 
+                    {/* PRODUCT NAME */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Product Name *
@@ -341,90 +396,92 @@ export const ProductManagement: React.FC = () => {
                             onChange={(e) =>
                                 setFormData({ ...formData, name: e.target.value })
                             }
-                            placeholder="e.g., Bigi Cola 50cl"
+                            placeholder="e.g., Coca-Cola 35cl bottle"
                             required
                         />
                     </div>
 
+                    {/* DESCRIPTION */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Description
+                            Description (Optional)
                         </label>
                         <textarea
                             value={formData.description}
                             onChange={(e) =>
                                 setFormData({ ...formData, description: e.target.value })
                             }
-                            rows={3}
+                            placeholder="Product description..."
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Product description"
+                            rows={3}
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Packs Per Pallet *
-                        </label>
-                        <Input
-                            type="number"
-                            value={formData.packsPerPallet}
-                            onChange={(e) =>
-                                setFormData({ ...formData, packsPerPallet: parseInt(e.target.value) || 0 })
-                            }
-                            placeholder="e.g., 50"
-                            required
-                        />
-                    </div>
+                    {/* CONDITIONAL FIELDS BASED ON MODULE */}
 
+                    {/* DISTRIBUTION FIELDS */}
+                    {(formData.module === 'DISTRIBUTION' || formData.module === 'BOTH') && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Packs per Pallet *
+                            </label>
+                            <Input
+                                type="number"
+                                value={formData.packsPerPallet || ''}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, packsPerPallet: parseInt(e.target.value) || 0 })
+                                }
+                                placeholder="e.g., 50"
+                                required={requiredFields.includes('packsPerPallet')}
+                                min="1"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Number of packs in one pallet
+                            </p>
+                        </div>
+                    )}
+
+                    {/* WAREHOUSE FIELDS */}
+                    {(formData.module === 'WAREHOUSE' || formData.module === 'BOTH') && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Price per Pack *
+                            </label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                value={formData.pricePerPack || ''}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, pricePerPack: parseFloat(e.target.value) || 0 })
+                                }
+                                placeholder="e.g., 250.00"
+                                required={requiredFields.includes('pricePerPack')}
+                                min="0"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Retail price for warehouse sales
+                            </p>
+                        </div>
+                    )}
+
+                    {/* COST PER PACK - SHOWN FOR ALL MODULES */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Price Per Pack (₦) *
+                            Cost per Pack *
                         </label>
                         <Input
                             type="number"
                             step="0.01"
-                            value={formData.pricePerPack}
-                            onChange={(e) =>
-                                setFormData({ ...formData, pricePerPack: parseFloat(e.target.value) || 0 })
-                            }
-                            placeholder="e.g., 250.00"
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Cost Per Pack (₦)
-                        </label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.costPerPack}
+                            value={formData.costPerPack || ''}
                             onChange={(e) =>
                                 setFormData({ ...formData, costPerPack: parseFloat(e.target.value) || 0 })
                             }
                             placeholder="e.g., 180.00"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Module *
-                        </label>
-                        <select
-                            value={formData.module}
-                            onChange={(e) =>
-                                setFormData({ ...formData, module: e.target.value as any })
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
-                        >
-                            <option value="DISTRIBUTION">Distribution Only</option>
-                            <option value="WAREHOUSE">Warehouse Only</option>
-                            <option value="BOTH">Both Modules</option>
-                        </select>
+                            min="0"
+                        />
                         <p className="mt-1 text-xs text-gray-500">
-                            Determines which modules can use this product
+                            Cost price for profit calculations
                         </p>
                     </div>
 

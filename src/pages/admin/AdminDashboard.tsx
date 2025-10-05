@@ -31,7 +31,7 @@ export const AdminDashboard: React.FC = () => {
     });
 
     const stats = statsData?.data;
-    const recentUsers = usersData?.data || [];
+    const recentUsers = usersData?.data?.users || [];
 
     const quickLinks = [
         {

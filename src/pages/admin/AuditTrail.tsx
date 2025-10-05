@@ -115,7 +115,7 @@ export const AuditTrail: React.FC = () => {
         },
     ];
 
-    const totalPages = auditData?.pagination?.totalPages || 1;
+    const totalPages = auditData?.data?.pagination?.totalPages || 1;
     const hasNext = currentPage < totalPages;
     const hasPrev = currentPage > 1;
 
@@ -216,7 +216,7 @@ export const AuditTrail: React.FC = () => {
 
                 {/* Table */}
                 <Table
-                    data={auditData?.data || []}
+                    data={auditData?.data?.logs || []}
                     columns={auditColumns}
                 />
 
@@ -246,7 +246,7 @@ export const AuditTrail: React.FC = () => {
                                 <p className="text-sm text-gray-700">
                                     Showing page <span className="font-medium">{currentPage}</span> of{' '}
                                     <span className="font-medium">{totalPages}</span>
-                                    {' '}({auditData?.pagination?.total || 0} total records)
+                                    {' '}({auditData?.data?.pagination?.total || 0} total records)
                                 </p>
                             </div>
                             <div>
@@ -280,7 +280,7 @@ export const AuditTrail: React.FC = () => {
                 <div className="bg-white p-4 rounded-lg shadow">
                     <div className="text-sm text-gray-500">Total Records</div>
                     <div className="text-2xl font-bold text-gray-900">
-                        {auditData?.pagination?.total || 0}
+                        {auditData?.data?.pagination?.total || 0}
                     </div>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow">
