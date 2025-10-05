@@ -63,7 +63,9 @@ export interface User {
   email: string;
   role: UserRole;
   isActive: boolean;
-  moduleAccess: string[];
+  permissions?: Record<string, any>;  // ✅ Added: JSON permissions field
+  lastLoginAt?: string;  // ✅ Added: Track last login timestamp
+  moduleAccess?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +78,8 @@ export interface Product {
   description?: string;
   packsPerPallet: number;
   pricePerPack: number;
+  costPerPack?: number;      // Backend: Decimal (auto-converted to/from number in JSON)
+  module?: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -88,10 +92,13 @@ export interface Customer {
   email?: string;
   phone?: string;
   address?: string;
+  customerType?: string;  // e.g., 'BUSINESS', 'ENTERPRISE', 'GOVERNMENT', 'INDIVIDUAL', 'RETAIL'
+  territory?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
 
 // Location Types
 export interface Location {

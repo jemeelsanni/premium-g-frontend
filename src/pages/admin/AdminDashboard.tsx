@@ -1,150 +1,107 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/admin/AdminDashboard.tsx
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
     Users,
     Package,
     MapPin,
+    UserCheck,
     Activity,
     Settings,
-    DollarSign,
-    ShoppingCart,
-    Truck,
-    Warehouse,
-    AlertCircle,
+    FileText,
+    BarChart3,
+    TrendingUp,
+    Clock,
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { formatCurrency } from '../../utils/formatters';
 
 export const AdminDashboard: React.FC = () => {
-    const { data: statsData, isLoading, error } = useQuery({
-        queryKey: ['admin-dashboard'],
-        queryFn: () => adminService.getSystemStats(),
+    // Fetch user statistics
+    const { data: statsData } = useQuery({
+        queryKey: ['user-stats'],
+        queryFn: () => adminService.getUserStats(),
+    });
+
+    // Fetch users for quick overview
+    const { data: usersData } = useQuery({
+        queryKey: ['admin-users-overview'],
+        queryFn: () => adminService.getUsers({ limit: 5 }),
     });
 
     const stats = statsData?.data;
+    const recentUsers = usersData?.data || [];
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <LoadingSpinner size="lg" />
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                    <p className="text-gray-600">Failed to load dashboard data</p>
-                </div>
-            </div>
-        );
-    }
-
-    const statCards = [
+    const quickLinks = [
         {
-            title: 'Total Users',
-            value: stats?.systemStats?.totalUsers || 0,
+            title: 'User Management',
+            description: 'Manage system users and roles',
             icon: Users,
-            color: 'blue',
-            link: '/admin/users',
-        },
-        {
-            title: 'Distribution Orders',
-            value: stats?.systemStats?.totalDistributionOrders || 0,
-            icon: ShoppingCart,
-            color: 'green',
-            link: '/distribution',
-        },
-        {
-            title: 'Transport Orders',
-            value: stats?.systemStats?.totalTransportOrders || 0,
-            icon: Truck,
-            color: 'purple',
-            link: '/transport',
-        },
-        {
-            title: 'Warehouse Sales',
-            value: stats?.systemStats?.totalWarehouseSales || 0,
-            icon: Warehouse,
-            color: 'orange',
-            link: '/warehouse',
-        },
-    ];
-
-    const revenueCards = [
-        {
-            title: 'Distribution Revenue',
-            value: formatCurrency(stats?.businessStats?.distributionRevenue || 0),
-            color: 'green',
-        },
-        {
-            title: 'Transport Revenue',
-            value: formatCurrency(stats?.businessStats?.transportRevenue || 0),
-            color: 'purple',
-        },
-        {
-            title: 'Warehouse Revenue',
-            value: formatCurrency(stats?.businessStats?.warehouseRevenue || 0),
-            color: 'orange',
-        },
-        {
-            title: 'Total Revenue',
-            value: formatCurrency(stats?.businessStats?.totalRevenue || 0),
-            color: 'blue',
-        },
-    ];
-
-    const quickActions = [
-        {
-            title: 'Manage Users',
-            description: 'Create and manage system users',
-            icon: Users,
-            link: '/admin/users',
+            path: '/admin/users',
             color: 'blue',
         },
         {
-            title: 'Manage Products',
-            description: 'Add and update product catalog',
-            icon: Package,
-            link: '/admin/products',
+            title: 'User Statistics',
+            description: 'View user analytics and metrics',
+            icon: BarChart3,
+            path: '/admin/users/statistics',
             color: 'green',
         },
         {
-            title: 'Manage Locations',
-            description: 'Configure delivery locations',
-            icon: MapPin,
-            link: '/admin/locations',
-            color: 'purple',
-        },
-        {
-            title: 'View Audit Trail',
-            description: 'System activity and logs',
+            title: 'User Activity',
+            description: 'Monitor user actions and logs',
             icon: Activity,
-            link: '/admin/audit',
+            path: '/admin/users/activity',
+            color: 'purple',
+        },
+        {
+            title: 'Product Management',
+            description: 'Manage products and inventory',
+            icon: Package,
+            path: '/admin/products',
             color: 'orange',
         },
         {
-            title: 'System Config',
+            title: 'Customer Management',
+            description: 'Manage customer information',
+            icon: UserCheck,
+            path: '/admin/customers',
+            color: 'pink',
+        },
+        {
+            title: 'Location Management',
+            description: 'Manage delivery locations',
+            icon: MapPin,
+            path: '/admin/locations',
+            color: 'indigo',
+        },
+        {
+            title: 'Audit Trail',
+            description: 'View system activity logs',
+            icon: FileText,
+            path: '/admin/audit',
+            color: 'gray',
+        },
+        {
+            title: 'System Configuration',
             description: 'Configure system settings',
             icon: Settings,
-            link: '/admin/config',
+            path: '/admin/config',
             color: 'red',
         },
     ];
 
     const getColorClasses = (color: string) => {
         const colors: Record<string, string> = {
-            blue: 'bg-blue-50 text-blue-600',
-            green: 'bg-green-50 text-green-600',
-            purple: 'bg-purple-50 text-purple-600',
-            orange: 'bg-orange-50 text-orange-600',
-            red: 'bg-red-50 text-red-600',
+            blue: 'bg-blue-100 text-blue-600 hover:bg-blue-200',
+            green: 'bg-green-100 text-green-600 hover:bg-green-200',
+            purple: 'bg-purple-100 text-purple-600 hover:bg-purple-200',
+            orange: 'bg-orange-100 text-orange-600 hover:bg-orange-200',
+            pink: 'bg-pink-100 text-pink-600 hover:bg-pink-200',
+            indigo: 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200',
+            gray: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+            red: 'bg-red-100 text-red-600 hover:bg-red-200',
         };
         return colors[color] || colors.blue;
     };
@@ -152,174 +109,185 @@ export const AdminDashboard: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="border-b border-gray-200 pb-5">
+            <div>
                 <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="mt-2 text-sm text-gray-600">
-                    System overview and management
+                <p className="text-gray-600">
+                    Welcome to the system administration panel
                 </p>
             </div>
 
-            {/* System Stats */}
-            <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">System Statistics</h2>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                    {statCards.map((card) => {
-                        const Icon = card.icon;
-                        return (
-                            <Link
-                                key={card.title}
-                                to={card.link}
-                                className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow"
-                            >
-                                <div className="p-5">
-                                    <div className="flex items-center">
-                                        <div className={`flex-shrink-0 rounded-md p-3 ${getColorClasses(card.color)}`}>
-                                            <Icon className="h-6 w-6" />
-                                        </div>
-                                        <div className="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt className="text-sm font-medium text-gray-500 truncate">
-                                                    {card.title}
-                                                </dt>
-                                                <dd className="text-2xl font-bold text-gray-900">
-                                                    {card.value}
-                                                </dd>
-                                            </dl>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                        );
-                    })}
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-gray-600">Total Users</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                                {stats?.totalUsers || 0}
+                            </p>
+                        </div>
+                        <Users className="h-10 w-10 text-blue-500" />
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-gray-600">Active Users</p>
+                            <p className="text-2xl font-bold text-green-600">
+                                {stats?.activeUsers || 0}
+                            </p>
+                        </div>
+                        <UserCheck className="h-10 w-10 text-green-500" />
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-gray-600">User Roles</p>
+                            <p className="text-2xl font-bold text-purple-600">
+                                {stats?.usersByRole?.length || 0}
+                            </p>
+                        </div>
+                        <BarChart3 className="h-10 w-10 text-purple-500" />
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-gray-600">Recent Logins</p>
+                            <p className="text-2xl font-bold text-orange-600">
+                                {stats?.recentLogins?.length || 0}
+                            </p>
+                        </div>
+                        <Clock className="h-10 w-10 text-orange-500" />
+                    </div>
                 </div>
             </div>
 
-            {/* Revenue Stats */}
+            {/* Quick Links */}
             <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <DollarSign className="h-5 w-5 mr-2" />
-                    Revenue Overview
-                </h2>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                    {revenueCards.map((card) => (
-                        <div
-                            key={card.title}
-                            className="bg-white overflow-hidden shadow rounded-lg"
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Links</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {quickLinks.map((link) => (
+                        <Link
+                            key={link.path}
+                            to={link.path}
+                            className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 group"
                         >
-                            <div className="p-5">
-                                <dt className="text-sm font-medium text-gray-500 truncate">
-                                    {card.title}
-                                </dt>
-                                <dd className={`mt-1 text-2xl font-bold ${card.color === 'blue' ? 'text-blue-600' :
-                                    card.color === 'green' ? 'text-green-600' :
-                                        card.color === 'purple' ? 'text-purple-600' :
-                                            'text-orange-600'
-                                    }`}>
-                                    {card.value}
-                                </dd>
+                            <div className="flex items-start gap-4">
+                                <div
+                                    className={`p-3 rounded-lg ${getColorClasses(link.color)} transition-colors`}
+                                >
+                                    <link.icon className="h-6 w-6" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                        {link.title}
+                                    </h3>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        {link.description}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             </div>
 
-            {/* User Distribution */}
-            {stats?.userStats && stats.userStats.length > 0 && (
-                <div className="bg-white shadow rounded-lg p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                        Users by Role
-                    </h2>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {stats.userStats.map((roleStat: any) => (
-                            <div
-                                key={roleStat.role}
-                                className="border border-gray-200 rounded-lg p-4"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-700">
-                                        {roleStat.role.replace(/_/g, ' ')}
-                                    </span>
-                                    <span className="text-2xl font-bold text-gray-900">
-                                        {roleStat._count.role}
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Quick Actions */}
-            <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    {quickActions.map((action) => {
-                        const Icon = action.icon;
-                        return (
-                            <Link
-                                key={action.title}
-                                to={action.link}
-                                className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow"
-                            >
-                                <div className="p-6">
-                                    <div className={`inline-flex rounded-md p-3 ${getColorClasses(action.color)}`}>
-                                        <Icon className="h-6 w-6" />
-                                    </div>
-                                    <h3 className="mt-4 text-lg font-medium text-gray-900">
-                                        {action.title}
-                                    </h3>
-                                    <p className="mt-2 text-sm text-gray-500">
-                                        {action.description}
-                                    </p>
-                                </div>
-                            </Link>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Recent Activity */}
-            {stats?.recentActivity && stats.recentActivity.length > 0 && (
-                <div className="bg-white shadow rounded-lg">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                            <Activity className="h-5 w-5 mr-2" />
-                            Recent System Activity
-                        </h2>
-                    </div>
-                    <div className="divide-y divide-gray-200">
-                        {stats.recentActivity.slice(0, 10).map((activity: any) => (
-                            <div key={activity.id} className="px-6 py-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {activity.user?.username || 'System'} - {activity.action} {activity.entity}
-                                        </p>
-                                        <p className="text-sm text-gray-500">
-                                            {new Date(activity.createdAt).toLocaleString()}
-                                        </p>
-                                    </div>
-                                    <span className={`px-2 py-1 text-xs rounded-full ${activity.action === 'CREATE' ? 'bg-green-100 text-green-800' :
-                                        activity.action === 'UPDATE' ? 'bg-blue-100 text-blue-800' :
-                                            activity.action === 'DELETE' ? 'bg-red-100 text-red-800' :
-                                                'bg-gray-100 text-gray-800'
-                                        }`}>
-                                        {activity.action}
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="px-6 py-4 border-t border-gray-200">
+            {/* Recent Users */}
+            <div className="bg-white rounded-lg shadow">
+                <div className="p-6 border-b">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-gray-900">Recent Users</h2>
                         <Link
-                            to="/admin/audit"
-                            className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                            to="/admin/users"
+                            className="text-sm text-blue-600 hover:text-blue-800"
                         >
-                            View all activity →
+                            View All
                         </Link>
                     </div>
                 </div>
-            )}
+                <div className="divide-y divide-gray-200">
+                    {recentUsers.length > 0 ? (
+                        recentUsers.map((user: any) => (
+                            <div
+                                key={user.id}
+                                className="p-4 hover:bg-gray-50 transition-colors"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                            <Users className="h-5 w-5 text-blue-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-900">
+                                                {user.username}
+                                            </p>
+                                            <p className="text-sm text-gray-500">{user.email}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                            {user.role?.replace(/_/g, ' ')}
+                                        </span>
+                                        {user.lastLoginAt && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Last login:{' '}
+                                                {new Date(user.lastLoginAt).toLocaleDateString()}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="p-12 text-center text-gray-500">
+                            <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                            <p>No users found</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* System Health */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                        <TrendingUp className="h-8 w-8 text-green-600" />
+                        <div>
+                            <p className="text-sm text-green-800 font-medium">System Status</p>
+                            <p className="text-xs text-green-600">All systems operational</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                        <Activity className="h-8 w-8 text-blue-600" />
+                        <div>
+                            <p className="text-sm text-blue-800 font-medium">Activity Level</p>
+                            <p className="text-xs text-blue-600">
+                                {stats?.recentLogins?.length || 0} users active today
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                        <Settings className="h-8 w-8 text-purple-600" />
+                        <div>
+                            <p className="text-sm text-purple-800 font-medium">
+                                Configuration
+                            </p>
+                            <p className="text-xs text-purple-600">All settings up to date</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

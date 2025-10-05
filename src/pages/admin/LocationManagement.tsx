@@ -2,7 +2,7 @@
 // src/pages/admin/LocationManagement.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, MapPin } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -43,6 +43,12 @@ export const LocationManagement: React.FC = () => {
                 search: searchTerm || undefined,
             }),
     });
+
+    // Calculate pagination values
+    const totalPages = locationsData?.pagination?.totalPages || 1;
+    const total = locationsData?.pagination?.total || 0;
+    const hasNext = currentPage < totalPages;
+    const hasPrev = currentPage > 1;
 
     const createMutation = useMutation({
         mutationFn: (data: LocationFormData) => adminService.createLocation(data),
@@ -92,7 +98,7 @@ export const LocationManagement: React.FC = () => {
     const handleEdit = (location: any) => {
         setEditingLocation(location);
         setFormData({
-            name: location.name,
+            name: location.name || '',
             address: location.address || '',
             fuelAdjustment: location.fuelAdjustment || 0,
             driverWagesPerTrip: location.driverWagesPerTrip || 0,
@@ -120,7 +126,7 @@ export const LocationManagement: React.FC = () => {
     const locationColumns = [
         {
             key: 'name',
-            title: 'Location',
+            title: 'Location Name',
             render: (value: string) => (
                 <div className="flex items-center">
                     <MapPin className="h-4 w-4 mr-2 text-gray-400" />
@@ -146,7 +152,7 @@ export const LocationManagement: React.FC = () => {
             key: 'driverWagesPerTrip',
             title: 'Driver Wages/Trip',
             render: (value: number) => (
-                <span className="text-gray-900 font-medium">{formatCurrency(value || 0)}</span>
+                <span className="text-gray-900">{formatCurrency(value || 0)}</span>
             ),
         },
         {
@@ -155,8 +161,8 @@ export const LocationManagement: React.FC = () => {
             render: (value: boolean) => (
                 <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${value
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
                         }`}
                 >
                     {value ? 'Active' : 'Inactive'}
@@ -166,17 +172,17 @@ export const LocationManagement: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (_: any, record: any) => (
-                <div className="flex items-center space-x-2">
+            render: (_: any, location: any) => (
+                <div className="flex gap-2">
                     <button
-                        onClick={() => handleEdit(record)}
-                        className="text-blue-600 hover:text-blue-800"
+                        onClick={() => handleEdit(location)}
+                        className="p-1 text-blue-600 hover:text-blue-800"
                     >
                         <Edit className="h-4 w-4" />
                     </button>
                     <button
-                        onClick={() => handleDelete(record.id)}
-                        className="text-red-600 hover:text-red-800"
+                        onClick={() => handleDelete(location.id)}
+                        className="p-1 text-red-600 hover:text-red-800"
                     >
                         <Trash2 className="h-4 w-4" />
                     </button>
@@ -185,158 +191,173 @@ export const LocationManagement: React.FC = () => {
         },
     ];
 
+    if (isLoading) {
+        return <LoadingSpinner />;
+    }
+
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Location Management</h1>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Manage delivery and pickup locations
-                    </p>
+                    <p className="text-gray-600">Manage delivery and pickup locations</p>
                 </div>
                 <Button onClick={() => setIsModalOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Location
+                    Add Location
                 </Button>
             </div>
 
-            {/* Search */}
-            <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                    <Input
-                        placeholder="Search locations..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        icon={Search}
-                    />
-                </div>
-            </div>
-
-            {/* Locations Table */}
-            {isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                    <LoadingSpinner size="lg" />
-                </div>
-            ) : (
-                <Table
-                    columns={locationColumns}
-                    data={locationsData?.data?.locations || []}
-                    emptyMessage="No locations found"
-                />
-            )}
-
-            {/* Pagination */}
-            {locationsData?.data?.pagination && (
-                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-                    <div className="flex flex-1 justify-between sm:hidden">
-                        <Button
-                            variant="outline"
-                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => setCurrentPage((p) => p + 1)}
-                            disabled={currentPage >= locationsData.data.pagination.totalPages}
-                        >
-                            Next
-                        </Button>
+            <div className="bg-white rounded-lg shadow">
+                <div className="p-4 border-b">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                        <Input
+                            type="text"
+                            placeholder="Search locations..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                        />
                     </div>
-                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm text-gray-700">
-                                Showing page <span className="font-medium">{currentPage}</span> of{' '}
-                                <span className="font-medium">{locationsData.data.pagination.totalPages}</span>
-                            </p>
-                        </div>
-                        <div className="flex space-x-2">
+                </div>
+
+                <Table
+                    data={locationsData?.data || []}
+                    columns={locationColumns}
+                />
+
+                {/* Custom Pagination */}
+                <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 sm:px-6">
+                    <div className="flex items-center justify-between">
+                        {/* Mobile Pagination */}
+                        <div className="flex-1 flex justify-between sm:hidden">
                             <Button
+                                onClick={() => setCurrentPage(currentPage - 1)}
+                                disabled={!hasPrev}
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
                             >
                                 Previous
                             </Button>
                             <Button
+                                onClick={() => setCurrentPage(currentPage + 1)}
+                                disabled={!hasNext}
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setCurrentPage((p) => p + 1)}
-                                disabled={currentPage >= locationsData.data.pagination.totalPages}
                             >
                                 Next
                             </Button>
                         </div>
+
+                        {/* Desktop Pagination */}
+                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-sm text-gray-700">
+                                    Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                                    <span className="font-medium">{totalPages}</span>
+                                    {' '}({total || 0} total records)
+                                </p>
+                            </div>
+                            <div>
+                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    <button
+                                        onClick={() => setCurrentPage(currentPage - 1)}
+                                        disabled={!hasPrev}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronLeft className="h-5 w-5" />
+                                    </button>
+                                    <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                        {currentPage}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(currentPage + 1)}
+                                        disabled={!hasNext}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronRight className="h-5 w-5" />
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            )}
+            </div>
 
-            {/* Create/Edit Location Modal */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
-                title={editingLocation ? 'Edit Location' : 'Create New Location'}
+                title={editingLocation ? 'Edit Location' : 'Add New Location'}
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <Input
-                        label="Location Name *"
-                        value={formData.name}
-                        onChange={(e) =>
-                            setFormData({ ...formData, name: e.target.value })
-                        }
-                        placeholder="e.g., Ikeja Depot"
-                        required
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Location Name *
+                        </label>
+                        <Input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) =>
+                                setFormData({ ...formData, name: e.target.value })
+                            }
+                            required
+                        />
+                    </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Address
                         </label>
-                        <textarea
+                        <Input
+                            type="text"
                             value={formData.address}
                             onChange={(e) =>
                                 setFormData({ ...formData, address: e.target.value })
                             }
-                            rows={3}
-                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            placeholder="Full address"
                         />
                     </div>
 
-                    <Input
-                        label="Fuel Adjustment (₦)"
-                        type="number"
-                        step="0.01"
-                        value={formData.fuelAdjustment}
-                        onChange={(e) =>
-                            setFormData({ ...formData, fuelAdjustment: parseFloat(e.target.value) || 0 })
-                        }
-                        placeholder="e.g., 50.00"
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Fuel Adjustment (₦)
+                        </label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.fuelAdjustment}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    fuelAdjustment: parseFloat(e.target.value) || 0,
+                                })
+                            }
+                        />
+                    </div>
 
-                    <Input
-                        label="Driver Wages Per Trip (₦)"
-                        type="number"
-                        step="0.01"
-                        value={formData.driverWagesPerTrip}
-                        onChange={(e) =>
-                            setFormData({ ...formData, driverWagesPerTrip: parseFloat(e.target.value) || 0 })
-                        }
-                        placeholder="e.g., 15000.00"
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Driver Wages Per Trip (₦)
+                        </label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.driverWagesPerTrip}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    driverWagesPerTrip: parseFloat(e.target.value) || 0,
+                                })
+                            }
+                        />
+                    </div>
 
-                    <div className="flex justify-end space-x-3 pt-4">
+                    <div className="flex justify-end gap-3 pt-4">
                         <Button type="button" variant="outline" onClick={handleCloseModal}>
                             Cancel
                         </Button>
-                        <Button
-                            type="submit"
-                            loading={createMutation.isPending || updateMutation.isPending}
-                        >
-                            {editingLocation ? 'Update Location' : 'Create Location'}
+                        <Button type="submit">
+                            {editingLocation ? 'Update' : 'Create'} Location
                         </Button>
                     </div>
                 </form>

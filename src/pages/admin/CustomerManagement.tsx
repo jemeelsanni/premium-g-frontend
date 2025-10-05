@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/admin/UserManagement.tsx
+// src/pages/admin/CustomerManagement.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, User, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Users, ChevronRight, ChevronLeft } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -10,114 +10,133 @@ import { Table } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { globalToast } from '../../components/ui/Toast';
-import { UserRole } from '../../types';
 
-interface UserFormData {
-    username: string;
+interface CustomerFormData {
+    name: string;
     email: string;
-    password: string;
-    role: UserRole;
+    phone: string;
+    address: string;
+    customerType: string;
+    territory: string;
 }
 
-export const UserManagement: React.FC = () => {
+export const CustomerManagement: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [formData, setFormData] = useState<UserFormData>({
-        username: '',
+    const [editingCustomer, setEditingCustomer] = useState<any>(null);
+    const [formData, setFormData] = useState<CustomerFormData>({
+        name: '',
         email: '',
-        password: '',
-        role: UserRole.DISTRIBUTION_SALES_REP,
+        phone: '',
+        address: '',
+        customerType: '',
+        territory: '',
     });
 
     const queryClient = useQueryClient();
     const pageSize = 10;
 
-    const { data: usersData, isLoading } = useQuery({
-        queryKey: ['admin-users', currentPage, searchTerm],
+    const { data: customersData, isLoading } = useQuery({
+        queryKey: ['admin-customers', currentPage, searchTerm],
         queryFn: () =>
-            adminService.getUsers({
+            adminService.getCustomers({
                 page: currentPage,
                 limit: pageSize,
                 search: searchTerm || undefined,
             }),
     });
 
-    // Calculate pagination values
-    const totalPages = usersData?.pagination?.totalPages || 1;
-    const total = usersData?.pagination?.total || 0;
+    // Calculate pagination values AFTER customersData is defined
+    const totalPages = customersData?.pagination?.totalPages || 1;
+    const total = customersData?.pagination?.total || 0;
     const hasNext = currentPage < totalPages;
     const hasPrev = currentPage > 1;
 
     const createMutation = useMutation({
-        mutationFn: (data: UserFormData) => adminService.createUser(data),
+        mutationFn: (data: CustomerFormData) => adminService.createCustomer(data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-            globalToast.success('User created successfully!');
+            queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+            globalToast.success('Customer created successfully!');
             handleCloseModal();
         },
         onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to create user');
+            globalToast.error(error.response?.data?.message || 'Failed to create customer');
+        },
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<CustomerFormData> }) =>
+            adminService.updateCustomer(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+            globalToast.success('Customer updated successfully!');
+            handleCloseModal();
+        },
+        onError: (error: any) => {
+            globalToast.error(error.response?.data?.message || 'Failed to update customer');
         },
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id: string) => adminService.deleteUser(id),
+        mutationFn: (id: string) => adminService.deleteCustomer(id),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-            globalToast.success('User deleted successfully!');
+            queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+            globalToast.success('Customer deleted successfully!');
         },
         onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to delete user');
+            globalToast.error(error.response?.data?.message || 'Failed to delete customer');
         },
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        createMutation.mutate(formData);
+        if (editingCustomer) {
+            updateMutation.mutate({ id: editingCustomer.id, data: formData });
+        } else {
+            createMutation.mutate(formData);
+        }
+    };
+
+    const handleEdit = (customer: any) => {
+        setEditingCustomer(customer);
+        setFormData({
+            name: customer.name || '',
+            email: customer.email || '',
+            phone: customer.phone || '',
+            address: customer.address || '',
+            customerType: customer.customerType || '',
+            territory: customer.territory || '',
+        });
+        setIsModalOpen(true);
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this user?')) {
+        if (window.confirm('Are you sure you want to delete this customer?')) {
             deleteMutation.mutate(id);
         }
     };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
+        setEditingCustomer(null);
         setFormData({
-            username: '',
+            name: '',
             email: '',
-            password: '',
-            role: UserRole.DISTRIBUTION_SALES_REP,
+            phone: '',
+            address: '',
+            customerType: '',
+            territory: '',
         });
     };
 
-    const formatLastLogin = (lastLoginAt?: string) => {
-        if (!lastLoginAt) return 'Never';
-
-        const date = new Date(lastLoginAt);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-
-        return date.toLocaleDateString();
-    };
-
-    const userColumns = [
+    const customerColumns = [
         {
-            key: 'username',
-            title: 'Username',
+            key: 'name',
+            title: 'Customer Name',
             render: (value: string) => (
                 <div className="flex items-center">
-                    <User className="h-4 w-4 mr-2 text-gray-400" />
+                    <Users className="h-4 w-4 mr-2 text-gray-400" />
                     <span className="font-medium text-gray-900">{value}</span>
                 </div>
             ),
@@ -126,30 +145,30 @@ export const UserManagement: React.FC = () => {
             key: 'email',
             title: 'Email',
             render: (value: string) => (
-                <span className="text-gray-600">{value}</span>
+                <span className="text-gray-600">{value || 'N/A'}</span>
             ),
         },
         {
-            key: 'role',
-            title: 'Role',
+            key: 'phone',
+            title: 'Phone',
             render: (value: string) => (
-                <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                    {value.replace(/_/g, ' ')}
+                <span className="text-gray-600">{value || 'N/A'}</span>
+            ),
+        },
+        {
+            key: 'customerType',
+            title: 'Type',
+            render: (value: string) => (
+                <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                    {value || 'N/A'}
                 </span>
             ),
         },
         {
-            key: 'lastLoginAt',
-            title: 'Last Login',
+            key: 'territory',
+            title: 'Territory',
             render: (value: string) => (
-                <div className="text-sm">
-                    <div className="text-gray-900">{formatLastLogin(value)}</div>
-                    {value && (
-                        <div className="text-xs text-gray-500">
-                            {new Date(value).toLocaleString()}
-                        </div>
-                    )}
-                </div>
+                <span className="text-gray-600">{value || 'N/A'}</span>
             ),
         },
         {
@@ -158,8 +177,8 @@ export const UserManagement: React.FC = () => {
             render: (value: boolean) => (
                 <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${value
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
                         }`}
                 >
                     {value ? 'Active' : 'Inactive'}
@@ -169,10 +188,16 @@ export const UserManagement: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (_: any, user: any) => (
+            render: (_: any, customer: any) => (
                 <div className="flex gap-2">
                     <button
-                        onClick={() => handleDelete(user.id)}
+                        onClick={() => handleEdit(customer)}
+                        className="p-1 text-blue-600 hover:text-blue-800"
+                    >
+                        <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => handleDelete(customer.id)}
                         className="p-1 text-red-600 hover:text-red-800"
                     >
                         <Trash2 className="h-4 w-4" />
@@ -190,12 +215,12 @@ export const UserManagement: React.FC = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-                    <p className="text-gray-600">Manage system users and permissions</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Customer Management</h1>
+                    <p className="text-gray-600">Manage system customers</p>
                 </div>
                 <Button onClick={() => setIsModalOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add User
+                    Add Customer
                 </Button>
             </div>
 
@@ -205,7 +230,7 @@ export const UserManagement: React.FC = () => {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                         <Input
                             type="text"
-                            placeholder="Search users..."
+                            placeholder="Search customers..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10"
@@ -214,8 +239,8 @@ export const UserManagement: React.FC = () => {
                 </div>
 
                 <Table
-                    data={usersData?.data || []}
-                    columns={userColumns}
+                    data={customersData?.data || []}
+                    columns={customerColumns}
                 />
 
                 {/* Custom Pagination */}
@@ -279,18 +304,18 @@ export const UserManagement: React.FC = () => {
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
-                title="Add New User"
+                title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Username *
+                            Customer Name *
                         </label>
                         <Input
                             type="text"
-                            value={formData.username}
+                            value={formData.name}
                             onChange={(e) =>
-                                setFormData({ ...formData, username: e.target.value })
+                                setFormData({ ...formData, name: e.target.value })
                             }
                             required
                         />
@@ -298,7 +323,7 @@ export const UserManagement: React.FC = () => {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Email *
+                            Email
                         </label>
                         <Input
                             type="email"
@@ -306,45 +331,60 @@ export const UserManagement: React.FC = () => {
                             onChange={(e) =>
                                 setFormData({ ...formData, email: e.target.value })
                             }
-                            required
                         />
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Password *
+                            Phone
                         </label>
                         <Input
-                            type="password"
-                            value={formData.password}
+                            type="text"
+                            value={formData.phone}
                             onChange={(e) =>
-                                setFormData({ ...formData, password: e.target.value })
+                                setFormData({ ...formData, phone: e.target.value })
                             }
-                            required
                         />
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Role *
+                            Address
                         </label>
-                        <select
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={formData.role}
+                        <Input
+                            type="text"
+                            value={formData.address}
                             onChange={(e) =>
-                                setFormData({ ...formData, role: e.target.value as UserRole })
+                                setFormData({ ...formData, address: e.target.value })
                             }
-                            required
-                        >
-                            <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
-                            <option value={UserRole.DISTRIBUTION_ADMIN}>Distribution Admin</option>
-                            <option value={UserRole.DISTRIBUTION_SALES_REP}>Distribution Sales Rep</option>
-                            <option value={UserRole.TRANSPORT_ADMIN}>Transport Admin</option>
-                            <option value={UserRole.TRANSPORT_STAFF}>Transport Staff</option>
-                            <option value={UserRole.WAREHOUSE_ADMIN}>Warehouse Admin</option>
-                            <option value={UserRole.WAREHOUSE_SALES_OFFICER}>Warehouse Sales Officer</option>
-                            <option value={UserRole.CASHIER}>Cashier</option>
-                        </select>
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Customer Type
+                        </label>
+                        <Input
+                            type="text"
+                            value={formData.customerType}
+                            onChange={(e) =>
+                                setFormData({ ...formData, customerType: e.target.value })
+                            }
+                            placeholder="e.g., BUSINESS, ENTERPRISE, GOVERNMENT"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Territory
+                        </label>
+                        <Input
+                            type="text"
+                            value={formData.territory}
+                            onChange={(e) =>
+                                setFormData({ ...formData, territory: e.target.value })
+                            }
+                        />
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4">
@@ -352,7 +392,7 @@ export const UserManagement: React.FC = () => {
                             Cancel
                         </Button>
                         <Button type="submit">
-                            Create User
+                            {editingCustomer ? 'Update' : 'Create'} Customer
                         </Button>
                     </div>
                 </form>

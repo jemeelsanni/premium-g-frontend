@@ -2,7 +2,7 @@
 // src/pages/admin/ProductManagement.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, ChevronLeft, ChevronRight } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -49,6 +49,12 @@ export const ProductManagement: React.FC = () => {
                 search: searchTerm || undefined,
             }),
     });
+
+    // Calculate pagination values
+    const totalPages = productsData?.pagination?.totalPages || 1;
+    const total = productsData?.pagination?.total || 0;
+    const hasNext = currentPage < totalPages;
+    const hasPrev = currentPage > 1;
 
     const createMutation = useMutation({
         mutationFn: (data: ProductFormData) => adminService.createProduct(data),
@@ -166,8 +172,8 @@ export const ProductManagement: React.FC = () => {
             title: 'Module',
             render: (value: string) => (
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${value === 'DISTRIBUTION' ? 'bg-blue-100 text-blue-800' :
-                    value === 'WAREHOUSE' ? 'bg-purple-100 text-purple-800' :
-                        'bg-green-100 text-green-800'
+                        value === 'WAREHOUSE' ? 'bg-purple-100 text-purple-800' :
+                            'bg-green-100 text-green-800'
                     }`}>
                     {value}
                 </span>
@@ -179,8 +185,8 @@ export const ProductManagement: React.FC = () => {
             render: (value: boolean) => (
                 <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${value
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
                         }`}
                 >
                     {value ? 'Active' : 'Inactive'}
@@ -191,16 +197,16 @@ export const ProductManagement: React.FC = () => {
             key: 'actions',
             title: 'Actions',
             render: (_: any, record: any) => (
-                <div className="flex items-center space-x-2">
+                <div className="flex gap-2">
                     <button
                         onClick={() => handleEdit(record)}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="p-1 text-blue-600 hover:text-blue-800"
                     >
                         <Edit className="h-4 w-4" />
                     </button>
                     <button
                         onClick={() => handleDelete(record.id)}
-                        className="text-red-600 hover:text-red-800"
+                        className="p-1 text-red-600 hover:text-red-800"
                     >
                         <Trash2 className="h-4 w-4" />
                     </button>
@@ -209,122 +215,136 @@ export const ProductManagement: React.FC = () => {
         },
     ];
 
+    if (isLoading) {
+        return <LoadingSpinner />;
+    }
+
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Manage products across all modules
-                    </p>
+                    <p className="text-gray-600">Manage products across all modules</p>
                 </div>
                 <Button onClick={() => setIsModalOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Product
+                    Add Product
                 </Button>
             </div>
 
-            {/* Search */}
-            <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                    <Input
-                        placeholder="Search products..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        icon={Search}
-                    />
-                </div>
-            </div>
-
-            {/* Products Table */}
-            {isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                    <LoadingSpinner size="lg" />
-                </div>
-            ) : (
-                <Table
-                    columns={productColumns}
-                    data={productsData?.data?.products || []}
-                    emptyMessage="No products found"
-                />
-            )}
-
-            {/* Pagination */}
-            {productsData?.data?.pagination && (
-                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-                    <div className="flex flex-1 justify-between sm:hidden">
-                        <Button
-                            variant="outline"
-                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => setCurrentPage((p) => p + 1)}
-                            disabled={currentPage >= productsData.data.pagination.totalPages}
-                        >
-                            Next
-                        </Button>
+            <div className="bg-white rounded-lg shadow">
+                <div className="p-4 border-b">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                        <Input
+                            type="text"
+                            placeholder="Search products..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                        />
                     </div>
-                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm text-gray-700">
-                                Showing page <span className="font-medium">{currentPage}</span> of{' '}
-                                <span className="font-medium">{productsData.data.pagination.totalPages}</span>
-                            </p>
-                        </div>
-                        <div className="flex space-x-2">
+                </div>
+
+                <Table
+                    data={productsData?.data || []}
+                    columns={productColumns}
+                />
+
+                {/* Custom Pagination */}
+                <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 sm:px-6">
+                    <div className="flex items-center justify-between">
+                        {/* Mobile Pagination */}
+                        <div className="flex-1 flex justify-between sm:hidden">
                             <Button
+                                onClick={() => setCurrentPage(currentPage - 1)}
+                                disabled={!hasPrev}
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
                             >
                                 Previous
                             </Button>
                             <Button
+                                onClick={() => setCurrentPage(currentPage + 1)}
+                                disabled={!hasNext}
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setCurrentPage((p) => p + 1)}
-                                disabled={currentPage >= productsData.data.pagination.totalPages}
                             >
                                 Next
                             </Button>
                         </div>
+
+                        {/* Desktop Pagination */}
+                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-sm text-gray-700">
+                                    Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                                    <span className="font-medium">{totalPages}</span>
+                                    {' '}({total || 0} total records)
+                                </p>
+                            </div>
+                            <div>
+                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    <button
+                                        onClick={() => setCurrentPage(currentPage - 1)}
+                                        disabled={!hasPrev}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronLeft className="h-5 w-5" />
+                                    </button>
+                                    <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                        {currentPage}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(currentPage + 1)}
+                                        disabled={!hasNext}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronRight className="h-5 w-5" />
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            )}
+            </div>
 
-            {/* Create/Edit Product Modal */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
-                title={editingProduct ? 'Edit Product' : 'Create New Product'}
+                title={editingProduct ? 'Edit Product' : 'Add New Product'}
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <Input
-                        label="Product Number *"
-                        value={formData.productNo}
-                        onChange={(e) =>
-                            setFormData({ ...formData, productNo: e.target.value })
-                        }
-                        placeholder="e.g., P001"
-                        required
-                        disabled={!!editingProduct}
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Product Number *
+                        </label>
+                        <Input
+                            type="text"
+                            value={formData.productNo}
+                            onChange={(e) =>
+                                setFormData({ ...formData, productNo: e.target.value })
+                            }
+                            placeholder="e.g., P001"
+                            required
+                            disabled={!!editingProduct}
+                        />
+                    </div>
 
-                    <Input
-                        label="Product Name *"
-                        value={formData.name}
-                        onChange={(e) =>
-                            setFormData({ ...formData, name: e.target.value })
-                        }
-                        placeholder="e.g., Bigi Cola 50cl"
-                        required
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Product Name *
+                        </label>
+                        <Input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) =>
+                                setFormData({ ...formData, name: e.target.value })
+                            }
+                            placeholder="e.g., Bigi Cola 50cl"
+                            required
+                        />
+                    </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -336,44 +356,56 @@ export const ProductManagement: React.FC = () => {
                                 setFormData({ ...formData, description: e.target.value })
                             }
                             rows={3}
-                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Product description"
                         />
                     </div>
 
-                    <Input
-                        label="Packs Per Pallet *"
-                        type="number"
-                        value={formData.packsPerPallet}
-                        onChange={(e) =>
-                            setFormData({ ...formData, packsPerPallet: parseFloat(e.target.value) })
-                        }
-                        placeholder="e.g., 50"
-                        required
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Packs Per Pallet *
+                        </label>
+                        <Input
+                            type="number"
+                            value={formData.packsPerPallet}
+                            onChange={(e) =>
+                                setFormData({ ...formData, packsPerPallet: parseInt(e.target.value) || 0 })
+                            }
+                            placeholder="e.g., 50"
+                            required
+                        />
+                    </div>
 
-                    <Input
-                        label="Price Per Pack (₦) *"
-                        type="number"
-                        step="0.01"
-                        value={formData.pricePerPack}
-                        onChange={(e) =>
-                            setFormData({ ...formData, pricePerPack: parseFloat(e.target.value) })
-                        }
-                        placeholder="e.g., 250.00"
-                        required
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Price Per Pack (₦) *
+                        </label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.pricePerPack}
+                            onChange={(e) =>
+                                setFormData({ ...formData, pricePerPack: parseFloat(e.target.value) || 0 })
+                            }
+                            placeholder="e.g., 250.00"
+                            required
+                        />
+                    </div>
 
-                    <Input
-                        label="Cost Per Pack (₦)"
-                        type="number"
-                        step="0.01"
-                        value={formData.costPerPack}
-                        onChange={(e) =>
-                            setFormData({ ...formData, costPerPack: parseFloat(e.target.value) })
-                        }
-                        placeholder="e.g., 180.00"
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Cost Per Pack (₦)
+                        </label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.costPerPack}
+                            onChange={(e) =>
+                                setFormData({ ...formData, costPerPack: parseFloat(e.target.value) || 0 })
+                            }
+                            placeholder="e.g., 180.00"
+                        />
+                    </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -384,7 +416,7 @@ export const ProductManagement: React.FC = () => {
                             onChange={(e) =>
                                 setFormData({ ...formData, module: e.target.value as any })
                             }
-                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
                         >
                             <option value="DISTRIBUTION">Distribution Only</option>
@@ -396,15 +428,12 @@ export const ProductManagement: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="flex justify-end space-x-3 pt-4">
+                    <div className="flex justify-end gap-3 pt-4">
                         <Button type="button" variant="outline" onClick={handleCloseModal}>
                             Cancel
                         </Button>
-                        <Button
-                            type="submit"
-                            loading={createMutation.isPending || updateMutation.isPending}
-                        >
-                            {editingProduct ? 'Update Product' : 'Create Product'}
+                        <Button type="submit">
+                            {editingProduct ? 'Update' : 'Create'} Product
                         </Button>
                     </div>
                 </form>

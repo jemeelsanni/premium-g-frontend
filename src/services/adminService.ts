@@ -8,7 +8,8 @@ import {
   Location, 
   PaginatedResponse, 
   AuditLog,
-  ApiResponse 
+  ApiResponse, 
+  UserRole
 } from '../types';
 
 export interface CreateUserData {
@@ -18,14 +19,34 @@ export interface CreateUserData {
   role: string;
 }
 
+export interface UpdateUserData {
+  username?: string;
+  email?: string;
+  password?: string;
+  role?: UserRole | string;
+  isActive?: boolean;
+  permissions?: Record<string, any>;
+}
+
 export interface CreateProductData {
   productNo: string;
   name: string;
   description?: string;
   packsPerPallet: number;
   pricePerPack: number;
-  costPerPack?: number;  // ✅ Added
-  module: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';  // ✅ Added
+  costPerPack?: number;
+  module: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
+}
+
+export interface UpdateProductData {
+  productNo?: string;
+  name?: string;
+  description?: string;
+  packsPerPallet?: number;
+  pricePerPack?: number;
+  costPerPack?: number;
+  module?: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
+  isActive?: boolean;
 }
 
 export interface CreateCustomerData {
@@ -33,8 +54,18 @@ export interface CreateCustomerData {
   email?: string;
   phone?: string;
   address?: string;
-  customerType?: string;  // ✅ Added
-  territory?: string;  // ✅ Added
+  customerType?: string;
+  territory?: string;
+}
+
+export interface UpdateCustomerData {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  customerType?: string;
+  territory?: string;
+  isActive?: boolean;
 }
 
 export interface CreateLocationData {
@@ -42,7 +73,6 @@ export interface CreateLocationData {
   address?: string;
   fuelAdjustment?: number;
   driverWagesPerTrip?: number;
-  deliveryNotes?: string;  // ✅ Added
 }
 
 export interface UserFilters {
@@ -60,6 +90,29 @@ export interface ProductFilters {
   search?: string;
 }
 
+export interface CustomerFilters {
+  page?: number;
+  limit?: number;
+  isActive?: boolean;
+  search?: string;
+}
+
+export interface CustomerFilters {
+  page?: number;
+  limit?: number;
+  isActive?: boolean;
+  search?: string;
+  customerType?: string;
+  territory?: string;
+}
+
+export interface LocationFilters {
+  page?: number;
+  limit?: number;
+  isActive?: boolean;
+  search?: string;
+}
+
 export interface AuditFilters {
   userId?: string;
   entity?: string;
@@ -68,6 +121,31 @@ export interface AuditFilters {
   endDate?: string;
   page?: number;
   limit?: number;
+}
+
+export interface UserActivity {
+  totalActions: number;
+  recentActions: any[];
+  actionsByType: Record<string, number>;
+}
+
+export interface UserStats {
+  totalUsers: number;
+  activeUsers: number;
+  inactiveUsers: number;
+  usersByRole: Array<{ role: string; _count: { role: number } }>;
+  recentLogins: Array<{
+    id: string;
+    username: string;
+    role: string;
+    lastLoginAt: string;
+  }>;
+}
+
+export interface SystemConfig {
+  key: string;
+  value: string;
+  description?: string;
 }
 
 export class AdminService extends BaseApiService {
@@ -103,6 +181,16 @@ export class AdminService extends BaseApiService {
     return this.delete<ApiResponse<null>>(`/users/${id}`);
   }
 
+  // ✅ NEW: Get user activity
+  async getUserActivity(id: string, days: number = 30): Promise<ApiResponse<{ activity: UserActivity }>> {
+    return this.get<ApiResponse<{ activity: UserActivity }>>(`/users/${id}/activity?days=${days}`);
+  }
+
+  // ✅ NEW: Get user statistics
+  async getUserStats(): Promise<ApiResponse<UserStats>> {
+    return this.get<ApiResponse<UserStats>>('/users/stats/summary');
+  }
+
   // ================================
   // PRODUCT MANAGEMENT
   // ================================
@@ -135,7 +223,7 @@ export class AdminService extends BaseApiService {
   // CUSTOMER MANAGEMENT
   // ================================
 
-  async getCustomers(filters?: any): Promise<PaginatedResponse<Customer>> {
+  async getCustomers(filters?: CustomerFilters): Promise<PaginatedResponse<Customer>> {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -163,7 +251,7 @@ export class AdminService extends BaseApiService {
   // LOCATION MANAGEMENT
   // ================================
 
-  async getLocations(filters?: any): Promise<PaginatedResponse<Location>> {
+  async getLocations(filters?: LocationFilters): Promise<PaginatedResponse<Location>> {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -191,6 +279,7 @@ export class AdminService extends BaseApiService {
   // AUDIT TRAIL
   // ================================
 
+  // ✅ NEW: Get audit trail
   async getAuditTrail(filters?: AuditFilters): Promise<PaginatedResponse<AuditLog>> {
     const params = new URLSearchParams();
     if (filters) {
@@ -207,36 +296,14 @@ export class AdminService extends BaseApiService {
   // SYSTEM CONFIGURATION
   // ================================
 
-  async getSystemConfig(): Promise<ApiResponse<Record<string, string>>> {
-    return this.get<ApiResponse<Record<string, string>>>('/system-config');
+  // ✅ NEW: Get system configuration
+  async getSystemConfig(): Promise<ApiResponse<{ configs: SystemConfig[] }>> {
+    return this.get<ApiResponse<{ configs: SystemConfig[] }>>('/system-config');
   }
 
-  async updateSystemConfig(key: string, value: string): Promise<ApiResponse<{ key: string; value: string }>> {
-    return this.put<ApiResponse<{ key: string; value: string }>>({ value }, `/system-config/${key}`);
-  }
-
-  // ================================
-  // SYSTEM STATS (✅ ADDED)
-  // ================================
-
-  async getSystemStats(): Promise<ApiResponse<{
-    systemStats: {
-      totalUsers: number;
-      totalDistributionOrders: number;
-      totalTransportOrders: number;
-      totalWarehouseSales: number;
-      recentAuditLogs: number;
-    };
-    userStats: Array<{ role: string; _count: { role: number } }>;
-    businessStats: {
-      distributionRevenue: number;
-      transportRevenue: number;
-      warehouseRevenue: number;
-      totalRevenue: number;
-    };
-    recentActivity: AuditLog[];
-  }>> {
-    return this.get<ApiResponse<any>>('/dashboard');
+  // ✅ NEW: Update system configuration
+  async updateSystemConfig(key: string, value: string): Promise<ApiResponse<{ config: SystemConfig }>> {
+    return this.put<ApiResponse<{ config: SystemConfig }>>({ value }, `/system-config/${key}`);
   }
 }
 
