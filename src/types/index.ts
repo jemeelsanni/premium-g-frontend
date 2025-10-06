@@ -259,9 +259,13 @@ export interface PaymentHistory {
 
 // Warehouse Module Types
 export interface WarehouseCustomer extends Customer {
-  customerType: 'INDIVIDUAL' | 'SMALL_RETAILER' | 'WALK_IN';
+  customerType: string;
+  businessName?: string;
+  preferredPaymentMethod?: string;
   discountEligible?: boolean;
   totalPurchases?: number;
+  totalSpent?: number;
+  averageOrderValue?: number;
   lastPurchaseDate?: string;
 }
 

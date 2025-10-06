@@ -12,6 +12,7 @@ import { TransportOrder, TransportOrderStatus } from '../../types/transport';
 import { StatusUpdateDropdown } from '../../components/transport/StatusUpdateDropdown';
 
 
+
 export const TransportOrdersList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
@@ -136,7 +137,7 @@ export const TransportOrdersList: React.FC = () => {
     ];
 
     const Pagination = () => {
-        if (!ordersData) return null;
+        if (!ordersData?.pagination) return null;
 
         const { page, totalPages, total } = ordersData.pagination;
         const startItem = ((page - 1) * pageSize) + 1;

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/pages/warehouse/CustomersList.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,9 +41,11 @@ export const CustomersList: React.FC = () => {
         resolver: zodResolver(customerSchema),
     });
 
+    const searchValue = searchTerm.trim();
+
     const { data: customersData, isLoading } = useQuery({
-        queryKey: ['warehouse-customers', currentPage, pageSize],
-        queryFn: () => warehouseService.getCustomers(currentPage, pageSize),
+        queryKey: ['warehouse-customers', currentPage, pageSize, searchValue],
+        queryFn: () => warehouseService.getCustomers(currentPage, pageSize, searchValue),
     });
 
     const createMutation = useMutation({
@@ -76,8 +78,8 @@ export const CustomersList: React.FC = () => {
             setEditingCustomer(customer);
             reset({
                 name: customer.name,
-                phone: customer.phone,
-                address: customer.address,
+                phone: customer.phone ?? '',
+                address: customer.address ?? '',
                 customerType: customer.customerType,
             });
         } else {
@@ -106,10 +108,21 @@ export const CustomersList: React.FC = () => {
         }
     };
 
-    const filteredData = customersData?.data?.filter(customer =>
-        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phone.includes(searchTerm)
-    ) || [];
+    const customers = customersData?.data?.customers ?? [];
+    const pagination = customersData?.data?.pagination;
+
+    useEffect(() => {
+        if (pagination?.page && pagination.page !== currentPage) {
+            setCurrentPage(pagination.page);
+        }
+    }, [pagination?.page, currentPage]);
+
+    const page = pagination?.page ?? currentPage;
+    const total = pagination?.total ?? customers.length;
+    const totalPages = pagination?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
+    const paginatedData = pagination
+        ? customers
+        : customers.slice((page - 1) * pageSize, page * pageSize);
 
     const customerColumns = [
         {
@@ -125,19 +138,19 @@ export const CustomersList: React.FC = () => {
         {
             key: 'phone',
             title: 'Phone',
-            render: (value: string) => (
+            render: (value: string | undefined | null) => (
                 <div className="flex items-center">
                     <Phone className="h-3 w-3 mr-1 text-gray-400" />
-                    <span>{value}</span>
+                    <span>{value || 'N/A'}</span>
                 </div>
             )
         },
         {
             key: 'address',
             title: 'Address',
-            render: (value: string) => (
-                <span className="text-sm text-gray-600 truncate max-w-48" title={value}>
-                    {value}
+            render: (value: string | undefined | null) => (
+                <span className="text-sm text-gray-600 truncate max-w-48" title={value || 'N/A'}>
+                    {value || 'N/A'}
                 </span>
             )
         },
@@ -153,7 +166,7 @@ export const CustomersList: React.FC = () => {
         {
             key: 'totalPurchases',
             title: 'Total Purchases',
-            render: (value: number) => `₦${value.toLocaleString()}`
+            render: (_value: number, record: WarehouseCustomer) => `₦${(record.totalSpent ?? 0).toLocaleString()}`
         },
         {
             key: 'lastPurchaseDate',
@@ -209,7 +222,10 @@ export const CustomersList: React.FC = () => {
                         <Input
                             placeholder="Search customers..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
                             className="pl-10"
                         />
                     </div>
@@ -219,11 +235,71 @@ export const CustomersList: React.FC = () => {
             {/* Customers Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
                 <Table
-                    data={filteredData}
+                    data={paginatedData}
                     columns={customerColumns}
                     loading={isLoading}
                     emptyMessage="No customers found"
                 />
+                {total > 0 && totalPages > 1 && (
+                    <div className="border-t border-gray-200 bg-white px-4 py-3 flex items-center justify-between">
+                        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                            <p className="text-sm text-gray-700">
+                                Showing <span className="font-medium">{((page - 1) * pageSize) + 1}</span> to{' '}
+                                <span className="font-medium">{Math.min(page * pageSize, total)}</span> of{' '}
+                                <span className="font-medium">{total}</span> customers
+                            </p>
+                            <div className="inline-flex -space-x-px rounded-md shadow-sm">
+                                <Button
+                                    variant="outline"
+                                    disabled={page === 1}
+                                    onClick={() => setCurrentPage(page - 1)}
+                                    className="rounded-l-md"
+                                >
+                                    Previous
+                                </Button>
+                                {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+                                    const offset = Math.floor(Math.min(Math.max(page - 3, 0), Math.max(totalPages - 5, 0)));
+                                    const pageNumber = 1 + offset + index;
+                                    if (pageNumber > totalPages) return null;
+                                    return (
+                                        <Button
+                                            key={pageNumber}
+                                            variant={pageNumber === page ? 'primary' : 'outline'}
+                                            onClick={() => setCurrentPage(pageNumber)}
+                                            className="rounded-none"
+                                        >
+                                            {pageNumber}
+                                        </Button>
+                                    );
+                                })}
+                                <Button
+                                    variant="outline"
+                                    disabled={page === totalPages}
+                                    onClick={() => setCurrentPage(page + 1)}
+                                    className="rounded-r-md"
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="flex sm:hidden w-full justify-between">
+                            <Button
+                                variant="outline"
+                                disabled={page === 1}
+                                onClick={() => setCurrentPage(page - 1)}
+                            >
+                                Previous
+                            </Button>
+                            <Button
+                                variant="outline"
+                                disabled={page === totalPages}
+                                onClick={() => setCurrentPage(page + 1)}
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Add/Edit Customer Modal */}
@@ -264,9 +340,8 @@ export const CustomersList: React.FC = () => {
                         >
                             <option value="">Select type</option>
                             <option value="INDIVIDUAL">Individual</option>
-                            <option value="RETAIL">Retail Business</option>
-                            <option value="WHOLESALE">Wholesale</option>
-                            <option value="CORPORATE">Corporate</option>
+                            <option value="BUSINESS">Business</option>
+                            <option value="RETAILER">Retailer</option>
                         </select>
                         {errors.customerType && (
                             <p className="mt-1 text-sm text-red-600">{errors.customerType.message}</p>
@@ -289,5 +364,3 @@ export const CustomersList: React.FC = () => {
         </div>
     );
 };
-
-

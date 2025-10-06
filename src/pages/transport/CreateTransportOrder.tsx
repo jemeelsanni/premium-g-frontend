@@ -28,7 +28,7 @@ const transportOrderSchema = z.object({
     driverWages: z.number().min(0, 'Driver wages must be positive'),
     tripAllowance: z.number().min(0, 'Trip allowance must be positive'),
     motorBoyWages: z.number().min(0, 'Motor boy wages must be positive'),
-    truckId: z.string().optional(),
+    truckId: z.string().optional().or(z.literal('')), // ✅ CHANGE: Allow empty string or undefined
     driverDetails: z.string().optional(),
     invoiceNumber: z.string().optional(),
 });
@@ -61,7 +61,10 @@ export const CreateTransportOrder: React.FC = () => {
             totalOrderAmount: 0,
             fuelRequired: 0,
             fuelPricePerLiter: 0,
-            truckId: '',
+            driverWages: 0,      // ✅ ADD: Initialize with 0
+            tripAllowance: 0,    // ✅ ADD: Initialize with 0  
+            motorBoyWages: 0,    // ✅ ADD: Initialize with 0
+            truckId: undefined,
             driverDetails: '',
             invoiceNumber: ''
         }
@@ -196,10 +199,19 @@ export const CreateTransportOrder: React.FC = () => {
     });
 
     const onSubmit = (data: TransportOrderFormData) => {
-        if (isEditing && id) {
-            updateMutation.mutate({ id, data });
+        // ✅ Clean up the data before submission
+        const submitData = {
+            ...data,
+            truckId: data.truckId?.trim() || undefined, // Convert empty string to undefined
+            clientPhone: data.clientPhone?.trim() || undefined,
+            driverDetails: data.driverDetails?.trim() || undefined,
+            invoiceNumber: data.invoiceNumber?.trim() || undefined,
+        };
+
+        if (isEditing) {
+            updateMutation.mutate({ id: id!, data: submitData });
         } else {
-            createMutation.mutate(data);
+            createMutation.mutate(submitData);
         }
     };
 

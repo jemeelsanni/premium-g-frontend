@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Download, ShoppingCart, DollarSign } from 'lucide-react';
+import { Plus, Search, Download, DollarSign, User, Calendar, Eye, ShoppingCart, Percent } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -30,10 +30,15 @@ export const SalesList: React.FC = () => {
         setCurrentPage(1);
     };
 
-    const filteredData = salesData?.data?.filter(sale => {
-        const matchesSearch =
-            sale.product?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            sale.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+    const sales = salesData?.data?.sales ?? [];
+    const pagination = salesData?.data?.pagination;
+    const totalSales = pagination?.total ?? sales.length;
+
+    const filteredData = sales.filter((sale: any) => {
+        const customerName = sale.customerName ?? '';
+        const salesOfficerName = sale.salesOfficerUser?.username ?? sale.salesOfficer ?? '';
+        const matchesSearch = [customerName, salesOfficerName]
+            .some((field) => field.toLowerCase().includes(searchTerm.toLowerCase()));
 
         const matchesDate = dateFilter
             ? new Date(sale.createdAt).toDateString() === new Date(dateFilter).toDateString()
@@ -42,66 +47,91 @@ export const SalesList: React.FC = () => {
         return matchesSearch && matchesDate;
     }) || [];
 
+    const parseNumber = (value: unknown, fallback = 0) => {
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? value : fallback;
+        }
+        if (typeof value === 'string' && value.trim()) {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        }
+        return fallback;
+    };
+
     const salesColumns = [
-        {
-            key: 'product',
-            title: 'Product',
-            render: (value: any) => (
-                <div className="flex items-center">
-                    <ShoppingCart className="h-4 w-4 mr-2 text-blue-600" />
-                    <span className="font-medium">{value?.name || 'Unknown Product'}</span>
-                </div>
-            )
-        },
         {
             key: 'customerName',
             title: 'Customer',
             render: (value: string) => (
-                <div className="font-medium text-gray-900">{value}</div>
+                <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2 text-blue-600" />
+                    <span className="font-medium text-gray-900">{value || 'Walk-in Customer'}</span>
+                </div>
             )
         },
         {
-            key: 'quantity',
-            title: 'Quantity',
-            render: (value: number) => (
-                <span className="font-medium">{value.toLocaleString()}</span>
+            key: 'salesOfficerUser',
+            title: 'Sales Officer',
+            render: (_value: any, record: any) => (
+                <div className="text-sm text-gray-700">
+                    {record?.salesOfficerUser?.username || record?.salesOfficer || '—'}
+                </div>
             )
-        },
-        {
-            key: 'unitPrice',
-            title: 'Unit Price',
-            render: (value: number) => `₦${value.toLocaleString()}`
         },
         {
             key: 'totalAmount',
             title: 'Total Amount',
-            render: (value: number) => (
-                <span className="font-bold text-green-600">₦{value.toLocaleString()}</span>
+            render: (value: number | string) => (
+                <span className="font-bold text-green-600">₦{parseNumber(value).toLocaleString()}</span>
             )
         },
         {
-            key: 'salesOfficer',
-            title: 'Sales Officer',
-            render: (value: string) => (
-                <span className="text-sm text-gray-600">{value}</span>
+            key: 'discountApplied',
+            title: 'Discount',
+            render: (_value: any, record: any) => (
+                record?.discountApplied ? (
+                    <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+                        <Percent className="mr-1 h-3 w-3" /> Discounted
+                    </span>
+                ) : (
+                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                        No Discount
+                    </span>
+                )
             )
         },
         {
             key: 'createdAt',
             title: 'Date & Time',
             render: (value: string) => (
-                <div className="text-sm">
-                    <div className="font-medium">{new Date(value).toLocaleDateString()}</div>
-                    <div className="text-gray-500">{new Date(value).toLocaleTimeString()}</div>
+                <div className="flex items-center text-sm">
+                    <Calendar className="h-4 w-4 mr-2 text-gray-500" />
+                    <div>
+                        <div className="font-medium">{new Date(value).toLocaleDateString()}</div>
+                        <div className="text-gray-500">{new Date(value).toLocaleTimeString()}</div>
+                    </div>
                 </div>
+            )
+        },
+        {
+            key: 'actions',
+            title: 'Actions',
+            render: (_value: any, record: any) => (
+                <Link
+                    to={`/warehouse/sales/${record.id}`}
+                    className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                    <Eye className="h-4 w-4 mr-1" />
+                    View
+                </Link>
             )
         }
     ];
 
     const Pagination = () => {
-        if (!salesData) return null;
+        if (!pagination) return null;
 
-        const { page, totalPages, total } = salesData;
+        const { page, totalPages, total } = pagination;
         const startItem = ((page - 1) * pageSize) + 1;
         const endItem = Math.min(page * pageSize, total);
 
@@ -179,8 +209,8 @@ export const SalesList: React.FC = () => {
         new Date(sale.createdAt).toDateString() === new Date().toDateString()
     );
 
-    const todaysRevenue = todaysSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-    const totalRevenue = filteredData.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const todaysRevenue = todaysSales.reduce((sum, sale: any) => sum + parseNumber(sale.totalAmount), 0);
+    const totalRevenue = filteredData.reduce((sum, sale: any) => sum + parseNumber(sale.totalAmount), 0);
 
     if (error) {
         return (
@@ -268,7 +298,7 @@ export const SalesList: React.FC = () => {
                                         Total Sales
                                     </dt>
                                     <dd className="text-2xl font-semibold text-gray-900">
-                                        {salesData?.total || 0}
+                                        {totalSales}
                                     </dd>
                                 </dl>
                             </div>

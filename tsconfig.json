@@ -18,7 +18,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    // Silence TypeScript 6.0 deprecation warnings
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src"]
 }

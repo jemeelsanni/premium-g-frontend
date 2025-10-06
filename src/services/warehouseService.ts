@@ -1,17 +1,74 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BaseApiService } from './api';
-import { 
-  WarehouseSale, 
-  WarehouseInventory, 
-  WarehouseCustomer 
+import { BaseApiService, apiClient } from './api';
+import {
+  WarehouseSale,
+  WarehouseInventory,
+  WarehouseCustomer,
+  Product,
+  WarehouseExpense
 } from '../types/warehouse';
 import { PaginatedResponse } from '../types/common';
+
+export type WarehouseUnitType = 'PALLETS' | 'PACKS' | 'UNITS';
+export type WarehousePaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY';
 
 export interface CreateSaleData {
   productId: string;
   quantity: number;
+  unitType: WarehouseUnitType;
   unitPrice: number;
+  paymentMethod: WarehousePaymentMethod;
   customerName: string;
+  customerPhone?: string;
+  warehouseCustomerId?: string;
+  applyDiscount?: boolean;
+  requestDiscountApproval?: boolean;
+  discountReason?: string;
+  requestedDiscountPercent?: number;
+}
+
+export interface CreateSaleResponse {
+  success: boolean;
+  message: string;
+  pendingApproval?: boolean;
+  data: {
+    sale: WarehouseSale;
+  };
+}
+
+export interface WarehouseExpenseFilters {
+  page?: number;
+  limit?: number;
+  status?: string;
+  expenseType?: string;
+  category?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  isPaid?: boolean;
+}
+
+export interface CreateWarehouseExpenseData {
+  expenseType: string;
+  category: string;
+  amount: number;
+  description?: string;
+  expenseDate?: string;
+  productId?: string;
+}
+
+export interface CreateDiscountRequestData {
+  warehouseCustomerId: string;
+  productId: string;
+  requestedDiscountType: 'PERCENTAGE' | 'FIXED_AMOUNT' | 'BULK_DISCOUNT';
+  requestedDiscountValue: number;
+  minimumQuantity?: number;
+  maximumDiscountAmount?: number;
+  validFrom: string;
+  validUntil?: string;
+  reason: string;
+  businessJustification?: string;
+  estimatedImpact?: number;
 }
 
 export interface CreateCustomerData {
@@ -22,9 +79,14 @@ export interface CreateCustomerData {
 }
 
 export interface UpdateInventoryData {
-  currentStock: number;
-  minimumStock: number;
-  maximumStock: number;
+  currentStock?: number;
+  minimumStock?: number;
+  maximumStock?: number;
+  pallets?: number;
+  packs?: number;
+  units?: number;
+  reorderLevel?: number;
+  maxStockLevel?: number;
 }
 
 export class WarehouseService extends BaseApiService {
@@ -34,15 +96,37 @@ export class WarehouseService extends BaseApiService {
 
   // Sales
   async getSales(page = 1, limit = 10): Promise<PaginatedResponse<WarehouseSale>> {
-    return this.get<PaginatedResponse<WarehouseSale>>(`/sales?page=${page}&limit=${limit}`);
+    try {
+      return await this.get<PaginatedResponse<WarehouseSale>>(`/sales?page=${page}&limit=${limit}`);
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return {
+          success: true,
+          data: {
+            sales: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              totalPages: 1
+            }
+          }
+        } as unknown as PaginatedResponse<WarehouseSale>;
+      }
+      throw error;
+    }
   }
 
   async getSale(id: string): Promise<WarehouseSale> {
     return this.get<WarehouseSale>(`/sales/${id}`);
   }
 
-  async createSale(data: CreateSaleData): Promise<WarehouseSale> {
-    return this.post<WarehouseSale>(data, '/sales');
+  async createSale(data: CreateSaleData): Promise<CreateSaleResponse> {
+    return this.post<CreateSaleResponse>(data, '/sales');
+  }
+
+  async getProducts(): Promise<{ success: boolean; data: { products: Product[] } }> {
+    return this.get<{ success: boolean; data: { products: Product[] } }>('/products');
   }
 
   // Inventory
@@ -55,11 +139,109 @@ export class WarehouseService extends BaseApiService {
   }
 
   async updateInventory(id: string, data: UpdateInventoryData): Promise<WarehouseInventory> {
-    return this.put<WarehouseInventory>(data, `/inventory/${id}`);
+    const payload: Record<string, number> = {};
+
+    if (typeof data.pallets === 'number') payload.pallets = data.pallets;
+    if (typeof data.packs === 'number') payload.packs = data.packs;
+    if (typeof data.units === 'number') payload.units = data.units;
+    if (typeof data.reorderLevel === 'number') payload.reorderLevel = data.reorderLevel;
+    if (typeof data.maxStockLevel === 'number') payload.maxStockLevel = data.maxStockLevel;
+
+    if (typeof data.currentStock === 'number') payload.packs = data.currentStock;
+    if (typeof data.minimumStock === 'number') payload.reorderLevel = data.minimumStock;
+    if (typeof data.maximumStock === 'number') payload.maxStockLevel = data.maximumStock;
+
+    return this.put<WarehouseInventory>(payload, `/inventory/${id}`);
+  }
+
+  async getExpenses(filters?: WarehouseExpenseFilters): Promise<{
+    success: boolean;
+    data: {
+      expenses: WarehouseExpense[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+  }> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const query = params.toString();
+    const suffix = query.length > 0 ? `?${query}` : '';
+
+    try {
+      return await this.get(`/expenses${suffix}`);
+    } catch (error: any) {
+      console.error('Failed to fetch warehouse expenses', error);
+
+      return {
+        success: true,
+        data: {
+          expenses: [],
+          pagination: {
+            page: Number(filters?.page) || 1,
+            limit: Number(filters?.limit) || 10,
+            total: 0,
+            totalPages: 1
+          }
+        }
+      };
+    }
+  }
+
+  async createExpense(data: CreateWarehouseExpenseData): Promise<WarehouseExpense> {
+    const payload = {
+      expenseType: data.expenseType,
+      category: data.category,
+      amount: data.amount,
+      description: data.description,
+      expenseDate: data.expenseDate || new Date().toISOString(),
+      productId: data.productId || undefined
+    };
+
+    const response = await this.post<{ success: boolean; data: { expense: WarehouseExpense } }>(
+      payload,
+      '/expenses'
+    );
+
+    return response.data.expense;
+  }
+
+  async updateExpenseStatus(
+    id: string,
+    status: WarehouseExpense['status'],
+    options?: { rejectionReason?: string }
+  ): Promise<WarehouseExpense> {
+    const payload: Record<string, unknown> = { status };
+
+    if (status === 'REJECTED' && options?.rejectionReason) {
+      payload.rejectionReason = options.rejectionReason;
+    }
+
+    const response = await this.put<{ success: boolean; data: { expense: WarehouseExpense } }>(
+      payload,
+      `/expenses/${id}`
+    );
+
+    return response.data.expense;
   }
 
   // Customers
-  async getCustomers(page = 1, limit = 10): Promise<PaginatedResponse<WarehouseCustomer>> {
+  async getCustomers(page = 1, limit = 10, search?: string): Promise<PaginatedResponse<WarehouseCustomer>> {
+    if (search && search.trim().length > 0) {
+      const safeSearch = encodeURIComponent(search.trim());
+      return this.get<PaginatedResponse<WarehouseCustomer>>(`/customers?search=${safeSearch}&page=${page}&limit=${limit}`);
+    }
     return this.get<PaginatedResponse<WarehouseCustomer>>(`/customers?page=${page}&limit=${limit}`);
   }
 
@@ -81,21 +263,68 @@ export class WarehouseService extends BaseApiService {
   }
 
   // Discount Requests
-  async getDiscountRequests(page = 1, limit = 10): Promise<any> {
-    return this.get(`/discounts?page=${page}&limit=${limit}`);
+  async getDiscountRequests(page = 1, limit = 10, status: string = 'PENDING'): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('page', String(page));
+    params.append('limit', String(limit));
+    if (status) {
+      params.append('status', status);
+    }
+    const query = params.toString();
+    return this.get(`/discounts/requests?${query}`);
   }
 
-  async approveDiscount(id: string): Promise<any> {
-    return this.put({}, `/discounts/${id}/approve`);
+  async approveDiscount(id: string, adminNotes?: string): Promise<any> {
+    return this.put({ action: 'approve', adminNotes }, `/discounts/requests/${id}/review`);
   }
 
-  async rejectDiscount(id: string): Promise<any> {
-    return this.put({}, `/discounts/${id}/reject`);
+  async rejectDiscount(id: string, rejectionReason?: string, adminNotes?: string): Promise<any> {
+    return this.put({ action: 'reject', rejectionReason, adminNotes }, `/discounts/requests/${id}/review`);
+  }
+
+  async createDiscountRequest(data: CreateDiscountRequestData): Promise<any> {
+    return this.post(data, '/discounts/request');
   }
 
   // Analytics
   async getDashboardStats(): Promise<any> {
-    return this.get('/analytics/dashboard');
+    try {
+      const response = await apiClient.get('/warehouse/analytics/summary');
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 400 || error?.response?.status === 404) {
+        return {
+          success: true,
+          data: {
+            summary: {
+              totalRevenue: 0,
+              totalCOGS: 0,
+              grossProfit: 0,
+              profitMargin: 0,
+              totalSales: 0,
+              totalQuantitySold: 0,
+              averageSaleValue: 0
+            },
+            cashFlow: {
+              totalCashIn: 0,
+              totalCashOut: 0,
+              netCashFlow: 0
+            },
+            inventory: {
+              totalStockValue: 0,
+              totalItems: 0,
+              lowStockItems: 0,
+              outOfStockItems: 0,
+              stockHealthPercentage: 0
+            },
+            topProducts: [],
+            dailyPerformance: [],
+            period: {}
+          }
+        };
+      }
+      throw error;
+    }
   }
 }
 

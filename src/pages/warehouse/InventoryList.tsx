@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/warehouse/InventoryList.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +30,14 @@ export const InventoryList: React.FC = () => {
     const [showLowStockOnly, setShowLowStockOnly] = useState(false);
     const queryClient = useQueryClient();
     const pageSize = 10;
+
+    const parseNumber = (value: unknown, fallback = 0) => {
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? value : fallback;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
 
     const {
         register,
@@ -61,9 +69,9 @@ export const InventoryList: React.FC = () => {
     const handleOpenModal = (item: WarehouseInventory) => {
         setSelectedItem(item);
         reset({
-            currentStock: item.currentStock,
-            minimumStock: item.minimumStock,
-            maximumStock: item.maximumStock,
+            currentStock: item.currentStock ?? 0,
+            minimumStock: item.minimumStock ?? 0,
+            maximumStock: item.maximumStock ?? 0,
         });
         setIsModalOpen(true);
     };
@@ -81,20 +89,79 @@ export const InventoryList: React.FC = () => {
     };
 
     const getStockStatus = (item: WarehouseInventory) => {
-        if (item.currentStock <= item.minimumStock) {
+        const current = parseNumber(item.currentStock ?? item.packs ?? item.units ?? 0);
+        const minimum = parseNumber(item.minimumStock ?? item.reorderLevel ?? 0);
+        const maximum = parseNumber(item.maximumStock ?? item.maxStockLevel, Number.POSITIVE_INFINITY);
+
+        if (current <= minimum) {
             return { status: 'low', color: 'red', text: 'Low Stock' };
-        } else if (item.currentStock >= item.maximumStock) {
+        } else if (Number.isFinite(maximum) && maximum > 0 && current >= maximum) {
             return { status: 'high', color: 'orange', text: 'Overstock' };
         } else {
             return { status: 'normal', color: 'green', text: 'Normal' };
         }
     };
 
-    const filteredData = inventoryData?.data?.filter(item => {
-        const matchesSearch = item.product?.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFilter = showLowStockOnly ? item.currentStock <= item.minimumStock : true;
+    const rawInventoryData = inventoryData?.data;
+    const inventoryItems = Array.isArray(rawInventoryData)
+        ? rawInventoryData
+        : Array.isArray((rawInventoryData as any)?.inventory)
+            ? (rawInventoryData as any).inventory
+            : [];
+
+    const normalizedInventory: WarehouseInventory[] = inventoryItems.map((item: any) => {
+        const currentStock = parseNumber(item.currentStock ?? item.packs ?? item.units ?? 0);
+        const minimumStock = parseNumber(item.minimumStock ?? item.reorderLevel ?? 0);
+        const maximumSource = item.maximumStock ?? item.maxStockLevel;
+        const maximumStock = maximumSource == null ? undefined : parseNumber(maximumSource);
+
+        return {
+            ...item,
+            currentStock,
+            minimumStock,
+            maximumStock,
+            lastRestocked: item.lastRestocked ?? item.lastUpdated ?? item.updatedAt ?? item.createdAt ?? null,
+        } as WarehouseInventory;
+    });
+
+    const pagination = (rawInventoryData as any)?.pagination;
+    const searchValue = searchTerm.trim().toLowerCase();
+
+    const filteredData = normalizedInventory.filter(item => {
+        const productName = item.product?.name ?? '';
+        const matchesSearch = productName.toLowerCase().includes(searchValue);
+        const current = parseNumber(item.currentStock);
+        const minimum = parseNumber(item.minimumStock);
+        const matchesFilter = showLowStockOnly ? current <= minimum : true;
         return matchesSearch && matchesFilter;
-    }) || [];
+    });
+
+    const page = pagination?.page ?? currentPage;
+    const total = pagination?.total ?? filteredData.length;
+    const totalPages = pagination?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
+    const paginatedData = pagination
+        ? filteredData
+        : filteredData.slice((page - 1) * pageSize, page * pageSize);
+
+    useEffect(() => {
+        if (!pagination) {
+            const computedTotalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+            if (currentPage > computedTotalPages) {
+                setCurrentPage(computedTotalPages);
+            }
+        }
+    }, [filteredData.length, pagination, currentPage, pageSize]);
+
+    const lowStockCount = normalizedInventory.filter(item => {
+        const current = parseNumber(item.currentStock);
+        const minimum = parseNumber(item.minimumStock);
+        return current <= minimum;
+    }).length;
+    const totalStock = normalizedInventory.reduce((sum, item) => sum + parseNumber(item.currentStock), 0);
+    const wellStockCount = Math.max(normalizedInventory.length - lowStockCount, 0);
+    const totalItems = pagination?.total ?? normalizedInventory.length;
+    const selectedStatus = selectedItem ? getStockStatus(selectedItem) : null;
+    const selectedCurrentValue = parseNumber(selectedItem?.currentStock).toLocaleString();
 
     const inventoryColumns = [
         {
@@ -110,15 +177,16 @@ export const InventoryList: React.FC = () => {
         {
             key: 'currentStock',
             title: 'Current Stock',
-            render: (value: number, record: WarehouseInventory) => {
+            render: (value: number | undefined, record: WarehouseInventory) => {
                 const stockStatus = getStockStatus(record);
+                const displayValue = typeof value === 'number' ? value.toLocaleString() : 'N/A';
                 return (
                     <div className="flex items-center">
                         <span className={`font-bold ${stockStatus.status === 'low' ? 'text-red-600' :
                                 stockStatus.status === 'high' ? 'text-orange-600' :
                                     'text-green-600'
                             }`}>
-                            {value.toLocaleString()}
+                            {displayValue}
                         </span>
                         {stockStatus.status === 'low' && (
                             <AlertTriangle className="h-4 w-4 ml-1 text-red-500" />
@@ -130,12 +198,12 @@ export const InventoryList: React.FC = () => {
         {
             key: 'minimumStock',
             title: 'Min Stock',
-            render: (value: number) => value.toLocaleString()
+            render: (value: number | undefined) => typeof value === 'number' ? value.toLocaleString() : 'N/A'
         },
         {
             key: 'maximumStock',
             title: 'Max Stock',
-            render: (value: number) => value.toLocaleString()
+            render: (value: number | undefined) => typeof value === 'number' ? value.toLocaleString() : 'N/A'
         },
         {
             key: 'stockStatus',
@@ -174,9 +242,8 @@ export const InventoryList: React.FC = () => {
     ];
 
     const Pagination = () => {
-        if (!inventoryData) return null;
+        if (total === 0 || totalPages <= 1) return null;
 
-        const { page, totalPages, total } = inventoryData;
         const startItem = ((page - 1) * pageSize) + 1;
         const endItem = Math.min(page * pageSize, total);
 
@@ -218,12 +285,13 @@ export const InventoryList: React.FC = () => {
                             </Button>
 
                             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                const pageNum = Math.max(1, Math.min(page - 2 + i, totalPages - 4 + i));
+                                const offset = Math.floor(Math.min(Math.max(page - 3, 0), Math.max(totalPages - 5, 0)));
+                                const pageNum = 1 + offset + i;
                                 if (pageNum <= totalPages) {
                                     return (
                                         <Button
                                             key={pageNum}
-                                            variant={pageNum === page ? "primary" : "outline"}
+                                            variant={pageNum === page ? 'primary' : 'outline'}
                                             onClick={() => setCurrentPage(pageNum)}
                                             className="rounded-none"
                                         >
@@ -248,10 +316,6 @@ export const InventoryList: React.FC = () => {
             </div>
         );
     };
-
-    const lowStockCount = inventoryData?.data?.filter(
-        item => item.currentStock <= item.minimumStock
-    ).length || 0;
 
     return (
         <div className="space-y-6">
@@ -298,7 +362,7 @@ export const InventoryList: React.FC = () => {
                                         Total Items
                                     </dt>
                                     <dd className="text-2xl font-semibold text-gray-900">
-                                        {inventoryData?.total || 0}
+                                        {totalItems}
                                     </dd>
                                 </dl>
                             </div>
@@ -340,7 +404,7 @@ export const InventoryList: React.FC = () => {
                                         Well Stocked
                                     </dt>
                                     <dd className="text-2xl font-semibold text-green-600">
-                                        {(inventoryData?.data?.length || 0) - lowStockCount}
+                                        {wellStockCount}
                                     </dd>
                                 </dl>
                             </div>
@@ -362,7 +426,7 @@ export const InventoryList: React.FC = () => {
                                         Total Stock
                                     </dt>
                                     <dd className="text-2xl font-semibold text-gray-900">
-                                        {inventoryData?.data?.reduce((sum, item) => sum + item.currentStock, 0)?.toLocaleString() || 0}
+                                        {totalStock.toLocaleString()}
                                     </dd>
                                 </dl>
                             </div>
@@ -380,7 +444,10 @@ export const InventoryList: React.FC = () => {
                             <Input
                                 placeholder="Search products..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
                                 className="pl-10"
                             />
                         </div>
@@ -390,7 +457,10 @@ export const InventoryList: React.FC = () => {
                                 type="checkbox"
                                 id="lowStockFilter"
                                 checked={showLowStockOnly}
-                                onChange={(e) => setShowLowStockOnly(e.target.checked)}
+                                onChange={(e) => {
+                                    setShowLowStockOnly(e.target.checked);
+                                    setCurrentPage(1);
+                                }}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                             />
                             <label htmlFor="lowStockFilter" className="ml-2 block text-sm text-gray-900">
@@ -411,7 +481,7 @@ export const InventoryList: React.FC = () => {
             {/* Inventory Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
                 <Table
-                    data={filteredData}
+                    data={paginatedData}
                     columns={inventoryColumns}
                     loading={isLoading}
                     emptyMessage="No inventory items found"
@@ -453,21 +523,21 @@ export const InventoryList: React.FC = () => {
                         helpText="Maximum capacity for this product"
                     />
 
-                    {selectedItem && (
+                    {selectedItem && selectedStatus && (
                         <div className="bg-gray-50 p-4 rounded-lg">
                             <h4 className="text-sm font-medium text-gray-900 mb-2">Current Status</h4>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <span className="text-gray-500">Current:</span>
-                                    <span className="ml-2 font-medium">{selectedItem.currentStock.toLocaleString()}</span>
+                                    <span className="ml-2 font-medium">{selectedCurrentValue}</span>
                                 </div>
                                 <div>
                                     <span className="text-gray-500">Status:</span>
-                                    <span className={`ml-2 font-medium ${getStockStatus(selectedItem).status === 'low' ? 'text-red-600' :
-                                            getStockStatus(selectedItem).status === 'high' ? 'text-orange-600' :
+                                    <span className={`ml-2 font-medium ${selectedStatus.status === 'low' ? 'text-red-600' :
+                                            selectedStatus.status === 'high' ? 'text-orange-600' :
                                                 'text-green-600'
                                         }`}>
-                                        {getStockStatus(selectedItem).text}
+                                        {selectedStatus.text}
                                     </span>
                                 </div>
                             </div>
