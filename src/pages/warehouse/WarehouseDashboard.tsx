@@ -112,6 +112,18 @@ export const WarehouseDashboard: React.FC = () => {
         customersList?.active ?? 0
     );
 
+    const summarizeSaleProducts = (sale: any) => {
+        const items = Array.isArray(sale?.items) ? sale.items : [];
+        if (items.length === 0) {
+            return 'No products';
+        }
+        const firstName = items[0]?.product?.name || 'Unknown Product';
+        if (items.length === 1) {
+            return firstName;
+        }
+        return `${firstName} (+${items.length - 1} more)`;
+    };
+
     const statCards = [
         {
             title: 'Total Sales',
@@ -145,9 +157,9 @@ export const WarehouseDashboard: React.FC = () => {
 
     const salesColumns = [
         {
-            key: 'product',
-            title: 'Product',
-            render: (value: any) => value?.name || 'Unknown Product'
+            key: 'receiptNumber',
+            title: 'Record',
+            render: (value: string) => (value ? <span className="font-mono text-xs text-gray-600">{value}</span> : '—')
         },
         {
             key: 'customerName',
@@ -155,32 +167,22 @@ export const WarehouseDashboard: React.FC = () => {
             render: (value: string) => value || 'Walk-in Customer'
         },
         {
-            key: 'quantity',
-            title: 'Quantity',
-            render: (value: number | null | undefined) => {
-                return typeof value === 'number' ? value.toLocaleString() : '0';
-            }
-        },
-        {
-            key: 'unitPrice',
-            title: 'Unit Price',
-            render: (value: number | null | undefined) => {
-                const price = typeof value === 'number' ? value : 0;
-                return `₦${price.toLocaleString()}`;
-            }
+            key: 'items',
+            title: 'Products',
+            render: (_value: any, record: any) => summarizeSaleProducts(record)
         },
         {
             key: 'totalAmount',
             title: 'Total',
             render: (value: number | null | undefined) => {
-                const amount = typeof value === 'number' ? value : 0;
+                const amount = typeof value === 'number' ? value : Number(value || 0);
                 return `₦${amount.toLocaleString()}`;
             }
         },
         {
             key: 'createdAt',
             title: 'Date',
-            render: (value: string) => value ? new Date(value).toLocaleDateString() : 'N/A'
+            render: (value: string) => (value ? new Date(value).toLocaleDateString() : 'N/A')
         }
     ];
 

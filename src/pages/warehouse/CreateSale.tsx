@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/warehouse/CreateSale.tsx
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
@@ -31,6 +31,13 @@ type WarehousePaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOB
 type DiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT' | 'BULK_DISCOUNT';
 
 const DEFAULT_DISCOUNT_PERCENT = 5;
+const generateReceiptNumber = () => {
+    const date = new Date();
+    const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+    const randomSegment = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `WHS-${dateStr}-${randomSegment}`;
+};
+
 const DEFAULT_DISCOUNT_VALIDITY_DAYS = 7;
 
 const paymentMethodOptions = [
@@ -148,34 +155,12 @@ export const CreateSale: React.FC = () => {
     const watchedCustomerPhone = watch('customerPhone');
     const selectedCustomerId = watch('customerId');
 
-    const [submittedDiscountProductIds, setSubmittedDiscountProductIds] = useState<Set<string>>(() => new Set<string>());
-
-useEffect(() => {
-    setSubmittedDiscountProductIds(new Set<string>());
-}, [selectedCustomerId]);
+    type SessionDiscountStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+    const [sessionDiscountRequests, setSessionDiscountRequests] = useState<Map<string, { requestId: string; status: SessionDiscountStatus }>>(() => new Map());
 
     useEffect(() => {
-        setSubmittedDiscountProductIds((prev) => {
-            const activeIds = new Set(
-                (watchedItems || [])
-                    .filter((item) => item.requestDiscountApproval && item.productId)
-                    .map((item) => item.productId as string)
-            );
-            let changed = false;
-            const next = new Set<string>();
-            prev.forEach((id) => {
-                if (activeIds.has(id)) {
-                    next.add(id);
-                } else {
-                    changed = true;
-                }
-            });
-            if (!changed && next.size === prev.size) {
-                return prev;
-            }
-            return next;
-        });
-    }, [watchedItems]);
+        setSessionDiscountRequests(new Map());
+    }, [selectedCustomerId]);
 
     const pendingDiscountItems = useMemo(
         () => (watchedItems || []).filter((item) => item.requestDiscountApproval),
@@ -211,14 +196,16 @@ useEffect(() => {
     );
 
     const approvedRequestsForCustomer = useMemo(
-        () => (approvedDiscountRequests || []).filter((request: any) => request.warehouseCustomerId === selectedCustomerId),
+        () =>
+            (approvedDiscountRequests || [])
+                .filter(
+                    (request: any) =>
+                        request.warehouseCustomerId === selectedCustomerId &&
+                        request.status === 'APPROVED'
+                ),
         [approvedDiscountRequests, selectedCustomerId]
     );
 
-    const pendingProductIds = useMemo(
-        () => new Set(pendingRequestsForCustomer.map((request: any) => request.productId)),
-        [pendingRequestsForCustomer]
-    );
 
     const approvedDiscountMap = useMemo(() => {
         const map = new Map<string, any>();
@@ -230,67 +217,112 @@ useEffect(() => {
         return map;
     }, [approvedRequestsForCustomer]);
 
-    const awaitingApprovalItems = useMemo(
-        () => pendingDiscountItems.filter((item) => submittedDiscountProductIds.has(item.productId) && !approvedDiscountMap.has(item.productId)),
-        [pendingDiscountItems, submittedDiscountProductIds, approvedDiscountMap]
-    );
+    useEffect(() => {
+        setSessionDiscountRequests((prev) => {
+            if (!selectedCustomerId) {
+                return prev;
+            }
+
+            const next = new Map(prev);
+            let changed = false;
+
+            pendingRequestsForCustomer.forEach((request: any) => {
+                if (!request.productId) return;
+                const existing = next.get(request.productId);
+                if (!existing || existing.status !== 'PENDING' || existing.requestId !== request.id) {
+                    next.set(request.productId, { requestId: request.id, status: 'PENDING' });
+                    changed = true;
+                }
+            });
+
+            approvedRequestsForCustomer.forEach((request: any) => {
+                if (!request.productId) return;
+                const existing = next.get(request.productId);
+                if (!existing || existing.status !== 'APPROVED' || existing.requestId !== request.id) {
+                    next.set(request.productId, { requestId: request.id, status: 'APPROVED' });
+                    changed = true;
+                }
+            });
+
+            return changed ? next : prev;
+        });
+    }, [pendingRequestsForCustomer, approvedRequestsForCustomer, selectedCustomerId]);
+
+    const getRequestStatus = useCallback((productId?: string): SessionDiscountStatus | undefined => {
+        if (!productId) return undefined;
+        const session = sessionDiscountRequests.get(productId);
+        if (session) return session.status;
+        const approvedRequest = approvedRequestsForCustomer.find(
+            (req: any) => req.productId === productId && req.status === 'APPROVED'
+        );
+        if (approvedRequest) {
+            return 'APPROVED';
+        }
+        if (pendingRequestsForCustomer.some((request: any) => request.productId === productId)) {
+            return 'PENDING';
+        }
+        return undefined;
+    }, [sessionDiscountRequests, approvedDiscountMap, pendingRequestsForCustomer]);
+
+    const awaitingApprovalItems = pendingDiscountItems.filter((item) => {
+        if (!item?.productId) return false;
+        return getRequestStatus(item.productId) === 'PENDING';
+    });
 
     const awaitingApproval = awaitingApprovalItems.length > 0;
-    const hasApprovedDiscount = pendingDiscountItems.some((item) => submittedDiscountProductIds.has(item.productId) && approvedDiscountMap.has(item.productId));
+    const hasApprovedDiscount = (watchedItems || []).some((item) => getRequestStatus(item?.productId) === 'APPROVED');
 
     const awaitingCustomerSelection = useMemo(
         () => !selectedCustomerId && pendingDiscountItems.length > 0,
         [selectedCustomerId, pendingDiscountItems.length]
     );
 
-    const hasRequestableLines = useMemo(
-        () => pendingDiscountItems.some((item) => !submittedDiscountProductIds.has(item.productId)),
-        [pendingDiscountItems, submittedDiscountProductIds]
-    );
+    const hasRequestableLines = pendingDiscountItems.some((item) => {
+        if (!item?.productId) {
+            return true;
+        }
+        const status = getRequestStatus(item.productId);
+        return !status || status === 'REJECTED';
+    });
 
     const selectedCustomer = useMemo(() => (
         customersQuery?.find((customer: any) => customer.id === selectedCustomerId)
     ), [customersQuery, selectedCustomerId]);
 
-useEffect(() => {
-    if (selectedCustomer) {
-        setValue('customerName', selectedCustomer.name, { shouldDirty: true });
-        if (selectedCustomer.phone && !watchedCustomerPhone) {
-            setValue('customerPhone', selectedCustomer.phone, { shouldDirty: true });
-        }
-    } else {
-        setValue('customerName', '', { shouldDirty: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedCustomer]);
-
-useEffect(() => {
-    if (!selectedCustomerId) return;
-
-    (watchedItems || []).forEach((item, index) => {
-        const productId = item?.productId;
-        if (!productId || !submittedDiscountProductIds.has(productId)) {
-            return;
-        }
-
-        const approved = approvedDiscountMap.get(productId);
-        if (approved) {
-            const approvedValue = Number(approved.requestedDiscountValue || 0);
-            if (!item.requestDiscountApproval) {
-                setValue(`items.${index}.requestDiscountApproval`, true, { shouldDirty: false, shouldValidate: true });
+    useEffect(() => {
+        if (selectedCustomer) {
+            setValue('customerName', selectedCustomer.name, { shouldDirty: true });
+            if (selectedCustomer.phone && !watchedCustomerPhone) {
+                setValue('customerPhone', selectedCustomer.phone, { shouldDirty: true });
             }
-            if (item.requestedDiscountPercent !== approvedValue) {
-                setValue(`items.${index}.requestedDiscountPercent`, approvedValue, { shouldDirty: false, shouldValidate: true });
-            }
+        } else {
+            setValue('customerName', '', { shouldDirty: true });
         }
-    });
-}, [approvedDiscountMap, watchedItems, selectedCustomerId, submittedDiscountProductIds, setValue]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCustomer]);
 
-useEffect(() => {
-    if (selectedCustomerId) {
-        refetchApprovedDiscounts();
-    }
-}, [pendingRequestsForCustomer.length, selectedCustomerId, refetchApprovedDiscounts]);
+    useEffect(() => {
+        if (!selectedCustomerId) return;
+
+        (watchedItems || []).forEach((item) => {
+            const productId = item?.productId;
+            if (!productId) return;
+
+            const approved = approvedDiscountMap.get(productId);
+            if (approved && approved.status === 'APPROVED') {
+                return 'APPROVED';
+            }
+
+            // ❌ Remove any automatic toggling of applyDiscount or requestDiscountApproval here
+        });
+    }, [approvedDiscountMap, watchedItems, selectedCustomerId, setValue]);
+
+
+    useEffect(() => {
+        if (selectedCustomerId) {
+            refetchApprovedDiscounts();
+        }
+    }, [pendingRequestsForCustomer.length, selectedCustomerId, refetchApprovedDiscounts]);
 
     const lineCalculations = useMemo(() => {
         return (watchedItems || []).map((item) => {
@@ -308,12 +340,11 @@ useEffect(() => {
 
             const rawTotal = quantity * unitPrice;
             const productId = item?.productId;
-            const approvedRequest = productId && submittedDiscountProductIds.has(productId)
-                ? approvedDiscountMap.get(productId)
-                : undefined;
+            const approvedRequest = productId ? approvedDiscountMap.get(productId) : undefined;
+            const shouldApplyApprovedDiscount = Boolean(item?.applyDiscount && approvedRequest);
 
-            const discountPercent = approvedRequest
-                ? Number(approvedRequest.requestedDiscountValue || 0)
+            const discountPercent = shouldApplyApprovedDiscount
+                ? Number(approvedRequest?.requestedDiscountValue || 0)
                 : 0;
 
             const discountAmount = rawTotal * (discountPercent / 100);
@@ -326,7 +357,7 @@ useEffect(() => {
                 netTotal
             };
         });
-    }, [watchedItems, approvedDiscountMap, submittedDiscountProductIds]);
+    }, [watchedItems, approvedDiscountMap]);
 
     const overallTotal = useMemo(() => (
         lineCalculations.reduce((sum, line) => sum + (Number.isFinite(line.netTotal) ? line.netTotal : 0), 0)
@@ -339,6 +370,8 @@ useEffect(() => {
     const createSaleMutation = useMutation<CreateSaleResponse[], any, SaleFormData>({
         mutationFn: async (data: SaleFormData) => {
             const results: CreateSaleResponse[] = [];
+            const receiptNumber = generateReceiptNumber();
+
             for (const item of data.items) {
                 const payload = {
                     productId: item.productId,
@@ -346,14 +379,16 @@ useEffect(() => {
                     unitType: item.unitType,
                     unitPrice: item.unitPrice,
                     paymentMethod: data.paymentMethod as WarehousePaymentMethod,
-                    customerName: data.customerName || selectedCustomer?.name,
+                    customerName: data.customerName || selectedCustomer?.name || '',
                     customerPhone: data.customerPhone || undefined,
                     warehouseCustomerId: data.customerId,
                     applyDiscount: item.applyDiscount ?? false,
                     requestDiscountApproval: item.requestDiscountApproval ?? false,
                     discountReason: item.requestDiscountApproval ? item.discountReason : undefined,
-                    requestedDiscountPercent: item.requestDiscountApproval ? item.requestedDiscountPercent : undefined
+                    requestedDiscountPercent: item.requestDiscountApproval ? item.requestedDiscountPercent : undefined,
+                    receiptNumber
                 };
+
                 const response = await warehouseService.createSale(payload);
                 results.push(response);
             }
@@ -365,13 +400,17 @@ useEffect(() => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-discount-requests'] });
             refetchPendingDiscounts();
             refetchApprovedDiscounts();
-            setSubmittedDiscountProductIds(new Set<string>());
 
             const hasPendingApproval = responses?.some((response) => response?.pendingApproval);
+            const receiptNumber = responses?.[0]?.data?.sale?.receiptNumber;
+
             if (hasPendingApproval) {
-                globalToast.warning('Sale recorded but awaiting discount approval. Mark payment as pending until approval is granted.');
+                globalToast.error('Sale recorded but awaiting discount approval. Mark payment as pending until approval is granted.');
             } else {
-                globalToast.success('Sale recorded successfully!');
+                const successMessage = receiptNumber
+                    ? `Sale recorded successfully! Record #: \${receiptNumber}`
+                    : 'Sale recorded successfully!';
+                globalToast.success(successMessage);
             }
             navigate('/warehouse/sales');
         },
@@ -383,35 +422,26 @@ useEffect(() => {
     const requestDiscountMutation = useMutation({
         mutationFn: async () => {
             if (pendingDiscountItems.length === 0) {
-                globalToast.info('Enable “Request discount approval” for at least one product first.');
-                return;
+                globalToast.error('Enable “Request discount approval” for at least one product first.');
+                return false;
             }
 
             if (!selectedCustomerId) {
                 globalToast.error('Select a customer before submitting a discount request.');
-                return;
+                return false;
             }
 
             const now = new Date();
             const validFrom = now.toISOString();
             const validUntil = new Date(now.getTime() + DEFAULT_DISCOUNT_VALIDITY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-            const existingPendingProductIds = pendingProductIds;
-            const existingApprovedProductIds = new Set(
-                approvedRequestsForCustomer.map((request: any) => request.productId)
-            );
-
-            const newlySubmittedProductIds: string[] = [];
+            const newlySubmittedRequests: Array<{ productId: string; requestId?: string }> = [];
 
             for (const item of pendingDiscountItems) {
-                if (existingPendingProductIds.has(item.productId) || existingApprovedProductIds.has(item.productId)) {
-                    continue;
-                }
-
                 if (!item.requestedDiscountPercent || item.requestedDiscountPercent <= 0) {
                     throw new Error('Provide a discount percentage for each product requesting approval.');
                 }
-                await warehouseService.createDiscountRequest({
+                const response = await warehouseService.createDiscountRequest({
                     warehouseCustomerId: selectedCustomerId,
                     productId: item.productId,
                     requestedDiscountType: 'PERCENTAGE' as DiscountType,
@@ -423,21 +453,33 @@ useEffect(() => {
                     businessJustification: `Requested while preparing sale on ${now.toLocaleString()}`
                 });
                 if (item.productId) {
-                    newlySubmittedProductIds.push(item.productId);
+                    const requestId = response?.data?.discountRequest?.id ?? '';
+                    newlySubmittedRequests.push({ productId: item.productId, requestId });
                 }
             }
 
-            if (newlySubmittedProductIds.length === 0) {
-                throw new Error('Discount request already pending or approved for the selected products.');
+            if (newlySubmittedRequests.length === 0) {
+                globalToast.success('Discount request already pending or approved for the selected products.');
+                return false;
             }
 
-            setSubmittedDiscountProductIds((prev) => {
-                const next = new Set(prev);
-                newlySubmittedProductIds.forEach((id) => next.add(id));
+            setSessionDiscountRequests((prev) => {
+                const next = new Map(prev);
+                newlySubmittedRequests.forEach(({ productId, requestId }) => {
+                    next.set(productId, {
+                        requestId: requestId || '',
+                        status: 'PENDING'
+                    });
+                });
                 return next;
             });
+
+            return true;
         },
-        onSuccess: () => {
+        onSuccess: (created) => {
+            if (!created) {
+                return;
+            }
             queryClient.invalidateQueries({ queryKey: ['warehouse-discount-requests'] });
             refetchPendingDiscounts();
             refetchApprovedDiscounts();
@@ -446,7 +488,7 @@ useEffect(() => {
         onError: (error: any) => {
             const message = error?.response?.data?.message || error?.message || 'Failed to submit discount request';
             if (message.includes('already pending or approved')) {
-                globalToast.info(message);
+                globalToast.success(message);
             } else {
                 globalToast.error(message);
             }
@@ -486,10 +528,15 @@ useEffect(() => {
     };
 
     const onSubmit = (data: SaleFormData) => {
-        if (awaitingApproval || hasRequestableLines) {
-            globalToast.error('Submit discount requests and wait for approval before recording the sale.');
+        const awaitingApproval = watchedItems.some(
+            (item) => item.requestDiscountApproval && getRequestStatus(item.productId) !== 'APPROVED'
+        );
+
+        if (awaitingApproval) {
+            globalToast.error('Please wait for discount approval before recording the sale.');
             return;
         }
+
         createSaleMutation.mutate(data);
     };
 
@@ -539,8 +586,10 @@ useEffect(() => {
                                 const discountAmount = calculations?.discountAmount ?? 0;
                                 const discountPercent = calculations?.discountPercent ?? 0;
                                 const productId = item?.productId;
-                                const submittedForProduct = Boolean(productId && submittedDiscountProductIds.has(productId));
-                                const isApproved = Boolean(productId && submittedDiscountProductIds.has(productId) && approvedDiscountMap.has(productId));
+                                const requestStatus = getRequestStatus(productId);
+                                const hasApprovedDiscountForProduct = requestStatus === 'APPROVED';
+                                const submittedForProduct = requestStatus === 'PENDING';
+                                const isApproved = hasApprovedDiscountForProduct;
 
                                 const productError = errors.items?.[index]?.productId?.message;
                                 const quantityError = errors.items?.[index]?.quantity?.message;
@@ -710,27 +759,27 @@ useEffect(() => {
                                             </div>
                                         )}
 
-                                           <div className="flex items-center justify-between rounded-md bg-gray-50 px-4 py-3 text-sm">
-                                                <div className="flex items-center space-x-2 text-gray-600">
-                                                    <Calculator className="h-4 w-4" />
-                                                    <span>Line total</span>
-                                                </div>
-                                                <span className="text-lg font-semibold text-gray-900">
-                                                    ₦{lineTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                                                </span>
+                                        <div className="flex items-center justify-between rounded-md bg-gray-50 px-4 py-3 text-sm">
+                                            <div className="flex items-center space-x-2 text-gray-600">
+                                                <Calculator className="h-4 w-4" />
+                                                <span>Line total</span>
                                             </div>
+                                            <span className="text-lg font-semibold text-gray-900">
+                                                ₦{lineTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
 
-                                            {submittedForProduct && !isApproved && item?.requestedDiscountPercent && (
-                                                <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-800">
-                                                    Discount request of {Number(item.requestedDiscountPercent).toLocaleString()}% submitted and awaiting approval.
-                                                </div>
-                                            )}
+                                        {submittedForProduct && !isApproved && item?.requestedDiscountPercent && (
+                                            <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-800">
+                                                Discount request of {Number(item.requestedDiscountPercent).toLocaleString()}% submitted and awaiting approval.
+                                            </div>
+                                        )}
 
-                                            {isApproved && discountAmount > 0 && (
-                                                <div className="rounded-md border border-green-200 bg-green-50 px-4 py-2 text-xs text-green-800">
-                                                    Approved discount of {discountPercent}% reduces this line by ₦{discountAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}.
-                                                </div>
-                                            )}
+                                        {isApproved && discountAmount > 0 && (
+                                            <div className="rounded-md border border-green-200 bg-green-50 px-4 py-2 text-xs text-green-800">
+                                                Approved discount of {discountPercent}% reduces this line by ₦{discountAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}.
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

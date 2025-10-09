@@ -18,29 +18,75 @@ export interface WarehouseCustomer {
   updatedAt: string;
 }
 
-export interface WarehouseSale {
+export interface WarehouseSaleRecord {
   id: string;
   productId: string;
   product?: Product;
   quantity: number;
+  unitType?: string;
   unitPrice: number;
   totalAmount: number;
+  totalDiscountAmount?: number | null;
+  totalCost?: number | null;
+  costPerUnit?: number | null;
+  grossProfit?: number | null;
   customerName: string;
-  salesOfficer: string;
-  createdAt: string;
-  updatedAt: string;
-  unitType?: string;
-  paymentMethod?: string;
   customerPhone?: string | null;
+  warehouseCustomerId?: string | null;
+  salesOfficer: string;
+  salesOfficerUser?: {
+    id?: string;
+    username?: string;
+    role?: string;
+  } | null;
+  createdAt: string;
+  paymentMethod?: string;
   receiptNumber?: string;
   discountApplied?: boolean;
   discountPercentage?: number | null;
-  totalDiscountAmount?: number | null;
   discountReason?: string | null;
   originalUnitPrice?: number | null;
+}
+export interface WarehouseSaleItem {
+  id: string;
+  productId: string;
+  product?: Product;
+  quantity: number;
+  unitType: string;
+  unitPrice: number;
+  totalAmount: number;
+  totalDiscountAmount: number;
+  discountApplied: boolean;
+  discountPercentage?: number | null;
+  originalUnitPrice?: number | null;
+  costPerUnit?: number | null;
+  totalCost?: number | null;
+  grossProfit?: number | null;
+}
+
+export interface WarehouseSale {
+  receiptNumber: string;
+  saleIds: string[];
+  warehouseCustomerId?: string | null;
+  warehouseCustomer?: WarehouseCustomer | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  paymentMethod?: string;
+  salesOfficer?: string;
   salesOfficerUser?: {
+    id?: string;
     username?: string;
+    role?: string;
   } | null;
+  totalAmount: number;
+  totalDiscountAmount: number;
+  totalCost: number;
+  grossProfit: number;
+  discountApplied: boolean;
+  createdAt: string;
+  totalQuantity: number;
+  itemsCount: number;
+  items: WarehouseSaleItem[];
 }
 
 export interface WarehouseInventory {

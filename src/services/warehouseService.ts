@@ -2,6 +2,7 @@
 import { BaseApiService, apiClient } from './api';
 import {
   WarehouseSale,
+  WarehouseSaleRecord,
   WarehouseInventory,
   WarehouseCustomer,
   Product,
@@ -25,6 +26,7 @@ export interface CreateSaleData {
   requestDiscountApproval?: boolean;
   discountReason?: string;
   requestedDiscountPercent?: number;
+  receiptNumber?: string;
 }
 
 export interface CreateSaleResponse {
@@ -32,7 +34,20 @@ export interface CreateSaleResponse {
   message: string;
   pendingApproval?: boolean;
   data: {
-    sale: WarehouseSale;
+    sale: WarehouseSaleRecord;
+  };
+}
+
+export interface WarehouseSalesResponse {
+  success: boolean;
+  data: {
+    sales: WarehouseSale[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   };
 }
 
@@ -95,9 +110,9 @@ export class WarehouseService extends BaseApiService {
   }
 
   // Sales
-  async getSales(page = 1, limit = 10): Promise<PaginatedResponse<WarehouseSale>> {
+  async getSales(page = 1, limit = 10): Promise<WarehouseSalesResponse> {
     try {
-      return await this.get<PaginatedResponse<WarehouseSale>>(`/sales?page=${page}&limit=${limit}`);
+      return await this.get<WarehouseSalesResponse>(`/sales?page=${page}&limit=${limit}`);
     } catch (error: any) {
       if (error?.response?.status === 404) {
         return {
@@ -108,17 +123,18 @@ export class WarehouseService extends BaseApiService {
               page,
               limit,
               total: 0,
-              totalPages: 1
+              totalPages: 0
             }
           }
-        } as unknown as PaginatedResponse<WarehouseSale>;
+        };
       }
       throw error;
     }
   }
 
-  async getSale(id: string): Promise<WarehouseSale> {
-    return this.get<WarehouseSale>(`/sales/${id}`);
+  async getSale(receiptNumber: string): Promise<WarehouseSale> {
+    const response = await this.get<{ success: boolean; data: { sale: WarehouseSale } }>(`/sales/by-receipt/${receiptNumber}`);
+    return response.data.sale;
   }
 
   async createSale(data: CreateSaleData): Promise<CreateSaleResponse> {

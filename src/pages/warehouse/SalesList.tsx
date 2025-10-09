@@ -37,8 +37,14 @@ export const SalesList: React.FC = () => {
     const filteredData = sales.filter((sale: any) => {
         const customerName = sale.customerName ?? '';
         const salesOfficerName = sale.salesOfficerUser?.username ?? sale.salesOfficer ?? '';
-        const matchesSearch = [customerName, salesOfficerName]
-            .some((field) => field.toLowerCase().includes(searchTerm.toLowerCase()));
+        const receiptNumber = sale.receiptNumber ?? '';
+        const productNames = Array.isArray(sale.items)
+            ? sale.items.map((item: any) => item?.product?.name || '').join(' ')
+            : '';
+
+        const normalizedSearch = searchTerm.toLowerCase();
+        const matchesSearch = [customerName, salesOfficerName, receiptNumber, productNames]
+            .some((field) => field?.toLowerCase?.().includes(normalizedSearch));
 
         const matchesDate = dateFilter
             ? new Date(sale.createdAt).toDateString() === new Date(dateFilter).toDateString()
@@ -58,7 +64,36 @@ export const SalesList: React.FC = () => {
         return fallback;
     };
 
+    const formatProductSummary = (record: any) => {
+        const items = Array.isArray(record?.items) ? record.items : [];
+        if (items.length === 0) {
+            return 'No products';
+        }
+        const firstItem = items[0];
+        const firstName = firstItem?.product?.name || 'Unknown Product';
+        const firstQuantity = Number(firstItem?.quantity ?? 0);
+        const firstUnit = firstItem?.unitType ? firstItem.unitType.toLowerCase() : '';
+
+        if (items.length === 1) {
+            return `${firstName} (${firstQuantity.toLocaleString()} ${firstUnit})`;
+        }
+
+        return `${firstName} (+${items.length - 1} more)`;
+    };
+
+    const formatItemsCount = (record: any) => {
+        const itemsCount = Number(record?.itemsCount ?? (Array.isArray(record?.items) ? record.items.length : 0));
+        return `${itemsCount} item${itemsCount === 1 ? '' : 's'}`;
+    };
+
     const salesColumns = [
+        {
+            key: 'receiptNumber',
+            title: 'Record #',
+            render: (value: string) => (
+                <span className="font-mono text-sm text-gray-700">{value}</span>
+            )
+        },
         {
             key: 'customerName',
             title: 'Customer',
@@ -79,6 +114,16 @@ export const SalesList: React.FC = () => {
             )
         },
         {
+            key: 'items',
+            title: 'Products',
+            render: (_value: any, record: any) => (
+                <div className="space-y-1">
+                    <div className="text-sm font-medium text-gray-900">{formatProductSummary(record)}</div>
+                    <div className="text-xs text-gray-500">{formatItemsCount(record)}</div>
+                </div>
+            )
+        },
+        {
             key: 'totalAmount',
             title: 'Total Amount',
             render: (value: number | string) => (
@@ -91,7 +136,11 @@ export const SalesList: React.FC = () => {
             render: (_value: any, record: any) => (
                 record?.discountApplied ? (
                     <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-                        <Percent className="mr-1 h-3 w-3" /> Discounted
+                        <Percent className="mr-1 h-3 w-3" />
+                        Discounted
+                        {typeof record.totalDiscountAmount !== 'undefined' && (
+                            <span className="ml-1 font-medium">(-₦{parseNumber(record.totalDiscountAmount).toLocaleString()})</span>
+                        )}
                     </span>
                 ) : (
                     <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
@@ -118,7 +167,7 @@ export const SalesList: React.FC = () => {
             title: 'Actions',
             render: (_value: any, record: any) => (
                 <Link
-                    to={`/warehouse/sales/${record.id}`}
+                    to={`/warehouse/sales/${record.receiptNumber}`}
                     className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
                     <Eye className="h-4 w-4 mr-1" />
@@ -132,8 +181,8 @@ export const SalesList: React.FC = () => {
         if (!pagination) return null;
 
         const { page, totalPages, total } = pagination;
-        const startItem = ((page - 1) * pageSize) + 1;
-        const endItem = Math.min(page * pageSize, total);
+        const startItem = total === 0 ? 0 : ((page - 1) * pageSize) + 1;
+        const endItem = total === 0 ? 0 : Math.min(page * pageSize, total);
 
         return (
             <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
