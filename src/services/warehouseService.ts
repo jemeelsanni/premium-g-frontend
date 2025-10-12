@@ -93,6 +93,29 @@ export interface CreateCustomerData {
   customerType: string;
 }
 
+export interface CheckDiscountData {
+  warehouseCustomerId: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface RequestDiscountData {
+  warehouseCustomerId: string;
+  productId?: string;
+  requestedDiscountType: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  requestedDiscountValue: number;
+  reason: string;
+  validFrom: string;
+  validUntil?: string;
+  minimumQuantity?: number;
+  maximumDiscountAmount?: number;
+  businessJustification?: string;
+}
+
+
+
+
 export interface UpdateInventoryData {
   currentStock?: number;
   minimumStock?: number;
@@ -141,9 +164,10 @@ export class WarehouseService extends BaseApiService {
     return this.post<CreateSaleResponse>(data, '/sales');
   }
 
-  async getProducts(): Promise<{ success: boolean; data: { products: Product[] } }> {
-    return this.get<{ success: boolean; data: { products: Product[] } }>('/products');
-  }
+  async getProducts(): Promise<Product[]> {
+  const response = await this.get<{ success: boolean; data: { products: Product[] } }>('/products');
+  return response.data.products;
+}
 
   // Inventory
   async getInventory(page = 1, limit = 10): Promise<PaginatedResponse<WarehouseInventory>> {
@@ -278,16 +302,45 @@ export class WarehouseService extends BaseApiService {
     return this.get(`/cash-flow?page=${page}&limit=${limit}`);
   }
 
-  // Discount Requests
-  async getDiscountRequests(page = 1, limit = 10, status: string = 'PENDING'): Promise<any> {
-    const params = new URLSearchParams();
-    params.append('page', String(page));
-    params.append('limit', String(limit));
-    if (status) {
-      params.append('status', status);
-    }
-    const query = params.toString();
-    return this.get(`/discounts/requests?${query}`);
+    // Discount Requests
+
+async checkDiscount(data: {
+  warehouseCustomerId: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+}): Promise<any> {
+  return this.post(data, '/discounts/check');
+}
+
+async requestDiscount(data: {
+  warehouseCustomerId: string;
+  productId?: string;
+  requestedDiscountType: string;
+  requestedDiscountValue: number;
+  reason: string;
+  validFrom: string;
+  validUntil?: string;
+  minimumQuantity?: number;
+  maximumDiscountAmount?: number;
+  businessJustification?: string;
+}): Promise<any> {
+  return this.post(data, '/discounts/request');
+}
+
+async getDiscountRequests(page = 1, limit = 20, status = 'PENDING'): Promise<any> {
+  return this.get(`/discounts/requests?page=${page}&limit=${limit}&status=${status}`);
+}
+
+  async reviewDiscountRequest(id: string, action: 'approve' | 'reject', data: {
+    adminNotes?: string;
+    rejectionReason?: string;
+  }): Promise<any> {
+    return this.put({ action, ...data }, `/discounts/requests/${id}/review`);
+  }
+
+  async getCustomerDiscounts(customerId: string): Promise<any> {
+    return this.get(`/customers/${customerId}/discounts`);
   }
 
   async approveDiscount(id: string, adminNotes?: string): Promise<any> {
@@ -342,6 +395,11 @@ export class WarehouseService extends BaseApiService {
       throw error;
     }
   }
+
+
+
+
+
 }
 
 export const warehouseService = new WarehouseService();

@@ -1,417 +1,298 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/warehouse/CreateSale.tsx
-import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-    Save,
-    ArrowLeft,
-    ShoppingCart,
-    User,
-    Package,
-    Plus,
-    Trash2,
-    Calculator,
-    AlertTriangle,
-    CheckCircle
-} from 'lucide-react';
-
-import { warehouseService, CreateSaleResponse } from '../../services/warehouseService';
+import { Save, ArrowLeft, ShoppingCart, User, Package, Tag, Plus, Trash2, Edit2 } from 'lucide-react';
+import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { globalToast } from '../../components/ui/Toast';
-import { Product } from '../../types/warehouse';
 
-type WarehousePaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY';
-
-type DiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT' | 'BULK_DISCOUNT';
-
-const DEFAULT_DISCOUNT_PERCENT = 5;
-const generateReceiptNumber = () => {
-    const date = new Date();
-    const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-    const randomSegment = Math.random().toString(36).slice(2, 6).toUpperCase();
-    return `WHS-${dateStr}-${randomSegment}`;
-};
-
-const DEFAULT_DISCOUNT_VALIDITY_DAYS = 7;
-
-const paymentMethodOptions = [
-    { value: 'CASH', label: 'Cash' },
-    { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-    { value: 'CHECK', label: 'Cheque' },
-    { value: 'CARD', label: 'Card' },
-    { value: 'MOBILE_MONEY', label: 'Mobile Money' }
-] as const;
-
-const saleItemSchema = z
-    .object({
-        productId: z.string().min(1, 'Product is required'),
-        quantity: z.number().min(1, 'Quantity must be at least 1'),
-        unitPrice: z.number().min(0, 'Unit price cannot be negative'),
-        unitType: z.enum(['PALLETS', 'PACKS', 'UNITS']),
-        applyDiscount: z.boolean(),
-        requestDiscountApproval: z.boolean(),
-        requestedDiscountPercent: z
-            .number()
-            .min(0, 'Discount percentage cannot be negative')
-            .max(50, 'Discount percentage cannot exceed 50')
-            .optional(),
-        discountReason: z.string().optional()
-    })
-    .refine(
-        (item) => {
-            if (!item.requestDiscountApproval) {
-                return true;
-            }
-            return Boolean(item.discountReason && item.discountReason.trim().length > 0);
-        },
-        {
-            message: 'Discount reason is required when requesting approval',
-            path: ['discountReason']
-        }
-    )
-    .refine(
-        (item) => {
-            if (!item.requestDiscountApproval) {
-                return true;
-            }
-            return item.requestedDiscountPercent !== undefined && item.requestedDiscountPercent > 0;
-        },
-        {
-            message: 'Provide the discount percentage you are requesting',
-            path: ['requestedDiscountPercent']
-        }
-    );
-
-const saleSchema = z.object({
-    customerId: z.string().min(1, 'Customer is required'),
-    customerName: z.string().optional(),
-    customerPhone: z.string().optional(),
-    paymentMethod: z.enum(paymentMethodOptions.map((method) => method.value) as [string, ...string[]]),
-    items: z.array(saleItemSchema).min(1, 'Add at least one product to proceed')
+const productItemSchema = z.object({
+    productId: z.string().min(1, 'Product is required'),
+    quantity: z.number().min(1, 'Quantity must be at least 1'),
+    unitType: z.enum(['PALLETS', 'PACKS', 'UNITS']),
+    unitPrice: z.number().min(0.01, 'Unit price must be greater than 0'),
 });
 
+const saleSchema = z.object({
+    warehouseCustomerId: z.string().min(1, 'Customer is required'),
+    paymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY']),
+});
+
+type ProductItemFormData = z.infer<typeof productItemSchema>;
 type SaleFormData = z.infer<typeof saleSchema>;
+
+interface CartItem extends ProductItemFormData {
+    id: string;
+    productName: string;
+    productNo: string;
+    originalUnitPrice: number;
+    discountedUnitPrice: number;
+    discountAmount: number;
+    discountPercentage: number;
+    subtotal: number;
+    discountTotal: number;
+    finalTotal: number;
+    hasDiscount: boolean;
+    discountInfo?: any;
+}
+
+interface DiscountInfo {
+    hasDiscount: boolean;
+    originalPrice: number;
+    finalPrice: number;
+    discountAmount: number;
+    discountPercentage: number;
+    totalSavings?: number;
+    discount?: { // ✅ Make entire discount object optional
+        minimumQuantity?: number;
+        validUntil?: string;
+    };
+}
 
 export const CreateSale: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const [cart, setCart] = useState<CartItem[]>([]);
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
+    const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
+    const [currentDiscountInfo, setCurrentDiscountInfo] = useState<DiscountInfo | null>(null);
 
+    // Product item form
     const {
-        control,
+        register: registerProduct,
+        handleSubmit: handleSubmitProduct,
+        watch: watchProduct,
+        setValue: setValueProduct,
+        reset: resetProduct,
+        formState: { errors: productErrors }
+    } = useForm<ProductItemFormData>({
+        resolver: zodResolver(productItemSchema),
+        defaultValues: {
+            productId: '',
+            quantity: 1,
+            unitType: 'PACKS',
+            unitPrice: 0,
+        }
+    });
+
+    // Sale form
+    const {
         register,
         handleSubmit,
         watch,
-        setValue,
         formState: { errors, isSubmitting }
     } = useForm<SaleFormData>({
         resolver: zodResolver(saleSchema),
         defaultValues: {
-            customerId: '',
-            customerName: '',
-            customerPhone: '',
+            warehouseCustomerId: '',
             paymentMethod: 'CASH',
-            items: [
-                {
-                    productId: '',
-                    quantity: 1,
-                    unitPrice: 0,
-                    unitType: 'PACKS' as const,
-                    applyDiscount: false,
-                    requestDiscountApproval: false,
-                    requestedDiscountPercent: DEFAULT_DISCOUNT_PERCENT,
-                    discountReason: ''
-                }
-            ]
         }
     });
 
-    const { fields, append, remove } = useFieldArray({ control, name: 'items' });
-
-    const { data: productsData } = useQuery<{ data: { products: Product[] } }>({
+    // Fetch products
+    const { data: products } = useQuery({
         queryKey: ['warehouse-products'],
         queryFn: () => warehouseService.getProducts(),
-        select: (data) => ({ data: { products: data?.data?.products || [] } })
     });
-    const products = useMemo(() => productsData?.data.products ?? [], [productsData]);
-    const productIndex = useMemo(() => {
-        const map = new Map<string, Product>();
-        products.forEach((product) => map.set(product.id, product));
-        return map;
-    }, [products]);
 
-    const { data: customersQuery } = useQuery({
-        queryKey: ['warehouse-customers-select'],
+    // Fetch customers
+    const { data: customersData } = useQuery({
+        queryKey: ['warehouse-customers'],
         queryFn: () => warehouseService.getCustomers(1, 100),
-        select: (response) => response.data.customers || []
     });
 
-    const watchedItems = useWatch({ control, name: 'items' });
-    const watchedCustomerPhone = watch('customerPhone');
-    const selectedCustomerId = watch('customerId');
+    // Watch form values
+    const watchedCustomerId = watch('warehouseCustomerId');
+    const watchedProductId = watchProduct('productId');
+    const watchedQuantity = watchProduct('quantity');
+    const watchedUnitPrice = watchProduct('unitPrice');
 
-    type SessionDiscountStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-    const [sessionDiscountRequests, setSessionDiscountRequests] = useState<Map<string, { requestId: string; status: SessionDiscountStatus }>>(() => new Map());
-
+    // Auto-populate unit price when product is selected
     useEffect(() => {
-        setSessionDiscountRequests(new Map());
-    }, [selectedCustomerId]);
-
-    const pendingDiscountItems = useMemo(
-        () => (watchedItems || []).filter((item) => item.requestDiscountApproval),
-        [watchedItems]
-    );
-    const saleHasPendingDiscount = pendingDiscountItems.length > 0;
-
-    const {
-        data: pendingDiscountRequests,
-        refetch: refetchPendingDiscounts
-    } = useQuery({
-        queryKey: ['warehouse-discount-requests', 'pending', selectedCustomerId],
-        queryFn: () => warehouseService.getDiscountRequests(1, 100, 'PENDING'),
-        select: (response) => response?.data?.requests || [],
-        enabled: Boolean(selectedCustomerId),
-        refetchInterval: saleHasPendingDiscount ? 5000 : false
-    });
-
-    const {
-        data: approvedDiscountRequests,
-        refetch: refetchApprovedDiscounts
-    } = useQuery({
-        queryKey: ['warehouse-discount-requests', 'approved', selectedCustomerId],
-        queryFn: () => warehouseService.getDiscountRequests(1, 100, 'APPROVED'),
-        select: (response) => response?.data?.requests || [],
-        enabled: Boolean(selectedCustomerId),
-        refetchInterval: saleHasPendingDiscount ? 5000 : false
-    });
-
-    const pendingRequestsForCustomer = useMemo(
-        () => (pendingDiscountRequests || []).filter((request: any) => request.warehouseCustomerId === selectedCustomerId),
-        [pendingDiscountRequests, selectedCustomerId]
-    );
-
-    const approvedRequestsForCustomer = useMemo(
-        () =>
-            (approvedDiscountRequests || [])
-                .filter(
-                    (request: any) =>
-                        request.warehouseCustomerId === selectedCustomerId &&
-                        request.status === 'APPROVED'
-                ),
-        [approvedDiscountRequests, selectedCustomerId]
-    );
-
-
-    const approvedDiscountMap = useMemo(() => {
-        const map = new Map<string, any>();
-        approvedRequestsForCustomer.forEach((request: any) => {
-            if (request.productId) {
-                map.set(request.productId, request);
+        if (watchedProductId && products) {
+            const selectedProduct = products.find((p: any) => p.id === watchedProductId);
+            if (selectedProduct && selectedProduct.pricePerPack) {
+                setValueProduct('unitPrice', selectedProduct.pricePerPack);
             }
-        });
-        return map;
-    }, [approvedRequestsForCustomer]);
+        }
+    }, [watchedProductId, products, setValueProduct]);
 
+    // Check discount for current product being added/edited
     useEffect(() => {
-        setSessionDiscountRequests((prev) => {
-            if (!selectedCustomerId) {
-                return prev;
-            }
+        const checkDiscount = async () => {
+            if (watchedCustomerId && watchedProductId && watchedQuantity > 0 && watchedUnitPrice > 0) {
+                setIsCheckingDiscount(true);
+                try {
+                    const result = await warehouseService.checkDiscount({
+                        warehouseCustomerId: watchedCustomerId,
+                        productId: watchedProductId,
+                        quantity: watchedQuantity,
+                        unitPrice: watchedUnitPrice
+                    });
 
-            const next = new Map(prev);
-            let changed = false;
+                    console.log('📊 Discount Check Result:', {
+                        quantity: watchedQuantity,
+                        hasDiscount: result.data?.hasDiscount,
+                        minimumRequired: result.data?.discount?.minimumQuantity,
+                        discountPercentage: result.data?.discountPercentage,
+                        validUntil: result.data?.discount?.validUntil
+                    });
 
-            pendingRequestsForCustomer.forEach((request: any) => {
-                if (!request.productId) return;
-                const existing = next.get(request.productId);
-                if (!existing || existing.status !== 'PENDING' || existing.requestId !== request.id) {
-                    next.set(request.productId, { requestId: request.id, status: 'PENDING' });
-                    changed = true;
+                    if (result.data) {
+                        setCurrentDiscountInfo(result.data);
+                    }
+                } catch (error) {
+                    console.error('Error checking discount:', error);
+                    setCurrentDiscountInfo(null);
+                } finally {
+                    setIsCheckingDiscount(false);
                 }
-            });
-
-            approvedRequestsForCustomer.forEach((request: any) => {
-                if (!request.productId) return;
-                const existing = next.get(request.productId);
-                if (!existing || existing.status !== 'APPROVED' || existing.requestId !== request.id) {
-                    next.set(request.productId, { requestId: request.id, status: 'APPROVED' });
-                    changed = true;
-                }
-            });
-
-            return changed ? next : prev;
-        });
-    }, [pendingRequestsForCustomer, approvedRequestsForCustomer, selectedCustomerId]);
-
-    const getRequestStatus = useCallback((productId?: string): SessionDiscountStatus | undefined => {
-        if (!productId) return undefined;
-        const session = sessionDiscountRequests.get(productId);
-        if (session) return session.status;
-        const approvedRequest = approvedRequestsForCustomer.find(
-            (req: any) => req.productId === productId && req.status === 'APPROVED'
-        );
-        if (approvedRequest) {
-            return 'APPROVED';
-        }
-        if (pendingRequestsForCustomer.some((request: any) => request.productId === productId)) {
-            return 'PENDING';
-        }
-        return undefined;
-    }, [sessionDiscountRequests, approvedDiscountMap, pendingRequestsForCustomer]);
-
-    const awaitingApprovalItems = pendingDiscountItems.filter((item) => {
-        if (!item?.productId) return false;
-        return getRequestStatus(item.productId) === 'PENDING';
-    });
-
-    const awaitingApproval = awaitingApprovalItems.length > 0;
-    const hasApprovedDiscount = (watchedItems || []).some((item) => getRequestStatus(item?.productId) === 'APPROVED');
-
-    const awaitingCustomerSelection = useMemo(
-        () => !selectedCustomerId && pendingDiscountItems.length > 0,
-        [selectedCustomerId, pendingDiscountItems.length]
-    );
-
-    const hasRequestableLines = pendingDiscountItems.some((item) => {
-        if (!item?.productId) {
-            return true;
-        }
-        const status = getRequestStatus(item.productId);
-        return !status || status === 'REJECTED';
-    });
-
-    const selectedCustomer = useMemo(() => (
-        customersQuery?.find((customer: any) => customer.id === selectedCustomerId)
-    ), [customersQuery, selectedCustomerId]);
-
-    useEffect(() => {
-        if (selectedCustomer) {
-            setValue('customerName', selectedCustomer.name, { shouldDirty: true });
-            if (selectedCustomer.phone && !watchedCustomerPhone) {
-                setValue('customerPhone', selectedCustomer.phone, { shouldDirty: true });
+            } else {
+                setCurrentDiscountInfo(null);
             }
+        };
+
+        const timeoutId = setTimeout(checkDiscount, 500);
+        return () => clearTimeout(timeoutId);
+    }, [watchedCustomerId, watchedProductId, watchedQuantity, watchedUnitPrice]);
+
+    // Add or update item in cart
+    const handleAddToCart = (data: ProductItemFormData) => {
+        const selectedProduct = products?.find((p: any) => p.id === data.productId);
+        if (!selectedProduct) return;
+
+        // Check if minimum quantity is met and discount is valid
+        const minimumQuantityMet = !currentDiscountInfo?.discount?.minimumQuantity ||
+            data.quantity >= currentDiscountInfo.discount.minimumQuantity;
+        const isDiscountValid = !currentDiscountInfo?.discount?.validUntil ||
+            new Date(currentDiscountInfo.discount.validUntil) >= new Date();
+
+        // ✅ Ensure this is always a boolean
+        const shouldApplyDiscount = Boolean(currentDiscountInfo?.hasDiscount && minimumQuantityMet && isDiscountValid);
+
+        const originalUnitPrice = data.unitPrice;
+        const discountedUnitPrice = shouldApplyDiscount && currentDiscountInfo ? currentDiscountInfo.finalPrice : data.unitPrice;
+        const discountAmount = shouldApplyDiscount && currentDiscountInfo ? currentDiscountInfo.discountAmount : 0;
+        const discountPercentage = shouldApplyDiscount && currentDiscountInfo ? currentDiscountInfo.discountPercentage : 0;
+
+        const subtotal = data.quantity * originalUnitPrice;
+        const discountTotal = data.quantity * discountAmount;
+        const finalTotal = data.quantity * discountedUnitPrice;
+
+        const cartItem: CartItem = {
+            id: editingItemId || `item-${Date.now()}`,
+            productId: data.productId,
+            productName: selectedProduct.name,
+            productNo: selectedProduct.productNo,
+            quantity: data.quantity,
+            unitType: data.unitType,
+            unitPrice: data.unitPrice,
+            originalUnitPrice,
+            discountedUnitPrice,
+            discountAmount,
+            discountPercentage,
+            subtotal,
+            discountTotal,
+            finalTotal,
+            hasDiscount: shouldApplyDiscount, // ✅ Now guaranteed to be boolean
+            discountInfo: shouldApplyDiscount && currentDiscountInfo ? currentDiscountInfo.discount : undefined
+        };
+
+        if (editingItemId) {
+            // Update existing item
+            setCart(cart.map(item => item.id === editingItemId ? cartItem : item));
+            setEditingItemId(null);
         } else {
-            setValue('customerName', '', { shouldDirty: true });
+            // Add new item
+            setCart([...cart, cartItem]);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCustomer]);
 
-    useEffect(() => {
-        if (!selectedCustomerId) return;
-
-        (watchedItems || []).forEach((item) => {
-            const productId = item?.productId;
-            if (!productId) return;
-
-            const approved = approvedDiscountMap.get(productId);
-            if (approved && approved.status === 'APPROVED') {
-                return 'APPROVED';
-            }
-
-            // ❌ Remove any automatic toggling of applyDiscount or requestDiscountApproval here
+        // Reset form
+        resetProduct({
+            productId: '',
+            quantity: 1,
+            unitType: 'PACKS',
+            unitPrice: 0,
         });
-    }, [approvedDiscountMap, watchedItems, selectedCustomerId, setValue]);
+        setCurrentDiscountInfo(null);
+        globalToast.success(editingItemId ? 'Item updated!' : 'Item added to cart!');
+    };
 
+    // Edit cart item
+    const handleEditItem = (item: CartItem) => {
+        setEditingItemId(item.id);
+        setValueProduct('productId', item.productId);
+        setValueProduct('quantity', item.quantity);
+        setValueProduct('unitType', item.unitType);
+        setValueProduct('unitPrice', item.unitPrice);
+    };
 
-    useEffect(() => {
-        if (selectedCustomerId) {
-            refetchApprovedDiscounts();
-        }
-    }, [pendingRequestsForCustomer.length, selectedCustomerId, refetchApprovedDiscounts]);
+    // Remove item from cart
+    const handleRemoveItem = (itemId: string) => {
+        setCart(cart.filter(item => item.id !== itemId));
+        globalToast.success('Item removed from cart');
+    };
 
-    const lineCalculations = useMemo(() => {
-        return (watchedItems || []).map((item) => {
-            const quantity = Number(item?.quantity || 0);
-            const unitPrice = Number(item?.unitPrice || 0);
-
-            if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice)) {
-                return {
-                    rawTotal: 0,
-                    discountPercent: 0,
-                    discountAmount: 0,
-                    netTotal: 0
-                };
-            }
-
-            const rawTotal = quantity * unitPrice;
-            const productId = item?.productId;
-            const approvedRequest = productId ? approvedDiscountMap.get(productId) : undefined;
-            const shouldApplyApprovedDiscount = Boolean(item?.applyDiscount && approvedRequest);
-
-            const discountPercent = shouldApplyApprovedDiscount
-                ? Number(approvedRequest?.requestedDiscountValue || 0)
-                : 0;
-
-            const discountAmount = rawTotal * (discountPercent / 100);
-            const netTotal = rawTotal - discountAmount;
-
-            return {
-                rawTotal,
-                discountPercent,
-                discountAmount,
-                netTotal
-            };
+    // Cancel editing
+    const handleCancelEdit = () => {
+        setEditingItemId(null);
+        resetProduct({
+            productId: '',
+            quantity: 1,
+            unitType: 'PACKS',
+            unitPrice: 0,
         });
-    }, [watchedItems, approvedDiscountMap]);
+        setCurrentDiscountInfo(null);
+    };
 
-    const overallTotal = useMemo(() => (
-        lineCalculations.reduce((sum, line) => sum + (Number.isFinite(line.netTotal) ? line.netTotal : 0), 0)
-    ), [lineCalculations]);
+    // Calculate cart totals
+    const cartTotals = cart.reduce(
+        (acc, item) => ({
+            subtotal: acc.subtotal + item.subtotal,
+            discount: acc.discount + item.discountTotal,
+            total: acc.total + item.finalTotal
+        }),
+        { subtotal: 0, discount: 0, total: 0 }
+    );
 
-    const totalDiscountAmount = useMemo(() => (
-        lineCalculations.reduce((sum, line) => sum + (Number.isFinite(line.discountAmount) ? line.discountAmount : 0), 0)
-    ), [lineCalculations]);
+    // Create sale mutation - Now creates multiple sales with same receipt number
+    const createSaleMutation = useMutation({
+        mutationFn: async (saleData: SaleFormData) => {
+            // Generate a unique receipt number for all items
+            const receiptNumber = `WHS-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-    const createSaleMutation = useMutation<CreateSaleResponse[], any, SaleFormData>({
-        mutationFn: async (data: SaleFormData) => {
-            const results: CreateSaleResponse[] = [];
-            const receiptNumber = generateReceiptNumber();
+            // Create a sale for each cart item with the same receipt number
+            // Find selected customer to get their name
+            const selectedCustomer = customersData?.data?.customers?.find(
+                (c: any) => c.id === saleData.warehouseCustomerId
+            );
 
-            for (const item of data.items) {
-                const payload = {
+            const salePromises = cart.map(item =>
+                warehouseService.createSale({
                     productId: item.productId,
                     quantity: item.quantity,
                     unitType: item.unitType,
                     unitPrice: item.unitPrice,
-                    paymentMethod: data.paymentMethod as WarehousePaymentMethod,
-                    customerName: data.customerName || selectedCustomer?.name || '',
-                    customerPhone: data.customerPhone || undefined,
-                    warehouseCustomerId: data.customerId,
-                    applyDiscount: item.applyDiscount ?? false,
-                    requestDiscountApproval: item.requestDiscountApproval ?? false,
-                    discountReason: item.requestDiscountApproval ? item.discountReason : undefined,
-                    requestedDiscountPercent: item.requestDiscountApproval ? item.requestedDiscountPercent : undefined,
+                    paymentMethod: saleData.paymentMethod,
+                    warehouseCustomerId: saleData.warehouseCustomerId,
+                    customerName: selectedCustomer?.name || 'Unknown Customer',
                     receiptNumber
-                };
+                })
+            );
 
-                const response = await warehouseService.createSale(payload);
-                results.push(response);
-            }
-            return results;
+            // Execute all sales
+            return Promise.all(salePromises);
         },
-        onSuccess: (responses) => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-sales'] });
             queryClient.invalidateQueries({ queryKey: ['warehouse-inventory'] });
-            queryClient.invalidateQueries({ queryKey: ['warehouse-discount-requests'] });
-            refetchPendingDiscounts();
-            refetchApprovedDiscounts();
-
-            const hasPendingApproval = responses?.some((response) => response?.pendingApproval);
-            const receiptNumber = responses?.[0]?.data?.sale?.receiptNumber;
-
-            if (hasPendingApproval) {
-                globalToast.error('Sale recorded but awaiting discount approval. Mark payment as pending until approval is granted.');
-            } else {
-                const successMessage = receiptNumber
-                    ? `Sale recorded successfully! Record #: \${receiptNumber}`
-                    : 'Sale recorded successfully!';
-                globalToast.success(successMessage);
-            }
+            globalToast.success(`Sale recorded successfully with ${cart.length} item(s)!`);
             navigate('/warehouse/sales');
         },
         onError: (error: any) => {
@@ -419,128 +300,19 @@ export const CreateSale: React.FC = () => {
         }
     });
 
-    const requestDiscountMutation = useMutation({
-        mutationFn: async () => {
-            if (pendingDiscountItems.length === 0) {
-                globalToast.error('Enable “Request discount approval” for at least one product first.');
-                return false;
-            }
-
-            if (!selectedCustomerId) {
-                globalToast.error('Select a customer before submitting a discount request.');
-                return false;
-            }
-
-            const now = new Date();
-            const validFrom = now.toISOString();
-            const validUntil = new Date(now.getTime() + DEFAULT_DISCOUNT_VALIDITY_DAYS * 24 * 60 * 60 * 1000).toISOString();
-
-            const newlySubmittedRequests: Array<{ productId: string; requestId?: string }> = [];
-
-            for (const item of pendingDiscountItems) {
-                if (!item.requestedDiscountPercent || item.requestedDiscountPercent <= 0) {
-                    throw new Error('Provide a discount percentage for each product requesting approval.');
-                }
-                const response = await warehouseService.createDiscountRequest({
-                    warehouseCustomerId: selectedCustomerId,
-                    productId: item.productId,
-                    requestedDiscountType: 'PERCENTAGE' as DiscountType,
-                    requestedDiscountValue: item.requestedDiscountPercent,
-                    minimumQuantity: item.quantity,
-                    validFrom,
-                    validUntil,
-                    reason: item.discountReason || 'Discount requested during warehouse sale preparation',
-                    businessJustification: `Requested while preparing sale on ${now.toLocaleString()}`
-                });
-                if (item.productId) {
-                    const requestId = response?.data?.discountRequest?.id ?? '';
-                    newlySubmittedRequests.push({ productId: item.productId, requestId });
-                }
-            }
-
-            if (newlySubmittedRequests.length === 0) {
-                globalToast.success('Discount request already pending or approved for the selected products.');
-                return false;
-            }
-
-            setSessionDiscountRequests((prev) => {
-                const next = new Map(prev);
-                newlySubmittedRequests.forEach(({ productId, requestId }) => {
-                    next.set(productId, {
-                        requestId: requestId || '',
-                        status: 'PENDING'
-                    });
-                });
-                return next;
-            });
-
-            return true;
-        },
-        onSuccess: (created) => {
-            if (!created) {
-                return;
-            }
-            queryClient.invalidateQueries({ queryKey: ['warehouse-discount-requests'] });
-            refetchPendingDiscounts();
-            refetchApprovedDiscounts();
-            globalToast.success('Discount request submitted. Wait for approval before recording the sale.');
-        },
-        onError: (error: any) => {
-            const message = error?.response?.data?.message || error?.message || 'Failed to submit discount request';
-            if (message.includes('already pending or approved')) {
-                globalToast.success(message);
-            } else {
-                globalToast.error(message);
-            }
-        }
-    });
-
-    const disableRequestButton = requestDiscountMutation.isPending || !selectedCustomerId || !hasRequestableLines;
-
-    const handleProductSelect = (index: number, productId: string) => {
-        const product = productIndex.get(productId);
-        const pricePerPack = Number(product?.pricePerPack ?? 0);
-        const sanitizedPrice = Number.isFinite(pricePerPack) && pricePerPack > 0
-            ? parseFloat(pricePerPack.toFixed(2))
-            : 0;
-
-        setValue(`items.${index}.unitPrice`, sanitizedPrice, {
-            shouldValidate: true,
-            shouldTouch: true
-        });
-    };
-
-    const handleRequestDiscountToggle = (index: number, checked: boolean) => {
-        if (checked && !watch(`items.${index}.requestedDiscountPercent`)) {
-            setValue(`items.${index}.requestedDiscountPercent`, DEFAULT_DISCOUNT_PERCENT, {
-                shouldDirty: true
-            });
-        }
-
-        if (!checked) {
-            setValue(`items.${index}.discountReason`, '', {
-                shouldDirty: true
-            });
-            setValue(`items.${index}.requestedDiscountPercent`, undefined, {
-                shouldDirty: true
-            });
-        }
-    };
-
     const onSubmit = (data: SaleFormData) => {
-        const awaitingApproval = watchedItems.some(
-            (item) => item.requestDiscountApproval && getRequestStatus(item.productId) !== 'APPROVED'
-        );
-
-        if (awaitingApproval) {
-            globalToast.error('Please wait for discount approval before recording the sale.');
+        if (cart.length === 0) {
+            globalToast.error('Please add at least one product to the cart');
             return;
         }
-
         createSaleMutation.mutate(data);
     };
 
-    const customerIdField = register('customerId');
+    // Check if minimum quantity is met for current item
+    const minimumQuantityMet = !currentDiscountInfo?.discount?.minimumQuantity ||
+        watchedQuantity >= currentDiscountInfo.discount.minimumQuantity;
+    const isDiscountValid = !currentDiscountInfo?.discount?.validUntil ||
+        new Date(currentDiscountInfo.discount.validUntil) >= new Date();
 
     return (
         <div className="space-y-6">
@@ -559,258 +331,14 @@ export const CreateSale: React.FC = () => {
                             Record New Sale
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
-                            Capture sales, apply discounts, and keep inventory in sync.
+                            Add products to cart and complete the sale
                         </p>
                     </div>
                 </div>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Product Information */}
-                <div className="bg-white shadow rounded-lg">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                            <Package className="h-5 w-5 mr-2" />
-                            Product Information
-                        </h3>
-                    </div>
-                    <div className="p-6 space-y-6">
-                        <div className="space-y-6">
-                            {fields.map((field, index) => {
-                                const item = watchedItems?.[index];
-                                const selectedProduct = item?.productId
-                                    ? productIndex.get(item.productId)
-                                    : undefined;
-                                const calculations = lineCalculations[index];
-                                const lineTotal = calculations?.netTotal ?? 0;
-                                const discountAmount = calculations?.discountAmount ?? 0;
-                                const discountPercent = calculations?.discountPercent ?? 0;
-                                const productId = item?.productId;
-                                const requestStatus = getRequestStatus(productId);
-                                const hasApprovedDiscountForProduct = requestStatus === 'APPROVED';
-                                const submittedForProduct = requestStatus === 'PENDING';
-                                const isApproved = hasApprovedDiscountForProduct;
-
-                                const productError = errors.items?.[index]?.productId?.message;
-                                const quantityError = errors.items?.[index]?.quantity?.message;
-                                const unitPriceError = errors.items?.[index]?.unitPrice?.message;
-                                const discountReasonError = errors.items?.[index]?.discountReason?.message;
-                                const requestedDiscountError = errors.items?.[index]?.requestedDiscountPercent?.message;
-
-                                return (
-                                    <div key={field.id} className="border border-gray-200 rounded-lg p-4 space-y-4">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex items-center space-x-2 text-sm text-gray-500">
-                                                <span className="font-medium text-gray-700">
-                                                    Product {index + 1}
-                                                </span>
-                                                {selectedProduct?.productNo && (
-                                                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs">
-                                                        SKU: {selectedProduct.productNo}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {fields.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => remove(index)}
-                                                    className="inline-flex items-center text-sm text-red-600 hover:text-red-700"
-                                                >
-                                                    <Trash2 className="h-4 w-4 mr-1" /> Remove
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <div className="md:col-span-2">
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Product *
-                                                </label>
-                                                <select
-                                                    {...register(`items.${index}.productId` as const, {
-                                                        onChange: (event) => {
-                                                            handleProductSelect(index, event.target.value);
-                                                        }
-                                                    })}
-                                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                                >
-                                                    <option value="">Select a product</option>
-                                                    {products.map((product) => (
-                                                        <option key={product.id} value={product.id}>
-                                                            {product.name}
-                                                            {product.pricePerPack
-                                                                ? ` (₦${Number(product.pricePerPack).toLocaleString()} per pack)`
-                                                                : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {productError && (
-                                                    <p className="mt-1 text-sm text-red-600">{productError}</p>
-                                                )}
-                                            </div>
-
-                                            <Input
-                                                label="Quantity (packs) *"
-                                                type="number"
-                                                min={1}
-                                                {...register(`items.${index}.quantity` as const, {
-                                                    valueAsNumber: true
-                                                })}
-                                                error={quantityError}
-                                                placeholder="Enter quantity"
-                                            />
-
-                                            <Input
-                                                label="Unit Price (₦) *"
-                                                type="number"
-                                                step="0.01"
-                                                min={0}
-                                                {...register(`items.${index}.unitPrice` as const, {
-                                                    valueAsNumber: true
-                                                })}
-                                                error={unitPriceError}
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-
-                                        {selectedProduct && (
-                                            <div className="bg-blue-50 border border-blue-100 rounded-md p-3 text-sm text-blue-900">
-                                                <div className="flex items-center space-x-2">
-                                                    <Package className="h-4 w-4" />
-                                                    <span>{selectedProduct.name}</span>
-                                                </div>
-                                                {selectedProduct.description && (
-                                                    <p className="mt-1 text-blue-800">{selectedProduct.description}</p>
-                                                )}
-                                                {selectedProduct.pricePerPack && (
-                                                    <p className="mt-2">
-                                                        Listed price per pack:{' '}
-                                                        <span className="font-semibold">
-                                                            ₦{Number(selectedProduct.pricePerPack).toLocaleString()}
-                                                        </span>
-                                                    </p>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        <div className="flex flex-wrap items-center gap-4">
-                                            <label className="inline-flex items-center space-x-2 text-sm text-gray-700">
-                                                <input
-                                                    type="checkbox"
-                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                    {...register(`items.${index}.applyDiscount` as const)}
-                                                />
-                                                <span>Apply existing customer discount</span>
-                                            </label>
-
-                                            <label className="inline-flex items-center space-x-2 text-sm text-gray-700">
-                                                <input
-                                                    type="checkbox"
-                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                    {...register(`items.${index}.requestDiscountApproval` as const, {
-                                                        onChange: (event) => {
-                                                            handleRequestDiscountToggle(index, event.target.checked);
-                                                        }
-                                                    })}
-                                                />
-                                                <span>Request discount approval</span>
-                                            </label>
-                                        </div>
-
-                                        {item?.requestDiscountApproval && (
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                                <Input
-                                                    label="Requested Discount (%)"
-                                                    type="number"
-                                                    min={1}
-                                                    max={50}
-                                                    step="0.5"
-                                                    {...register(`items.${index}.requestedDiscountPercent` as const, {
-                                                        valueAsNumber: true
-                                                    })}
-                                                    error={requestedDiscountError}
-                                                    placeholder="e.g. 5"
-                                                    helpText="Max 50%. Approval required before it applies."
-                                                />
-
-                                                <Input
-                                                    label="Minimum Quantity"
-                                                    type="number"
-                                                    min={1}
-                                                    value={item?.quantity || 1}
-                                                    readOnly
-                                                    disabled
-                                                />
-
-                                                <div className="md:col-span-2">
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Discount Justification *
-                                                    </label>
-                                                    <textarea
-                                                        {...register(`items.${index}.discountReason` as const)}
-                                                        rows={3}
-                                                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                        placeholder="Explain why this discount is needed"
-                                                    />
-                                                    {discountReasonError && (
-                                                        <p className="mt-1 text-sm text-red-600">{discountReasonError}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center justify-between rounded-md bg-gray-50 px-4 py-3 text-sm">
-                                            <div className="flex items-center space-x-2 text-gray-600">
-                                                <Calculator className="h-4 w-4" />
-                                                <span>Line total</span>
-                                            </div>
-                                            <span className="text-lg font-semibold text-gray-900">
-                                                ₦{lineTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                                            </span>
-                                        </div>
-
-                                        {submittedForProduct && !isApproved && item?.requestedDiscountPercent && (
-                                            <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-800">
-                                                Discount request of {Number(item.requestedDiscountPercent).toLocaleString()}% submitted and awaiting approval.
-                                            </div>
-                                        )}
-
-                                        {isApproved && discountAmount > 0 && (
-                                            <div className="rounded-md border border-green-200 bg-green-50 px-4 py-2 text-xs text-green-800">
-                                                Approved discount of {discountPercent}% reduces this line by ₦{discountAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}.
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <div className="flex justify-start">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() =>
-                                    append({
-                                        productId: '',
-                                        quantity: 1,
-                                        unitPrice: 0,
-                                        unitType: 'PACKS',
-                                        applyDiscount: false,
-                                        requestDiscountApproval: false,
-                                        requestedDiscountPercent: DEFAULT_DISCOUNT_PERCENT,
-                                        discountReason: ''
-                                    })
-                                }
-                                className="inline-flex items-center"
-                            >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add another product
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Customer Information */}
+                {/* Customer Selection */}
                 <div className="bg-white shadow rounded-lg">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h3 className="text-lg font-medium text-gray-900 flex items-center">
@@ -818,138 +346,327 @@ export const CreateSale: React.FC = () => {
                             Customer Information
                         </h3>
                     </div>
-                    <div className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                            <div>
-                                <Select
-                                    label="Customer *"
-                                    placeholder={customersQuery && customersQuery.length > 0 ? 'Select a customer' : 'Loading customers...'}
-                                    options={(customersQuery || []).map((customer: any) => ({
-                                        value: customer.id,
-                                        label: customer.name
-                                    }))}
-                                    value={selectedCustomerId}
-                                    name={customerIdField.name}
-                                    ref={customerIdField.ref}
-                                    onBlur={customerIdField.onBlur}
-                                    onChange={(event) => {
-                                        customerIdField.onChange(event);
-                                        setValue('customerId', event.target.value, { shouldDirty: true, shouldValidate: true });
-                                    }}
-                                    error={errors.customerId?.message}
-                                />
-                            </div>
-
-                            <Input
-                                label="Customer Phone"
-                                {...register('customerPhone')}
-                                error={errors.customerPhone?.message}
-                                placeholder="Optional"
-                            />
-                        </div>
-
-                        {!selectedCustomerId && customersQuery && customersQuery.length > 0 && (
-                            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                                Select the customer before recording the sale or submitting a discount request.
-                            </div>
+                    <div className="p-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Customer *
+                        </label>
+                        <select
+                            {...register('warehouseCustomerId')}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        >
+                            <option value="">Select a customer</option>
+                            {customersData?.data?.customers?.map((customer: any) => (
+                                <option key={customer.id} value={customer.id}>
+                                    {customer.name} {customer.phone ? `(${customer.phone})` : ''}
+                                </option>
+                            ))}
+                        </select>
+                        {errors.warehouseCustomerId && (
+                            <p className="mt-1 text-sm text-red-600">{errors.warehouseCustomerId.message}</p>
                         )}
                     </div>
                 </div>
 
-                {/* Transaction Summary */}
+                {/* Add Product to Cart */}
                 <div className="bg-white shadow rounded-lg">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                            <ShoppingCart className="h-5 w-5 mr-2" />
-                            Transaction Summary
+                            <Package className="h-5 w-5 mr-2" />
+                            {editingItemId ? 'Edit Product' : 'Add Product to Cart'}
                         </h3>
                     </div>
                     <div className="p-6 space-y-6">
-                        {awaitingCustomerSelection && (
-                            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                                Select a customer before requesting approvals. Discount toggles stay disabled until the customer is chosen.
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            {/* Product Selection */}
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Product *
+                                </label>
+                                <select
+                                    {...registerProduct('productId')}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                >
+                                    <option value="">Select a product</option>
+                                    {products?.map((product: any) => (
+                                        <option key={product.id} value={product.id}>
+                                            {product.name} - {product.productNo}
+                                            {product.pricePerPack && ` (₦${product.pricePerPack.toLocaleString()})`}
+                                        </option>
+                                    ))}
+                                </select>
+                                {productErrors.productId && (
+                                    <p className="mt-1 text-sm text-red-600">{productErrors.productId.message}</p>
+                                )}
                             </div>
-                        )}
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <Select
-                                label="Payment Method *"
-                                options={paymentMethodOptions.map((option) => ({
-                                    value: option.value,
-                                    label: option.label
-                                }))}
-                                placeholder="Select payment method"
-                                error={errors.paymentMethod?.message as string | undefined}
-                                {...register('paymentMethod')}
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Unit Type *
+                                </label>
+                                <select
+                                    {...registerProduct('unitType')}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                >
+                                    <option value="PALLETS">Pallets</option>
+                                    <option value="PACKS">Packs</option>
+                                    <option value="UNITS">Units</option>
+                                </select>
+                                {productErrors.unitType && (
+                                    <p className="mt-1 text-sm text-red-600">{productErrors.unitType.message}</p>
+                                )}
+                            </div>
+
+                            <Input
+                                label="Quantity *"
+                                type="number"
+                                {...registerProduct('quantity', { valueAsNumber: true })}
+                                error={productErrors.quantity?.message}
+                                placeholder="Enter quantity"
                             />
 
-                            <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
-                                <div className="text-sm text-gray-600">Total payable</div>
-                                <div className="mt-1 text-2xl font-semibold text-green-600">
-                                    ₦{overallTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                                </div>
-                                {totalDiscountAmount > 0 && (
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        Includes ₦{totalDiscountAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} approved discount.
-                                    </p>
-                                )}
-                                <p className="mt-2 text-xs text-gray-500">
-                                    Calculated automatically as you adjust product quantity or pricing.
-                                </p>
-                            </div>
+                            <Input
+                                label="Unit Price (₦) *"
+                                type="number"
+                                step="0.01"
+                                {...registerProduct('unitPrice', { valueAsNumber: true })}
+                                error={productErrors.unitPrice?.message}
+                                placeholder="Auto-filled from product"
+                            />
                         </div>
 
-                        {saleHasPendingDiscount && awaitingApproval && (
-                            <div className="space-y-3 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900">
-                                <div className="flex items-start">
-                                    <AlertTriangle className="mr-3 h-5 w-5 text-yellow-500" />
-                                    <div>
-                                        This sale includes discount requests awaiting supervisor approval. Wait for approval before recording the sale. Until then, treat this transaction as unpaid.
-                                    </div>
+                        {/* Discount Information */}
+                        {currentDiscountInfo?.hasDiscount && watchedCustomerId && (
+                            <div className={`border rounded-md p-4 ${!minimumQuantityMet || !isDiscountValid
+                                ? 'bg-yellow-50 border-yellow-200'
+                                : 'bg-green-50 border-green-200'
+                                }`}>
+                                <div className="flex items-center mb-2">
+                                    <Tag className="h-4 w-4 mr-2" />
+                                    <span className="text-sm font-medium">
+                                        {!minimumQuantityMet || !isDiscountValid ? 'Discount Available (Not Applied)' : 'Discount Will Be Applied'}
+                                    </span>
                                 </div>
-                            </div>
-                        )}
 
-                        {saleHasPendingDiscount && !awaitingApproval && hasRequestableLines && selectedCustomerId && (
-                            <div className="rounded-md border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
-                                You have selected discounts to request. Submit them for approval before recording the sale.
-                            </div>
-                        )}
+                                {!minimumQuantityMet && currentDiscountInfo.discount?.minimumQuantity && (
+                                    <p className="text-xs text-yellow-700 mb-2">
+                                        ⚠️ Need {currentDiscountInfo.discount.minimumQuantity} units minimum
+                                    </p>
+                                )}
 
-                        {saleHasPendingDiscount && !awaitingApproval && hasApprovedDiscount && (
-                            <div className="flex items-start justify-between rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-                                <div className="flex items-start">
-                                    <CheckCircle className="mr-3 h-5 w-5 text-green-500" />
-                                    <div>
-                                        All requested discounts have been approved. The payable amount reflects the approved pricing.
+                                {!isDiscountValid && currentDiscountInfo.discount?.validUntil && (
+                                    <p className="text-xs text-yellow-700 mb-2">
+                                        ⚠️ Discount expired on {new Date(currentDiscountInfo.discount.validUntil).toLocaleDateString()}
+                                    </p>
+                                )}
+
+                                {minimumQuantityMet && isDiscountValid && (
+                                    <div className="text-xs space-y-1">
+                                        <p>Discount: <strong>{(currentDiscountInfo.discountPercentage ?? 0).toFixed(1)}%</strong></p>
+                                        <p>Savings: <strong>₦{((currentDiscountInfo.totalSavings ?? 0) || (watchedQuantity * (currentDiscountInfo.discountAmount ?? 0))).toLocaleString('en-NG', { minimumFractionDigits: 2 })}</strong></p>
                                     </div>
-                                </div>
-                                <Button variant="outline" disabled className="text-green-600">
-                                    Discount Approved
-                                </Button>
+                                )}
                             </div>
                         )}
 
-                        {saleHasPendingDiscount && (
-                            <div className="flex justify-end">
+                        {/* Add/Update Button */}
+                        <div className="flex gap-3">
+                            <Button
+                                type="button"
+                                onClick={handleSubmitProduct(handleAddToCart)}
+                                disabled={isCheckingDiscount || !watchedCustomerId}
+                                className="inline-flex items-center"
+                            >
+                                {editingItemId ? (
+                                    <>
+                                        <Edit2 className="h-4 w-4 mr-2" />
+                                        Update Item
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add to Cart
+                                    </>
+                                )}
+                            </Button>
+                            {editingItemId && (
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => requestDiscountMutation.mutate()}
-                                    loading={requestDiscountMutation.isPending}
-                                    disabled={disableRequestButton}
+                                    onClick={handleCancelEdit}
                                 >
-                                    Make Discount Request
+                                    Cancel
                                 </Button>
-                            </div>
-                        )}
-
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-sm text-yellow-800">
-                            Ensure the payment has been collected or approved before you complete this record.
+                            )}
                         </div>
                     </div>
                 </div>
 
-                <div className="flex justify-end space-x-3">
+                {/* Shopping Cart */}
+                {cart.length > 0 && (
+                    <div className="bg-white shadow rounded-lg">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                                <ShoppingCart className="h-5 w-5 mr-2" />
+                                Shopping Cart ({cart.length} {cart.length === 1 ? 'item' : 'items'})
+                            </h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discount</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {cart.map((item) => (
+                                        <tr key={item.id}>
+                                            <td className="px-6 py-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">{item.productName}</p>
+                                                    <p className="text-xs text-gray-500">{item.productNo}</p>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                {item.quantity} {item.unitType}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {item.hasDiscount ? (
+                                                    <div>
+                                                        <p className="text-sm line-through text-gray-400">
+                                                            ₦{(item.originalUnitPrice ?? 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                        <p className="text-sm font-medium text-green-600">
+                                                            ₦{(item.discountedUnitPrice ?? 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-gray-900">
+                                                        ₦{(item.unitPrice ?? 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                                    </p>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {item.hasDiscount ? (
+                                                    <div>
+                                                        <p className="text-xs text-green-600 font-medium">
+                                                            -{(item.discountPercentage ?? 0).toFixed(1)}%
+                                                        </p>
+                                                        <p className="text-xs text-green-600">
+                                                            -₦{(item.discountTotal ?? 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">No discount</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-gray-900">
+                                                    ₦{(item.finalTotal ?? 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                                </p>
+                                            </td>
+                                            <td className="px-6 py-4 text-right space-x-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleEditItem(item)}
+                                                >
+                                                    <Edit2 className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleRemoveItem(item.id)}
+                                                    className="text-red-600 hover:bg-red-50"
+                                                >
+                                                    <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Payment & Summary */}
+                {cart.length > 0 && (
+                    <>
+                        {/* Payment Method */}
+                        <div className="bg-white shadow rounded-lg">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-lg font-medium text-gray-900">Payment Method</h3>
+                            </div>
+                            <div className="p-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Payment Method *
+                                </label>
+                                <select
+                                    {...register('paymentMethod')}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                >
+                                    <option value="CASH">Cash</option>
+                                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                                    <option value="CHECK">Check</option>
+                                    <option value="CARD">Card</option>
+                                    <option value="MOBILE_MONEY">Mobile Money</option>
+                                </select>
+                                {errors.paymentMethod && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.paymentMethod.message}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Cart Summary */}
+                        <div className="bg-white shadow rounded-lg">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-lg font-medium text-gray-900">Order Summary</h3>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600">Subtotal</span>
+                                    <span className="font-medium">
+                                        ₦{cartTotals.subtotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+
+                                {cartTotals.discount > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-green-600 font-medium">Total Discounts</span>
+                                        <span className="font-semibold text-green-600">
+                                            -₦{cartTotals.discount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between text-xl font-bold border-t-2 pt-4">
+                                    <span>Total Payable</span>
+                                    <span className={cartTotals.discount > 0 ? 'text-green-600' : 'text-gray-900'}>
+                                        ₦{cartTotals.total.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+
+                                {cartTotals.discount > 0 && (
+                                    <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
+                                        <p className="text-sm text-green-800">
+                                            🎉 <strong>Total Savings: ₦{cartTotals.discount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</strong>
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3">
                     <Button
                         type="button"
                         variant="outline"
@@ -959,12 +676,11 @@ export const CreateSale: React.FC = () => {
                     </Button>
                     <Button
                         type="submit"
-                        loading={isSubmitting || createSaleMutation.isPending}
-                        disabled={awaitingApproval || hasRequestableLines || isSubmitting || createSaleMutation.isPending}
+                        disabled={isSubmitting || cart.length === 0}
                         className="inline-flex items-center"
                     >
                         <Save className="h-4 w-4 mr-2" />
-                        Record Sale
+                        {isSubmitting ? 'Recording Sale...' : `Complete Sale (${cart.length} items)`}
                     </Button>
                 </div>
             </form>
