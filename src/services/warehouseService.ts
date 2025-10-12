@@ -155,10 +155,7 @@ export class WarehouseService extends BaseApiService {
     }
   }
 
-  async getSale(receiptNumber: string): Promise<WarehouseSale> {
-    const response = await this.get<{ success: boolean; data: { sale: WarehouseSale } }>(`/sales/by-receipt/${receiptNumber}`);
-    return response.data.sale;
-  }
+  
 
   async createSale(data: CreateSaleData): Promise<CreateSaleResponse> {
     return this.post<CreateSaleResponse>(data, '/sales');
@@ -167,6 +164,13 @@ export class WarehouseService extends BaseApiService {
   async getProducts(): Promise<Product[]> {
   const response = await this.get<{ success: boolean; data: { products: Product[] } }>('/products');
   return response.data.products;
+}
+
+ async getSaleByReceipt(receiptNumber: string): Promise<{
+  success: boolean;
+  data: WarehouseSale;
+}> {
+  return this.get(`/sales/receipt/${receiptNumber}`);
 }
 
   // Inventory
