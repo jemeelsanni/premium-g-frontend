@@ -44,11 +44,12 @@ export interface CreateTruckData {
 export interface CreateExpenseData {
   truckId?: string;
   locationId?: string;
-  expenseType: 'TRIP' | 'NON_TRIP';
+  expenseType: 'TRIP' | 'NON_TRIP';  // ✅ Back to TRIP/NON_TRIP
   category: string;
   amount: number;
   description: string;
   expenseDate: string;
+  receiptNumber?: string;
 }
 
 export interface TransportFilters {

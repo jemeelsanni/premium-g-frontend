@@ -159,8 +159,9 @@ export const CashFlowList: React.FC = () => {
 
             {/* Cash Flow Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
+               // In CashFlowList.tsx
                 <Table
-                    data={cashFlowData?.data || []}
+                    data={cashFlowData?.data?.cashFlowEntries || []}  // ← Access cashFlowEntries
                     columns={cashFlowColumns}
                     loading={isLoading}
                     emptyMessage="No cash flow records found"

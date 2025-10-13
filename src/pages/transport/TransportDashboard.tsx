@@ -24,7 +24,7 @@ export const TransportDashboard: React.FC = () => {
 
     const { data: recentOrders } = useQuery({
         queryKey: ['transport-orders', 1, 5],
-        queryFn: () => transportService.getOrders(1, 5),
+        queryFn: () => transportService.getOrders({ page: 1, limit: 5 }),
     });
 
     const { data: trucks } = useQuery({
@@ -260,6 +260,30 @@ export const TransportDashboard: React.FC = () => {
                                 </h3>
                                 <p className="mt-2 text-sm text-gray-500">
                                     Track and manage all transport orders
+                                </p>
+                            </div>
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+
+                        {/* After the "View Orders" Link, add this: */}
+
+                        <Link
+                            to="/transport/expenses/create"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
+                            <div>
+                                <span className="rounded-lg inline-flex p-3 bg-orange-50 text-orange-600 group-hover:bg-orange-100">
+                                    <DollarSign className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    Create Expense
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Record trip or non-trip expenses
                                 </p>
                             </div>
                             <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">

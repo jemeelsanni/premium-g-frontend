@@ -70,6 +70,8 @@ export const CreateSale: React.FC = () => {
     const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
     const [currentDiscountInfo, setCurrentDiscountInfo] = useState<DiscountInfo | null>(null);
 
+
+
     // Product item form
     const {
         register: registerProduct,
@@ -297,23 +299,29 @@ export const CreateSale: React.FC = () => {
             // Generate a unique receipt number for all items
             const receiptNumber = `WHS-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-            // Find selected customer to get their name
+            // Find selected customer to get their details
             const selectedCustomer = customersData?.data?.customers?.find(
                 (c: any) => c.id === saleData.warehouseCustomerId
             );
 
-            const salePromises = cart.map(item =>
-                warehouseService.createSale({
+            const salePromises = cart.map(item => {
+                const payload = {
                     productId: item.productId,
                     quantity: item.quantity,
                     unitType: item.unitType,
                     unitPrice: item.unitPrice,
                     paymentMethod: saleData.paymentMethod,
                     warehouseCustomerId: saleData.warehouseCustomerId,
-                    customerName: selectedCustomer?.name || 'Unknown Customer',
+                    customerName: selectedCustomer?.name || '',
+                    customerPhone: selectedCustomer?.phone || '',
                     receiptNumber
-                })
-            );
+                };
+
+                console.log('📤 Sending sale payload:', payload);
+
+                return warehouseService.createSale(payload);
+            });
+
 
             // Execute all sales
             return Promise.all(salePromises);
@@ -337,6 +345,7 @@ export const CreateSale: React.FC = () => {
         }
         createSaleMutation.mutate(data);
     };
+
 
     // Check if minimum quantity is met for current item
     const minimumQuantityMet = !currentDiscountInfo?.discount?.minimumQuantity ||

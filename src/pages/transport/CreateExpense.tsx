@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/transport/CreateExpense.tsx
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,15 +18,11 @@ const expenseSchema = z.object({
     category: z.string().min(1, 'Category is required'),
     amount: z.number().min(1, 'Amount must be greater than 0'),
     description: z.string().min(5, 'Description must be at least 5 characters'),
-    expenseDate: z.string().min(1, 'Expense date is required')
+    expenseDate: z.string().min(1, 'Expense date is required'),
+    receiptNumber: z.string().optional()
 });
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
-
-const EXPENSE_CATEGORIES = {
-    TRIP: ['Fuel', 'Driver Wages', 'Trip Allowance', 'Motor Boy Wages', 'Toll Fees', 'Parking'],
-    NON_TRIP: ['Maintenance', 'Repairs', 'Insurance', 'Registration', 'Tire Replacement', 'Oil Change', 'Parts', 'Service']
-};
 
 export const CreateExpense: React.FC = () => {
     const navigate = useNavigate();
@@ -37,7 +31,6 @@ export const CreateExpense: React.FC = () => {
     const {
         register,
         handleSubmit,
-        watch,
         formState: { errors, isSubmitting }
     } = useForm<ExpenseFormData>({
         resolver: zodResolver(expenseSchema),
@@ -46,8 +39,6 @@ export const CreateExpense: React.FC = () => {
             expenseDate: new Date().toISOString().split('T')[0]
         }
     });
-
-    const expenseType = watch('expenseType');
 
     // Fetch trucks for dropdown
     const { data: trucks } = useQuery({
@@ -74,10 +65,16 @@ export const CreateExpense: React.FC = () => {
     });
 
     const onSubmit = (data: ExpenseFormData) => {
-        createMutation.mutate(data);
-    };
+        // Transform empty strings to undefined for optional fields
+        const sanitizedData = {
+            ...data,
+            truckId: data.truckId?.trim() || undefined,
+            locationId: data.locationId?.trim() || undefined,
+            receiptNumber: data.receiptNumber?.trim() || undefined
+        };
 
-    const availableCategories = EXPENSE_CATEGORIES[expenseType] || [];
+        createMutation.mutate(sanitizedData);
+    };
 
     return (
         <div className="space-y-6">
@@ -105,70 +102,39 @@ export const CreateExpense: React.FC = () => {
             {/* Form */}
             <div className="bg-white shadow rounded-lg">
                 <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-                    {/* Expense Type */}
+                    {/* Expense Type - Dropdown */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Expense Type <span className="text-red-500">*</span>
                         </label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <label className="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
-                                <input
-                                    type="radio"
-                                    {...register('expenseType')}
-                                    value="TRIP"
-                                    className="sr-only"
-                                />
-                                <span className="flex flex-1">
-                                    <span className="flex flex-col">
-                                        <span className="block text-sm font-medium text-gray-900">Trip Expense</span>
-                                        <span className="mt-1 flex items-center text-sm text-gray-500">
-                                            Fuel, wages, tolls, etc.
-                                        </span>
-                                    </span>
-                                </span>
-                            </label>
-                            <label className="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm focus:outline-none">
-                                <input
-                                    type="radio"
-                                    {...register('expenseType')}
-                                    value="NON_TRIP"
-                                    className="sr-only"
-                                />
-                                <span className="flex flex-1">
-                                    <span className="flex flex-col">
-                                        <span className="block text-sm font-medium text-gray-900">Non-Trip Expense</span>
-                                        <span className="mt-1 flex items-center text-sm text-gray-500">
-                                            Maintenance, repairs, insurance
-                                        </span>
-                                    </span>
-                                </span>
-                            </label>
-                        </div>
+                        <select
+                            {...register('expenseType')}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Select expense type...</option>
+                            <option value="TRIP">Trip Expense</option>
+                            <option value="NON_TRIP">Non-Trip Expense</option>
+                        </select>
                         {errors.expenseType && (
                             <p className="mt-1 text-sm text-red-600">{errors.expenseType.message}</p>
                         )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Category */}
+                        {/* Category - Text Input */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Category <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <Input
                                 {...register('category')}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            >
-                                <option value="">Select category</option>
-                                {availableCategories.map((category) => (
-                                    <option key={category} value={category}>
-                                        {category}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.category && (
-                                <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
-                            )}
+                                placeholder="e.g., Fuel, Maintenance, Driver Wages"
+                                error={errors.category?.message}
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Trip: Fuel, Driver Wages, Tolls, Trip Allowance<br />
+                                Non-Trip: Maintenance, Repairs, Insurance, Parts
+                            </p>
                         </div>
 
                         {/* Amount */}
@@ -180,23 +146,13 @@ export const CreateExpense: React.FC = () => {
                                 type="number"
                                 step="0.01"
                                 {...register('amount', { valueAsNumber: true })}
-                                error={errors.amount?.message}
                                 placeholder="0.00"
+                                error={errors.amount?.message}
                             />
                         </div>
+                    </div>
 
-                        {/* Expense Date */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Expense Date <span className="text-red-500">*</span>
-                            </label>
-                            <Input
-                                type="date"
-                                {...register('expenseDate')}
-                                error={errors.expenseDate?.message}
-                            />
-                        </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Truck (Optional) */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -204,12 +160,12 @@ export const CreateExpense: React.FC = () => {
                             </label>
                             <select
                                 {...register('truckId')}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="">No specific truck</option>
-                                {trucks?.map((truck) => (
-                                    <option key={truck.truckId} value={truck.truckId}>
-                                        {truck.registrationNumber || truck.truckId}
+                                <option value="">Select truck...</option>
+                                {trucks?.map((truck: any) => (
+                                    <option key={truck.id} value={truck.truckId}>  {/* ✅ Changed from truck.id to truck.truckId */}
+                                        {truck.registrationNumber} - {truck.make} {truck.model}
                                     </option>
                                 ))}
                             </select>
@@ -222,15 +178,40 @@ export const CreateExpense: React.FC = () => {
                             </label>
                             <select
                                 {...register('locationId')}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="">No specific location</option>
-                                {locations?.map((location) => (
+                                <option value="">Select location...</option>
+                                {locations?.map((location: any) => (
                                     <option key={location.id} value={location.id}>
                                         {location.name}
                                     </option>
                                 ))}
                             </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Expense Date */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Expense Date <span className="text-red-500">*</span>
+                            </label>
+                            <Input
+                                type="date"
+                                {...register('expenseDate')}
+                                error={errors.expenseDate?.message}
+                            />
+                        </div>
+
+                        {/* Receipt Number (Optional) */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Receipt Number (Optional)
+                            </label>
+                            <Input
+                                {...register('receiptNumber')}
+                                placeholder="REC-001"
+                            />
                         </div>
                     </div>
 
@@ -242,7 +223,7 @@ export const CreateExpense: React.FC = () => {
                         <textarea
                             {...register('description')}
                             rows={4}
-                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Provide details about this expense..."
                         />
                         {errors.description && (
@@ -250,8 +231,8 @@ export const CreateExpense: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Form Actions */}
-                    <div className="flex justify-end space-x-3 pt-6 border-t">
+                    {/* Submit Button */}
+                    <div className="flex justify-end space-x-3 pt-4">
                         <Button
                             type="button"
                             variant="outline"
@@ -259,7 +240,11 @@ export const CreateExpense: React.FC = () => {
                         >
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isSubmitting}>
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="inline-flex items-center"
+                        >
                             <Save className="h-4 w-4 mr-2" />
                             {isSubmitting ? 'Creating...' : 'Create Expense'}
                         </Button>
