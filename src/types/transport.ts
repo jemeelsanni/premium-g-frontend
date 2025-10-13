@@ -108,16 +108,15 @@ export interface TransportExpense {
   expenseDate: string;
   status: ExpenseStatus;
   approvedBy?: string;
-  approvedByUser?: { username: string };
-  rejectedBy?: string;
-  rejectedByUser?: { username: string };
+  approver?: { username: string; role: string };  // ✅ Changed from approvedByUser
+  // ❌ Removed rejectedBy and rejectedByUser - not in schema
   approvedAt?: string;
-  rejectedAt?: string;
+  // ❌ Removed rejectedAt - not in schema
   approvalNotes?: string;
   isPaid: boolean;
   paidAt?: string;
   createdBy: string;
-  createdByUser?: { username: string };
+  createdByUser?: { username: string; role: string };
   createdAt: string;
   updatedAt: string;
 }

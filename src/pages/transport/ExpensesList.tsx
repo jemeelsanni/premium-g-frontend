@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/transport/ExpensesList.tsx
+// src/pages/transport/ExpensesList.tsx - SIMPLIFIED VERSION WITH ALWAYS-VISIBLE FILTERS
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Plus, Download, Eye, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Plus, Download, Eye, CheckCircle, XCircle, Clock, Filter } from 'lucide-react';
 import { transportService } from '../../services/transportService';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { ExpenseStatus, ExpenseType } from '../../types/transport';
 import { format } from 'date-fns';
@@ -55,33 +54,41 @@ export const ExpensesList: React.FC = () => {
         }
     };
 
+    const handleClearFilters = () => {
+        setStatusFilter('');
+        setTypeFilter('');
+        setStartDate('');
+        setEndDate('');
+        setCurrentPage(1);
+    };
+
     const getStatusBadge = (status: string) => {
-        const baseClasses = 'inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full';
-        switch (status) {
-            case 'APPROVED':
-                return (
-                    <span className={`${baseClasses} bg-green-100 text-green-800`}>
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Approved
-                    </span>
-                );
-            case 'REJECTED':
-                return (
-                    <span className={`${baseClasses} bg-red-100 text-red-800`}>
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Rejected
-                    </span>
-                );
-            case 'PENDING':
-                return (
-                    <span className={`${baseClasses} bg-yellow-100 text-yellow-800`}>
-                        <Clock className="h-3 w-3 mr-1" />
-                        Pending
-                    </span>
-                );
-            default:
-                return <span className={`${baseClasses} bg-gray-100 text-gray-800`}>{status}</span>;
-        }
+        const statusConfig = {
+            [ExpenseStatus.PENDING]: {
+                color: 'bg-yellow-100 text-yellow-800',
+                icon: Clock,
+                label: 'Pending'
+            },
+            [ExpenseStatus.APPROVED]: {
+                color: 'bg-green-100 text-green-800',
+                icon: CheckCircle,
+                label: 'Approved'
+            },
+            [ExpenseStatus.REJECTED]: {
+                color: 'bg-red-100 text-red-800',
+                icon: XCircle,
+                label: 'Rejected'
+            }
+        };
+        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig[ExpenseStatus.PENDING];
+        const Icon = config.icon;
+
+        return (
+            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${config.color}`}>
+                <Icon className="h-3 w-3 mr-1" />
+                {config.label}
+            </span>
+        );
     };
 
     const getTypeBadge = (type: string) => {
@@ -156,6 +163,8 @@ export const ExpensesList: React.FC = () => {
         );
     }
 
+    const hasActiveFilters = statusFilter || typeFilter || startDate || endDate;
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -182,8 +191,131 @@ export const ExpensesList: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filters */}
+            {/* Quick Stats - Clickable Cards */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+                <button
+                    onClick={() => {
+                        setStatusFilter('');
+                        setCurrentPage(1);
+                    }}
+                    className={`bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow text-left ${statusFilter === '' ? 'ring-2 ring-blue-500' : ''
+                        }`}
+                >
+                    <div className="p-5">
+                        <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                                <div className="rounded-md bg-blue-500 p-3">
+                                    <Clock className="h-6 w-6 text-white" />
+                                </div>
+                            </div>
+                            <div className="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt className="text-sm font-medium text-gray-500 truncate">
+                                        All Expenses
+                                    </dt>
+                                    <dd className="text-lg font-semibold text-gray-900">
+                                        {statusFilter === '' ? expensesData?.data?.pagination?.total || 0 : '-'}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </button>
+
+                <button
+                    onClick={() => {
+                        setStatusFilter(ExpenseStatus.PENDING);
+                        setCurrentPage(1);
+                    }}
+                    className={`bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow text-left ${statusFilter === ExpenseStatus.PENDING ? 'ring-2 ring-yellow-500' : ''
+                        }`}
+                >
+                    <div className="p-5">
+                        <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                                <div className="rounded-md bg-yellow-500 p-3">
+                                    <Clock className="h-6 w-6 text-white" />
+                                </div>
+                            </div>
+                            <div className="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt className="text-sm font-medium text-gray-500 truncate">
+                                        Pending
+                                    </dt>
+                                    <dd className="text-lg font-semibold text-gray-900">
+                                        {statusFilter === ExpenseStatus.PENDING ? expensesData?.data?.pagination?.total || 0 : '-'}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </button>
+
+                <button
+                    onClick={() => {
+                        setStatusFilter(ExpenseStatus.APPROVED);
+                        setCurrentPage(1);
+                    }}
+                    className={`bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow text-left ${statusFilter === ExpenseStatus.APPROVED ? 'ring-2 ring-green-500' : ''
+                        }`}
+                >
+                    <div className="p-5">
+                        <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                                <div className="rounded-md bg-green-500 p-3">
+                                    <CheckCircle className="h-6 w-6 text-white" />
+                                </div>
+                            </div>
+                            <div className="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt className="text-sm font-medium text-gray-500 truncate">
+                                        Approved
+                                    </dt>
+                                    <dd className="text-lg font-semibold text-gray-900">
+                                        {statusFilter === ExpenseStatus.APPROVED ? expensesData?.data?.pagination?.total || 0 : '-'}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </button>
+
+                <button
+                    onClick={() => {
+                        setStatusFilter(ExpenseStatus.REJECTED);
+                        setCurrentPage(1);
+                    }}
+                    className={`bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow text-left ${statusFilter === ExpenseStatus.REJECTED ? 'ring-2 ring-red-500' : ''
+                        }`}
+                >
+                    <div className="p-5">
+                        <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                                <div className="rounded-md bg-red-500 p-3">
+                                    <XCircle className="h-6 w-6 text-white" />
+                                </div>
+                            </div>
+                            <div className="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt className="text-sm font-medium text-gray-500 truncate">
+                                        Rejected
+                                    </dt>
+                                    <dd className="text-lg font-semibold text-gray-900">
+                                        {statusFilter === ExpenseStatus.REJECTED ? expensesData?.data?.pagination?.total || 0 : '-'}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </button>
+            </div>
+
+            {/* Filters - Always Visible */}
             <div className="bg-white shadow rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                    <Filter className="h-5 w-5 text-gray-400 mr-2" />
+                    <h3 className="text-sm font-medium text-gray-900">Filters</h3>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -195,12 +327,12 @@ export const ExpensesList: React.FC = () => {
                                 setStatusFilter(e.target.value as ExpenseStatus | '');
                                 setCurrentPage(1);
                             }}
-                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                         >
                             <option value="">All Statuses</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="APPROVED">Approved</option>
-                            <option value="REJECTED">Rejected</option>
+                            <option value={ExpenseStatus.PENDING}>Pending</option>
+                            <option value={ExpenseStatus.APPROVED}>Approved</option>
+                            <option value={ExpenseStatus.REJECTED}>Rejected</option>
                         </select>
                     </div>
 
@@ -214,11 +346,11 @@ export const ExpensesList: React.FC = () => {
                                 setTypeFilter(e.target.value as ExpenseType | '');
                                 setCurrentPage(1);
                             }}
-                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                         >
                             <option value="">All Types</option>
-                            <option value="TRIP">Trip Expenses</option>
-                            <option value="NON_TRIP">Non-Trip Expenses</option>
+                            <option value={ExpenseType.TRIP}>Trip Expenses</option>
+                            <option value={ExpenseType.NON_TRIP}>Non-Trip Expenses</option>
                         </select>
                     </div>
 
@@ -226,13 +358,14 @@ export const ExpensesList: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Start Date
                         </label>
-                        <Input
+                        <input
                             type="date"
                             value={startDate}
                             onChange={(e) => {
                                 setStartDate(e.target.value);
                                 setCurrentPage(1);
                             }}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                         />
                     </div>
 
@@ -240,71 +373,99 @@ export const ExpensesList: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             End Date
                         </label>
-                        <Input
+                        <input
                             type="date"
                             value={endDate}
                             onChange={(e) => {
                                 setEndDate(e.target.value);
                                 setCurrentPage(1);
                             }}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                         />
                     </div>
 
                     <div className="flex items-end">
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                setStatusFilter('');
-                                setTypeFilter('');
-                                setStartDate('');
-                                setEndDate('');
-                                setCurrentPage(1);
-                            }}
+                            onClick={handleClearFilters}
                             className="w-full"
+                            disabled={!hasActiveFilters}
                         >
-                            Clear Filters
+                            Clear All
                         </Button>
                     </div>
                 </div>
+
+                {/* Active Filters Display */}
+                {hasActiveFilters && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="flex items-center flex-wrap gap-2">
+                            <span className="text-xs font-medium text-gray-500">Active:</span>
+                            {statusFilter && (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    Status: {statusFilter}
+                                </span>
+                            )}
+                            {typeFilter && (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    Type: {typeFilter}
+                                </span>
+                            )}
+                            {startDate && (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    From: {startDate}
+                                </span>
+                            )}
+                            {endDate && (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    To: {endDate}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Expenses Table */}
+            {/* Table */}
             <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                        Expense Records
-                    </h3>
-                </div>
-                <div className="p-6">
-                    <Table
-                        data={expensesData?.data?.expenses || []}
-                        columns={expenseColumns}
-                        loading={isLoading}
-                        emptyMessage="No expenses found"
-                    />
-                </div>
+                <Table
+                    data={expensesData?.data?.expenses || []}
+                    columns={expenseColumns}
+                    loading={isLoading}
+                    emptyMessage="No expenses found"
+                />
 
                 {/* Pagination */}
-                {expensesData?.pagination && expensesData.pagination.totalPages > 1 && (
-                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                        <div className="text-sm text-gray-700">
-                            Showing page {expensesData.data.pagination.page} of {expensesData.data.pagination.pages}
-                        </div>
-                        <div className="flex space-x-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => setCurrentPage(currentPage - 1)}
-                                disabled={currentPage === 1}
-                            >
-                                Previous
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={() => setCurrentPage(currentPage + 1)}
-                                disabled={currentPage >= (expensesData.pagination.totalPages || 1)}
-                            >
-                                Next
-                            </Button>
+                {expensesData?.data?.pagination && expensesData.data.pagination.totalPages > 1 && (
+                    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-sm text-gray-700">
+                                    Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                                    <span className="font-medium">{expensesData.data.pagination.totalPages}</span>
+                                    {' '}({expensesData.data.pagination.total} total expenses)
+                                </p>
+                            </div>
+                            <div>
+                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="rounded-l-md"
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setCurrentPage(prev => prev + 1)}
+                                        disabled={currentPage === expensesData.data.pagination.totalPages}
+                                        className="rounded-r-md"
+                                    >
+                                        Next
+                                    </Button>
+                                </nav>
+                            </div>
                         </div>
                     </div>
                 )}

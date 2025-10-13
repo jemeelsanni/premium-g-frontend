@@ -9,14 +9,21 @@ import {
     Plus,
     ArrowRight,
     AlertCircle,
+    ClipboardCheck,
 } from 'lucide-react';
 import { transportService } from '../../services/transportService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 import { TransportOrder } from '../../types/transport';
+import { useAuthStore } from '@/store/authStore';
 
 export const TransportDashboard: React.FC = () => {
+
+    const { user } = useAuthStore();
+    const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'TRANSPORT_ADMIN';
+
+
     const { data: stats, isLoading, error } = useQuery({
         queryKey: ['transport-dashboard'],
         queryFn: () => transportService.getDashboardStats(),
@@ -26,6 +33,18 @@ export const TransportDashboard: React.FC = () => {
         queryKey: ['transport-orders', 1, 5],
         queryFn: () => transportService.getOrders({ page: 1, limit: 5 }),
     });
+    const { data: pendingExpensesData } = useQuery({
+        queryKey: ['transport-expenses-pending-count'],
+        queryFn: () => transportService.getExpenses({
+            page: 1,
+            limit: 1,
+            status: 'PENDING'
+        }),
+        enabled: isAdmin, // Only fetch for admins
+    });
+
+    const pendingExpensesCount = pendingExpensesData?.data?.pagination?.total || 0;
+
 
     const { data: trucks } = useQuery({
         queryKey: ['transport-trucks'],
@@ -290,6 +309,37 @@ export const TransportDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+
+                        {isAdmin && (
+                            <Link
+                                to="/transport/expenses/approvals"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-600 group-hover:bg-green-100">
+                                        <ClipboardCheck className="h-6 w-6" />
+                                    </span>
+                                    {pendingExpensesCount > 0 && (
+                                        <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                                            {pendingExpensesCount}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Expense Approvals
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        {pendingExpensesCount > 0
+                                            ? `${pendingExpensesCount} pending approval${pendingExpensesCount !== 1 ? 's' : ''}`
+                                            : 'Review and approve expenses'}
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
+                                </span>
+                            </Link>
+                        )}
                     </div>
                 </div>
             </div>

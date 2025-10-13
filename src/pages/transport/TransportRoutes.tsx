@@ -9,6 +9,7 @@ import { TruckManagement } from './TruckManagement';
 import { ExpensesList } from './ExpensesList';
 import { CreateExpense } from './CreateExpense';
 import { ExpenseApprovals } from './ExpenseApprovals';
+import { ExpenseDetails } from './ExpenseDetails';  // ✅ ADD THIS
 import { TransportAnalytics } from './TransportAnalytics';
 
 export const TransportRoutes = () => {
@@ -29,6 +30,7 @@ export const TransportRoutes = () => {
             {/* Expenses */}
             <Route path="expenses" element={<ExpensesList />} />
             <Route path="expenses/create" element={<CreateExpense />} />
+            <Route path="expenses/:id" element={<ExpenseDetails />} />  {/* ✅ ADD THIS */}
             <Route path="expenses/approvals" element={<ExpenseApprovals />} />
 
             {/* Analytics */}
