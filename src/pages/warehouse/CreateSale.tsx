@@ -309,7 +309,7 @@ export const CreateSale: React.FC = () => {
                     productId: item.productId,
                     quantity: item.quantity,
                     unitType: item.unitType,
-                    unitPrice: item.unitPrice,
+                    unitPrice: item.discountedUnitPrice,
                     paymentMethod: saleData.paymentMethod,
                     warehouseCustomerId: saleData.warehouseCustomerId,
                     customerName: selectedCustomer?.name || '',

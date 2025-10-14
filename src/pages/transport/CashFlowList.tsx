@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, DollarSign, TrendingUp, TrendingDown, Plus, Filter, X } from 'lucide-react';
-import { warehouseService, CreateCashFlowData } from '../../services/warehouseService';
+import { transportService, CreateTransportCashFlowData } from '../../services/transportService';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { Button } from '../../components/ui/Button';
@@ -18,7 +18,7 @@ interface CashFlowFilters {
     isReconciled?: boolean | '';
 }
 
-export const CashFlowList: React.FC = () => {
+export const TransportCashFlowList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -36,54 +36,37 @@ export const CashFlowList: React.FC = () => {
     });
 
     // Form state
-    const [formData, setFormData] = useState<CreateCashFlowData>({
+    const [formData, setFormData] = useState<CreateTransportCashFlowData>({
         transactionType: 'CASH_IN',
         amount: 0,
-        paymentMethod: 'CASH',
+        paymentMethod: 'BANK_TRANSFER',
         description: '',
         referenceNumber: ''
     });
 
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-    // Build query params
-    const buildQueryParams = () => {
-        const params: any = {
-            page: currentPage,
-            limit: pageSize
-        };
-
-        if (filters.transactionType) params.transactionType = filters.transactionType;
-        if (filters.paymentMethod) params.paymentMethod = filters.paymentMethod;
-        if (filters.startDate) params.startDate = filters.startDate;
-        if (filters.endDate) params.endDate = filters.endDate;
-        if (filters.isReconciled !== '') params.isReconciled = filters.isReconciled;
-
-        return params;
-    };
-
     const { data: cashFlowData, isLoading } = useQuery({
-        queryKey: ['warehouse-cash-flow', currentPage, pageSize, filters],
+        queryKey: ['transport-cash-flow', currentPage, pageSize, filters],
         queryFn: () => {
-            const params = buildQueryParams();
-            return warehouseService.getCashFlow(
-                params.page,
-                params.limit,
-                params.transactionType,
-                params.paymentMethod,
-                params.startDate,
-                params.endDate,
-                params.isReconciled
+            return transportService.getCashFlow(
+                currentPage,
+                pageSize,
+                filters.transactionType || undefined,
+                filters.paymentMethod || undefined,
+                filters.startDate || undefined,
+                filters.endDate || undefined,
+                filters.isReconciled === '' ? undefined : filters.isReconciled
             );
         },
     });
 
     // Create mutation
     const createMutation = useMutation({
-        mutationFn: (data: CreateCashFlowData) => warehouseService.createCashFlow(data),
+        mutationFn: (data: CreateTransportCashFlowData) => transportService.createCashFlow(data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['warehouse-cash-flow'] });
-            queryClient.invalidateQueries({ queryKey: ['warehouse-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['transport-cash-flow'] });
+            queryClient.invalidateQueries({ queryKey: ['transport-dashboard'] });
             globalToast.success('Cash flow entry recorded successfully!');
             handleCloseModal();
         },
@@ -97,7 +80,7 @@ export const CashFlowList: React.FC = () => {
         setFormData({
             transactionType: 'CASH_IN',
             amount: 0,
-            paymentMethod: 'CASH',
+            paymentMethod: 'BANK_TRANSFER',
             description: '',
             referenceNumber: ''
         });
@@ -135,7 +118,7 @@ export const CashFlowList: React.FC = () => {
 
     const handleFilterChange = (key: keyof CashFlowFilters, value: any) => {
         setFilters(prev => ({ ...prev, [key]: value }));
-        setCurrentPage(1); // Reset to first page when filters change
+        setCurrentPage(1);
     };
 
     const clearFilters = () => {
@@ -151,7 +134,7 @@ export const CashFlowList: React.FC = () => {
 
     const hasActiveFilters = Object.values(filters).some(value => value !== '' && value !== undefined);
 
-    // Quick filter buttons for common date ranges
+    // Quick filter buttons
     const setQuickFilter = (type: 'today' | 'week' | 'month' | 'year') => {
         const today = new Date();
         const startDate = new Date();
@@ -179,10 +162,9 @@ export const CashFlowList: React.FC = () => {
         setCurrentPage(1);
     };
 
-    // Set filter to specific month
     const setMonthFilter = (month: number, year: number) => {
         const startDate = new Date(year, month, 1);
-        const endDate = new Date(year, month + 1, 0); // Last day of month
+        const endDate = new Date(year, month + 1, 0);
 
         setFilters(prev => ({
             ...prev,
@@ -192,7 +174,6 @@ export const CashFlowList: React.FC = () => {
         setCurrentPage(1);
     };
 
-    // Set filter to specific year
     const setYearFilter = (year: number) => {
         const startDate = new Date(year, 0, 1);
         const endDate = new Date(year, 11, 31);
@@ -254,7 +235,7 @@ export const CashFlowList: React.FC = () => {
         },
         {
             key: 'cashierUser',
-            title: 'Cashier',
+            title: 'Recorded By',
             render: (value: any) => (
                 <span className="text-sm text-gray-700">{value?.username || '-'}</span>
             )
@@ -271,11 +252,9 @@ export const CashFlowList: React.FC = () => {
         }
     ];
 
-    // Extract cash flow entries from the API response
     const cashFlowEntries = cashFlowData?.data?.cashFlowEntries || [];
     const pagination = cashFlowData?.data?.pagination;
 
-    // Calculate summary stats
     const totalInflow = cashFlowEntries
         .filter((entry: any) => entry.transactionType === 'CASH_IN')
         .reduce((sum: number, entry: any) => sum + Number(entry.amount), 0);
@@ -286,7 +265,6 @@ export const CashFlowList: React.FC = () => {
 
     const netCashFlow = totalInflow - totalOutflow;
 
-    // Generate month/year options
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
     const months = [
@@ -300,10 +278,10 @@ export const CashFlowList: React.FC = () => {
             <div className="md:flex md:items-center md:justify-between">
                 <div className="flex-1 min-w-0">
                     <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
-                        Cash Flow Management
+                        Transport Cash Flow
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Monitor and record all cash transactions
+                        Monitor transport revenue and expense transactions
                     </p>
                 </div>
                 <div className="mt-4 flex gap-3 md:mt-0 md:ml-4">
@@ -752,8 +730,8 @@ export const CashFlowList: React.FC = () => {
                             value={formData.paymentMethod}
                             onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as any })}
                             className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${formErrors.paymentMethod
-                                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                                 }`}
                         >
                             <option value="CASH">Cash</option>
@@ -771,7 +749,7 @@ export const CashFlowList: React.FC = () => {
                     <Input
                         label="Reference Number"
                         type="text"
-                        placeholder="e.g., WS-001-2024"
+                        placeholder="e.g., TO-2024-001"
                         value={formData.referenceNumber || ''}
                         onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
                     />

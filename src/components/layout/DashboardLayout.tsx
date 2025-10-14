@@ -12,9 +12,9 @@ import {
     Menu,
     X,
     User,
-    Target,
-    DollarSign,
-    BarChart3
+    // Target,
+    // DollarSign,
+    // BarChart3
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -72,15 +72,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 UserRole.TRANSPORT_STAFF
             ],
         },
-        {
-            name: 'Trucks',
-            href: '/transport/trucks',
-            icon: Truck,
-            roles: [
-                UserRole.SUPER_ADMIN,
-                UserRole.TRANSPORT_ADMIN
-            ],
-        },
+        // {
+        //     name: 'Trucks',
+        //     href: '/transport/trucks',
+        //     icon: Truck,
+        //     roles: [
+        //         UserRole.SUPER_ADMIN,
+        //         UserRole.TRANSPORT_ADMIN
+        //     ],
+        // },
         {
             name: 'Warehouse',
             href: '/warehouse',
@@ -92,37 +92,37 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 UserRole.CASHIER
             ],
         },
-        {
-            name: 'Targets',
-            href: '/targets',
-            icon: Target,
-            roles: [
-                UserRole.SUPER_ADMIN,
-                UserRole.DISTRIBUTION_ADMIN
-            ],
-        },
-        {
-            name: 'Expenses',
-            href: '/expenses',
-            icon: DollarSign,
-            roles: [
-                UserRole.SUPER_ADMIN,
-                UserRole.DISTRIBUTION_ADMIN,
-                UserRole.TRANSPORT_ADMIN,
-                UserRole.WAREHOUSE_ADMIN
-            ],
-        },
-        {
-            name: 'Analytics',
-            href: '/analytics',
-            icon: BarChart3,
-            roles: [
-                UserRole.SUPER_ADMIN,
-                UserRole.DISTRIBUTION_ADMIN,
-                UserRole.TRANSPORT_ADMIN,
-                UserRole.WAREHOUSE_ADMIN
-            ],
-        },
+        // {
+        //     name: 'Targets',
+        //     href: '/targets',
+        //     icon: Target,
+        //     roles: [
+        //         UserRole.SUPER_ADMIN,
+        //         UserRole.DISTRIBUTION_ADMIN
+        //     ],
+        // },
+        // {
+        //     name: 'Expenses',
+        //     href: '/expenses',
+        //     icon: DollarSign,
+        //     roles: [
+        //         UserRole.SUPER_ADMIN,
+        //         UserRole.DISTRIBUTION_ADMIN,
+        //         UserRole.TRANSPORT_ADMIN,
+        //         UserRole.WAREHOUSE_ADMIN
+        //     ],
+        // },
+        // {
+        //     name: 'Analytics',
+        //     href: '/analytics',
+        //     icon: BarChart3,
+        //     roles: [
+        //         UserRole.SUPER_ADMIN,
+        //         UserRole.DISTRIBUTION_ADMIN,
+        //         UserRole.TRANSPORT_ADMIN,
+        //         UserRole.WAREHOUSE_ADMIN
+        //     ],
+        // },
         {
             name: 'Admin',
             href: '/admin',

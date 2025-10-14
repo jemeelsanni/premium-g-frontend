@@ -277,7 +277,7 @@ export const TransportOrdersList: React.FC = () => {
             </div>
 
             {/* Orders Table */}
-            <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className=" h-full">
                 <Table
                     data={ordersData?.data?.orders || []}
                     columns={orderColumns}

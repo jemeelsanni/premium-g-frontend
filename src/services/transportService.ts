@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/services/transportService.ts - FIXED VERSION
-
 import { BaseApiService, apiClient } from './api';
 import { 
   TransportOrder, 
@@ -24,12 +22,13 @@ export interface CreateTransportOrderData {
   totalOrderAmount: number;
   fuelRequired: number;
   fuelPricePerLiter: number;
-  driverWages: number;      // ✅ ADD THIS
-  tripAllowance: number;    // ✅ ADD THIS
-  motorBoyWages: number;    // ✅ ADD THIS
+  driverWages: number;
+  tripAllowance: number;
+  motorBoyWages: number;
   truckId?: string;
   driverDetails?: string;
   invoiceNumber?: string;
+  paymentMethod?: 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY'; // ✨ ADD THIS
 }
 
 export interface CreateTruckData {
@@ -44,12 +43,21 @@ export interface CreateTruckData {
 export interface CreateExpenseData {
   truckId?: string;
   locationId?: string;
-  expenseType: 'TRIP' | 'NON_TRIP';  // ✅ Back to TRIP/NON_TRIP
+  expenseType: 'TRIP' | 'NON_TRIP';
   category: string;
   amount: number;
   description: string;
   expenseDate: string;
   receiptNumber?: string;
+}
+
+// ✨ ADD CASH FLOW INTERFACE
+export interface CreateTransportCashFlowData {
+  transactionType: 'CASH_IN' | 'CASH_OUT';
+  amount: number;
+  paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'POS' | 'CHECK' | 'MOBILE_MONEY';
+  description?: string;
+  referenceNumber?: string;
 }
 
 export interface TransportFilters {
@@ -218,11 +226,45 @@ export class TransportService extends BaseApiService {
   }
 
   // ================================
-  // ANALYTICS - Use apiClient directly for separate analytics routes
+  // ✨ CASH FLOW (NEW)
+  // ================================
+
+  async getCashFlow(
+    page = 1, 
+    limit = 20,
+    transactionType?: string,
+    paymentMethod?: string,
+    startDate?: string,
+    endDate?: string,
+    isReconciled?: boolean
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    
+    if (transactionType) params.append('transactionType', transactionType);
+    if (paymentMethod) params.append('paymentMethod', paymentMethod);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (isReconciled !== undefined) params.append('isReconciled', isReconciled.toString());
+    
+    return this.get(`/cash-flow?${params.toString()}`);
+  }
+
+  async createCashFlow(data: CreateTransportCashFlowData): Promise<any> {
+    const response = await this.post<{ 
+      success: boolean; 
+      message: string;
+      data: { cashFlow: any } 
+    }>(data, '/cash-flow');
+    return response;
+  }
+
+  // ================================
+  // ANALYTICS
   // ================================
 
   async getDashboardStats(): Promise<any> {
-    // ✅ Analytics are on separate routes: /api/v1/analytics/transport/*
     const response = await apiClient.get('/analytics/transport/dashboard');
     return response.data;
   }

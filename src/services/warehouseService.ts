@@ -29,6 +29,14 @@ export interface CreateSaleData {
   receiptNumber?: string;
 }
 
+export interface CreateCashFlowData {
+  transactionType: 'CASH_IN' | 'CASH_OUT';
+  amount: number;
+  paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'POS' | 'CHECK' | 'MOBILE_MONEY';
+  description?: string;
+  referenceNumber?: string;
+}
+
 export interface CreateSaleResponse {
   success: boolean;
   message: string;
@@ -302,9 +310,36 @@ export class WarehouseService extends BaseApiService {
   }
 
   // Cash Flow
-  async getCashFlow(page = 1, limit = 10): Promise<any> {
-    return this.get(`/cash-flow?page=${page}&limit=${limit}`);
-  }
+  async getCashFlow(
+  page = 1, 
+  limit = 20,
+  transactionType?: string,
+  paymentMethod?: string,
+  startDate?: string,
+  endDate?: string,
+  isReconciled?: boolean
+): Promise<any> {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  
+  if (transactionType) params.append('transactionType', transactionType);
+  if (paymentMethod) params.append('paymentMethod', paymentMethod);
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  if (isReconciled !== undefined) params.append('isReconciled', isReconciled.toString());
+  
+  return this.get(`/cash-flow?${params.toString()}`);
+}
+
+  async createCashFlow(data: CreateCashFlowData): Promise<any> {
+  const response = await this.post<{ 
+    success: boolean; 
+    message: string;
+    data: { cashFlow: any } 
+  }>(data, '/cash-flow');
+  return response;
+}
 
     // Discount Requests
 

@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/warehouse/SalesList.tsx
+// src/pages/warehouse/SalesList.tsx - FIXED VERSION
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, User, Tag, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, User, Tag, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
@@ -17,6 +17,12 @@ export const SalesList: React.FC = () => {
         queryKey: ['warehouse-sales', currentPage, pageSize],
         queryFn: () => warehouseService.getSales(currentPage, pageSize),
     });
+
+    // ✅ Calculate pagination values
+    const totalPages = salesData?.data?.pagination?.totalPages || 1;
+    const total = salesData?.data?.pagination?.total || 0;
+    const hasNext = currentPage < totalPages;
+    const hasPrev = currentPage > 1;
 
     const parseNumber = (value: any, fallback = 0): number => {
         if (typeof value === 'number') return value;
@@ -205,7 +211,7 @@ export const SalesList: React.FC = () => {
                                         Total Sales
                                     </dt>
                                     <dd className="text-lg font-semibold text-gray-900">
-                                        {salesData?.data?.pagination?.total || 0}
+                                        {total}
                                     </dd>
                                 </dl>
                             </div>
@@ -261,13 +267,44 @@ export const SalesList: React.FC = () => {
                     data={salesData?.data?.sales || []}
                     columns={salesColumns}
                     loading={isLoading}
-                    pagination={{
-                        currentPage,
-                        totalPages: salesData?.data?.pagination?.totalPages || 1,
-                        onPageChange: setCurrentPage,
-                    }}
                     emptyMessage="No sales records found"
                 />
+
+                {/* ✅ FIXED: Manual Pagination (matching other pages pattern) */}
+                {!isLoading && total > 0 && (
+                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                        <div className="text-sm text-gray-500">
+                            Showing {((currentPage - 1) * pageSize) + 1} to{' '}
+                            {Math.min(currentPage * pageSize, total)} of {total} results
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(currentPage - 1)}
+                                disabled={!hasPrev}
+                            >
+                                <ChevronLeft className="h-4 w-4 mr-1" />
+                                Previous
+                            </Button>
+
+                            <span className="px-3 py-1 text-sm text-gray-700">
+                                Page {currentPage} of {totalPages}
+                            </span>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(currentPage + 1)}
+                                disabled={!hasNext}
+                            >
+                                Next
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

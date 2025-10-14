@@ -1,3 +1,4 @@
+// src/types/warehouse.ts - COMPLETE FIXED VERSION
 
 export interface WarehouseCustomer {
   id: string;
@@ -47,6 +48,7 @@ export interface WarehouseSaleRecord {
   discountReason?: string | null;
   originalUnitPrice?: number | null;
 }
+
 export interface WarehouseSaleItem {
   id: string;
   productId: string;
@@ -64,6 +66,7 @@ export interface WarehouseSaleItem {
   grossProfit?: number | null;
 }
 
+// ✅ FIXED: Added missing discount fields
 export interface WarehouseSale {
   receiptNumber: string;
   saleIds: string[];
@@ -83,6 +86,10 @@ export interface WarehouseSale {
   totalCost: number;
   grossProfit: number;
   discountApplied: boolean;
+  discountPercentage?: number | null;  // ✅ ADDED
+  discountReason?: string | null;      // ✅ ADDED - Fixes TypeScript error
+  originalUnitPrice?: number | null;   // ✅ ADDED
+  approvedBy?: string | null;          // ✅ ADDED
   createdAt: string;
   totalQuantity: number;
   itemsCount: number;
