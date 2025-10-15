@@ -11,7 +11,7 @@ import {
     AlertCircle
 } from 'lucide-react';
 
-type OrderStatus =
+export type OrderStatus =
     | 'PENDING'
     | 'CONFIRMED'
     | 'PROCESSING'

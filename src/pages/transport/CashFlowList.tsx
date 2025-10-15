@@ -223,7 +223,7 @@ export const TransportCashFlowList: React.FC = () => {
             key: 'description',
             title: 'Description',
             render: (value: string) => (
-                <span className="text-sm text-gray-600">{value || '-'}</span>
+                <span className="text-sm text-gray-600 truncate max-w-xs block">{value || '-'}</span>
             )
         },
         {

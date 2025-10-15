@@ -1,6 +1,6 @@
+// src/pages/transport/TransportOrdersList.tsx - FIXED HEIGHT VERSION
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/transport/TransportOrdersList.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Plus, Search, Download, Eye, Edit, MapPin } from 'lucide-react';
@@ -8,10 +8,9 @@ import { transportService } from '../../services/transportService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
-import { TransportOrder, TransportOrderStatus } from '../../types/transport';
+import { TransportOrderStatus } from '../../types/transport';
 import { StatusUpdateDropdown } from '../../components/transport/StatusUpdateDropdown';
-
-
+import { toast } from 'react-hot-toast';
 
 export const TransportOrdersList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
@@ -30,6 +29,15 @@ export const TransportOrdersList: React.FC = () => {
         }),
     });
 
+    // Debug logging
+    useEffect(() => {
+        if (ordersData) {
+            console.log('📦 Orders Data:', ordersData);
+            console.log('📦 Orders Array:', ordersData?.data?.orders);
+            console.log('📦 Pagination:', ordersData?.data?.pagination);
+        }
+    }, [ordersData]);
+
     const handleSearch = (value: string) => {
         setSearchTerm(value);
         setCurrentPage(1);
@@ -40,11 +48,34 @@ export const TransportOrdersList: React.FC = () => {
         setCurrentPage(1);
     };
 
+    const handleExport = async () => {
+        try {
+            const blob = await transportService.exportOrdersToCSV({
+                search: searchTerm,
+                status: statusFilter || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `transport-orders-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Orders exported successfully');
+        } catch (error) {
+            toast.error('Failed to export orders');
+            console.error('Export error:', error);
+        }
+    };
+
     const orderColumns = [
         {
             key: 'orderNumber',
             title: 'Order #',
-            render: (value: string, record: TransportOrder) => (
+            render: (value: string, record: any) => (
                 <Link
                     to={`/transport/orders/${record.id}`}
                     className="text-blue-600 hover:text-blue-800 font-medium"
@@ -54,72 +85,93 @@ export const TransportOrdersList: React.FC = () => {
             )
         },
         {
-            key: 'clientName',
+            key: 'name',
             title: 'Client',
-            render: (value: string) => (
-                <div className="font-medium text-gray-900">{value}</div>
-            )
+            render: (value: string, record: any) => {
+                const clientName = value || record.clientName || 'N/A';
+                return (
+                    <div className="font-medium text-gray-900">{clientName}</div>
+                );
+            }
+        },
+        {
+            key: 'phone',
+            title: 'Phone',
+            render: (value: string, record: any) => {
+                const phone = value || record.clientPhone || 'N/A';
+                return (
+                    <div className="text-sm text-gray-600">{phone}</div>
+                );
+            }
         },
         {
             key: 'pickupLocation',
-            title: 'Route',
-            render: (value: string, record: TransportOrder) => (
-                <div className="text-sm">
-                    <div className="flex items-center text-gray-600">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        <span className="truncate max-w-24" title={record.pickupLocation || ''}>
-                            {record.pickupLocation}
+            title: 'Pickup',
+            render: (value: string, record: any) => {
+                const location = value || record.location?.name || 'N/A';
+                return (
+                    <div className="flex items-center text-sm">
+                        <MapPin className="h-3 w-3 mr-1 text-gray-400" />
+                        <span className="truncate max-w-32" title={location}>
+                            {location}
                         </span>
                     </div>
-                    <div className="text-xs text-gray-400">↓</div>
-                    <div className="flex items-center text-gray-600">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        <span className="truncate max-w-24" title={record.deliveryAddress || ''}>
-                            {record.deliveryAddress}
-                        </span>
-                    </div>
-                </div>
-            )
+                );
+            }
         },
         {
-            key: 'truck',
-            title: 'Truck',
-            render: (value: any) => (
-                <div className="text-sm">
-                    {value ? (
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                            {value.plateNumber}
+            key: 'deliveryAddress',
+            title: 'Delivery',
+            render: (value: string, record: any) => {
+                const delivery = value || record.deliveryLocation || 'N/A';
+                return (
+                    <div className="flex items-center text-sm">
+                        <MapPin className="h-3 w-3 mr-1 text-blue-400" />
+                        <span className="truncate max-w-32" title={delivery}>
+                            {delivery}
                         </span>
-                    ) : (
-                        <span className="text-gray-400 text-xs">Not assigned</span>
-                    )}
-                </div>
-            )
+                    </div>
+                );
+            }
         },
         {
             key: 'totalOrderAmount',
             title: 'Amount',
-            render: (value: number) => `₦${value.toLocaleString()}`
+            render: (value: number, record: any) => {
+                const amount = value || record.amount || 0;
+                return (
+                    <div className="font-semibold text-gray-900">
+                        ₦{Number(amount).toLocaleString()}
+                    </div>
+                );
+            }
         },
         {
             key: 'deliveryStatus',
             title: 'Status',
-            render: (value: any, row: TransportOrder) => (
+            render: (value: string, record: any) => (
                 <StatusUpdateDropdown
-                    orderId={row.id}
-                    currentStatus={row.deliveryStatus}
+                    orderId={record.id}
+                    currentStatus={value || record.status || 'PENDING'}
                 />
             )
         },
         {
             key: 'createdAt',
-            title: 'Date',
-            render: (value: string) => new Date(value).toLocaleDateString()
+            title: 'Created',
+            render: (value: string) => {
+                const date = new Date(value);
+                return (
+                    <div className="text-sm text-gray-600">
+                        {date.toLocaleDateString()}
+                    </div>
+                );
+            }
         },
         {
             key: 'actions',
             title: 'Actions',
-            render: (value: any, record: TransportOrder) => (
+            render: (_value: any, record: any) => (
                 <div className="flex items-center space-x-2">
                     <Link to={`/transport/orders/${record.id}`}>
                         <Button variant="outline" size="sm" className="p-1">
@@ -137,9 +189,14 @@ export const TransportOrdersList: React.FC = () => {
     ];
 
     const Pagination = () => {
-        if (!ordersData?.pagination) return null;
+        const pagination = ordersData?.data?.pagination;
 
-        const { page, totalPages, total } = ordersData.pagination;
+        if (!pagination) {
+            console.log('⚠️ No pagination data');
+            return null;
+        }
+
+        const { page, totalPages, total } = pagination;
         const startItem = ((page - 1) * pageSize) + 1;
         const endItem = Math.min(page * pageSize, total);
 
@@ -155,7 +212,7 @@ export const TransportOrdersList: React.FC = () => {
                     </Button>
                     <Button
                         variant="outline"
-                        disabled={page === totalPages}
+                        disabled={page >= totalPages}
                         onClick={() => setCurrentPage(page + 1)}
                     >
                         Next
@@ -175,20 +232,30 @@ export const TransportOrdersList: React.FC = () => {
                                 variant="outline"
                                 disabled={page === 1}
                                 onClick={() => setCurrentPage(page - 1)}
-                                className="rounded-l-md"
+                                className="rounded-l-md px-3 py-2"
                             >
                                 Previous
                             </Button>
 
                             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                const pageNum = Math.max(1, Math.min(page - 2 + i, totalPages - 4 + i));
-                                if (pageNum <= totalPages) {
+                                let pageNum;
+                                if (totalPages <= 5) {
+                                    pageNum = i + 1;
+                                } else if (page <= 3) {
+                                    pageNum = i + 1;
+                                } else if (page >= totalPages - 2) {
+                                    pageNum = totalPages - 4 + i;
+                                } else {
+                                    pageNum = page - 2 + i;
+                                }
+
+                                if (pageNum > 0 && pageNum <= totalPages) {
                                     return (
                                         <Button
                                             key={pageNum}
-                                            variant={pageNum === page ? "primary" : "outline"}
+                                            variant={pageNum === page ? 'primary' : 'outline'}
                                             onClick={() => setCurrentPage(pageNum)}
-                                            className="rounded-none"
+                                            className="px-4 py-2"
                                         >
                                             {pageNum}
                                         </Button>
@@ -199,9 +266,9 @@ export const TransportOrdersList: React.FC = () => {
 
                             <Button
                                 variant="outline"
-                                disabled={page === totalPages}
+                                disabled={page >= totalPages}
                                 onClick={() => setCurrentPage(page + 1)}
-                                className="rounded-r-md"
+                                className="rounded-r-md px-3 py-2"
                             >
                                 Next
                             </Button>
@@ -212,50 +279,62 @@ export const TransportOrdersList: React.FC = () => {
         );
     };
 
+    const processedOrders = (ordersData?.data?.orders || []).map((order: any) => ({
+        ...order,
+        name: order.name || order.clientName || 'Unknown',
+        clientName: order.name || order.clientName || 'Unknown',
+        phone: order.phone || order.clientPhone || '',
+        clientPhone: order.phone || order.clientPhone || '',
+        pickupLocation: order.pickupLocation || order.location?.name || '',
+        deliveryAddress: order.deliveryAddress || order.deliveryLocation || '',
+        totalOrderAmount: Number(order.totalOrderAmount || order.amount || 0),
+        deliveryStatus: order.deliveryStatus || order.status || 'PENDING'
+    }));
+
     if (error) {
         return (
-            <div className="text-center py-12">
-                <p className="text-red-600">Failed to load transport orders</p>
+            <div className="p-6">
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                    <p className="text-red-800">Failed to load orders: {String(error)}</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="md:flex md:items-center md:justify-between">
-                <div className="flex-1 min-w-0">
-                    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-                        Transport Orders
-                    </h2>
+        // ✅ FIX: Changed from space-y-6 to flex flex-col with h-full
+        <div className="flex flex-col h-full">
+            {/* Header - Fixed height */}
+            <div className="flex-shrink-0 flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Transport Orders</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Manage all transport orders and logistics operations
+                        Manage and track all transport orders
                     </p>
                 </div>
-                <div className="mt-4 flex md:mt-0 md:ml-4">
-                    <Link to="/transport/orders/create">
-                        <Button className="inline-flex items-center">
-                            <Plus className="h-4 w-4 mr-2" />
-                            New Transport Order
-                        </Button>
-                    </Link>
-                </div>
+                <Link to="/transport/orders/create">
+                    <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        New Order
+                    </Button>
+                </Link>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white shadow rounded-lg">
-                <div className="p-6">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {/* Filters - Fixed height */}
+            <div className="flex-shrink-0 bg-white shadow rounded-lg p-6 mb-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                    <div className="sm:col-span-2">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
-                                placeholder="Search orders..."
+                                placeholder="Search by order number, client name..."
                                 value={searchTerm}
                                 onChange={(e) => handleSearch(e.target.value)}
-                                className="pl-10"
                             />
+                            <Search className="h-4 w-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2" />
                         </div>
+                    </div>
 
+                    <div>
                         <select
                             value={statusFilter}
                             onChange={(e) => handleStatusFilter(e.target.value as TransportOrderStatus | '')}
@@ -265,27 +344,70 @@ export const TransportOrdersList: React.FC = () => {
                             <option value="PENDING">Pending</option>
                             <option value="IN_TRANSIT">In Transit</option>
                             <option value="DELIVERED">Delivered</option>
+                            <option value="PARTIALLY_DELIVERED">Partially Delivered</option>
                             <option value="CANCELLED">Cancelled</option>
                         </select>
-
-                        <Button variant="outline" className="inline-flex items-center">
-                            <Download className="h-4 w-4 mr-2" />
-                            Export
-                        </Button>
                     </div>
+
+                    <Button
+                        variant="outline"
+                        className="inline-flex items-center justify-center"
+                        onClick={handleExport}
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                    </Button>
                 </div>
+
+                {(searchTerm || statusFilter) && (
+                    <div className="mt-4 flex items-center gap-2">
+                        <span className="text-sm text-gray-500">Active filters:</span>
+                        {searchTerm && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                                Search: {searchTerm}
+                            </span>
+                        )}
+                        {statusFilter && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                                Status: {statusFilter.replace('_', ' ')}
+                            </span>
+                        )}
+                        <button
+                            onClick={() => {
+                                setSearchTerm('');
+                                setStatusFilter('');
+                                setCurrentPage(1);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                            Clear all
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Orders Table */}
-            <div className=" h-full">
-                <Table
-                    data={ordersData?.data?.orders || []}
-                    columns={orderColumns}
-                    loading={isLoading}
-                    emptyMessage="No transport orders found"
-                />
+            {/* ✅ FIX: Table Container - Takes remaining height */}
+            <div className="flex-1 flex flex-col bg-white shadow rounded-lg min-h-0">
+                {/* Table - Fills available space */}
+                <div className="flex-1 overflow-auto">
+                    <Table
+                        data={processedOrders}
+                        columns={orderColumns}
+                        loading={isLoading}
+                        emptyMessage={
+                            searchTerm || statusFilter
+                                ? "No orders found matching your filters"
+                                : "No transport orders yet. Create your first order to get started!"
+                        }
+                    />
+                </div>
 
-                <Pagination />
+                {/* Pagination - Fixed at bottom */}
+                {!isLoading && ordersData?.data?.pagination && (
+                    <div className="flex-shrink-0">
+                        <Pagination />
+                    </div>
+                )}
             </div>
         </div>
     );

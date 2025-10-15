@@ -13,7 +13,9 @@ import {
     CheckCircle,
     AlertCircle,
     Truck,
-    FileDown
+    FileDown,
+    Lock,
+    Edit
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
@@ -41,7 +43,6 @@ export const OrderDetails: React.FC = () => {
     const [isAssignTransportModalOpen, setIsAssignTransportModalOpen] = useState(false);
     const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
-
 
     const [paymentData, setPaymentData] = useState({
         amount: 0,
@@ -180,8 +181,9 @@ export const OrderDetails: React.FC = () => {
         }
     };
 
+    // ✅ FIXED: Use correct role value that matches your enum
     // TODO: Replace with actual user role from auth context/state
-    const userRole = 'ADMIN'; // This should come from your auth context
+    const userRole = 'SUPER_ADMIN'; // or 'DISTRIBUTION_ADMIN'
 
     return (
         <div className="space-y-6">
@@ -224,7 +226,6 @@ export const OrderDetails: React.FC = () => {
                         {order.status}
                     </span>
                 </div>
-
             </div>
 
             {/* Order Details Grid */}
@@ -332,26 +333,29 @@ export const OrderDetails: React.FC = () => {
                 </div>
             </div>
 
-            {/* Payment Summary */}
+            {/* Payment Summary Card */}
             <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Summary</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Summary</h3>
 
                 <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Total Amount</span>
-                        <span className="font-medium">
-                            ₦{parseFloat(order.finalAmount?.toString() || '0').toLocaleString()}
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Order Amount:</span>
+                        <span className="font-semibold text-gray-900">
+                            ₦{order.finalAmount?.toLocaleString()}
                         </span>
                     </div>
-                    <div className="flex justify-between text-sm border-t pt-3">
-                        <span className="text-gray-600">Amount Paid</span>
-                        <span className="font-medium text-green-600">
-                            ₦{parseFloat(order.amountPaid?.toString() || '0').toLocaleString()}
+
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Amount Paid:</span>
+                        <span className="font-semibold text-green-600">
+                            ₦{order.amountPaid?.toLocaleString()}
                         </span>
                     </div>
-                    <div className="flex justify-between text-base font-semibold border-t pt-3">
-                        <span>Balance</span>
-                        <span className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
+
+                    <div className="flex justify-between items-center pt-3 border-t">
+                        <span className="text-gray-600 font-medium">Balance:</span>
+                        <span className={`font-bold text-lg ${balance > 0
+                            ? 'text-red-600' : 'text-green-600'}`}>
                             ₦{balance.toLocaleString()}
                         </span>
                     </div>
@@ -364,7 +368,9 @@ export const OrderDetails: React.FC = () => {
                     </div>
                 )}
 
+                {/* Action Buttons */}
                 <div className="mt-4 space-y-2">
+                    {/* Record Payment Button */}
                     {order.paymentStatus === 'PENDING' && balance > 0 && (
                         <Button
                             onClick={() => setIsPaymentModalOpen(true)}
@@ -375,6 +381,7 @@ export const OrderDetails: React.FC = () => {
                         </Button>
                     )}
 
+                    {/* Confirm Payment Button */}
                     {canConfirmPayment && (
                         <Button
                             onClick={() => confirmPaymentMutation.mutate()}
@@ -386,17 +393,56 @@ export const OrderDetails: React.FC = () => {
                         </Button>
                     )}
 
-                    {/* Price Adjustment Button - Only for admins after payment confirmed */}
-                    {userRole === 'ADMIN' && order?.paymentStatus === 'CONFIRMED' && (
-                        <Button
-                            onClick={() => setShowAdjustmentModal(true)}
-                            className="w-full bg-orange-600 hover:bg-orange-700"
-                        >
-                            Adjust Price
-                        </Button>
-                    )}
+                    {/* ✨ CORRECTED: Adjust Price Button - Shows when admin AND payment confirmed */}
+                    {(['SUPER_ADMIN', 'DISTRIBUTION_ADMIN'].includes(userRole)) &&
+                        order?.paymentStatus === 'CONFIRMED' && (
+                            <>
+                                <Button
+                                    onClick={() => setShowAdjustmentModal(true)}
+                                    disabled={!!order?.orderRaisedByRFL}
+                                    className={`w-full ${order?.orderRaisedByRFL
+                                        ? 'bg-gray-400 cursor-not-allowed hover:bg-gray-400'
+                                        : 'bg-orange-600 hover:bg-orange-700'
+                                        }`}
+                                    title={
+                                        order?.orderRaisedByRFL
+                                            ? 'Price adjustment not allowed - Order already raised by Rite Foods'
+                                            : 'Adjust order price'
+                                    }
+                                >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Adjust Price
+                                    {order?.orderRaisedByRFL && (
+                                        <Lock className="h-4 w-4 ml-2" />
+                                    )}
+                                </Button>
+
+                                {/* ✨ Info message when adjustment is disabled */}
+                                {order?.orderRaisedByRFL && (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start">
+                                        <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                                        <div className="text-sm text-yellow-800">
+                                            <p className="font-medium">Price Adjustment Locked</p>
+                                            <p className="mt-1">
+                                                This order was raised by Rite Foods on{' '}
+                                                <strong>
+                                                    {order?.orderRaisedAt
+                                                        ? formatDate(order.orderRaisedAt)
+                                                        : 'N/A'}
+                                                </strong>.
+                                                Price adjustments are no longer permitted.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                 </div>
             </div>
+
+            {/* Rest of the component remains the same... */}
+            {/* Price Adjustment History, Rite Foods section, Delivery section, Payment History, and Modals */}
+            {/* (Keep all remaining code from the original file) */}
 
             {/* Price Adjustment History */}
             {order?.priceAdjustments && order.priceAdjustments.length > 0 && (
@@ -435,6 +481,7 @@ export const OrderDetails: React.FC = () => {
                     </div>
                 </div>
             )}
+
 
             {/* Rite Foods & Delivery Actions */}
             <div className="bg-white shadow rounded-lg p-6">
