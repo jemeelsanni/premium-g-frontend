@@ -3,13 +3,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, User, Tag, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, User, Tag, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Download, FileText, Filter } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
+import { toast } from 'react-hot-toast';
+
 
 export const SalesList: React.FC = () => {
     const navigate = useNavigate();
+    const [showFilters, setShowFilters] = useState(false);
+    const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'custom' | ''>('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [isExportingCSV, setIsExportingCSV] = useState(false);
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 20;
 
@@ -180,6 +188,67 @@ export const SalesList: React.FC = () => {
         }
     ];
 
+    const handleExportCSV = async () => {
+        setIsExportingCSV(true);
+        try {
+            const blob = await warehouseService.exportSalesToCSV({
+                period: period || undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `warehouse-sales-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Sales exported to CSV successfully');
+        } catch (error) {
+            toast.error('Failed to export sales to CSV');
+            console.error('Export error:', error);
+        } finally {
+            setIsExportingCSV(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        setIsExportingPDF(true);
+        try {
+            const blob = await warehouseService.exportSalesToPDF({
+                period: period || undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+                limit: 100
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `warehouse-sales-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Sales exported to PDF successfully');
+        } catch (error) {
+            toast.error('Failed to export sales to PDF');
+            console.error('Export error:', error);
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
+
+    const handleClearFilters = () => {
+        setPeriod('');
+        setStartDate('');
+        setEndDate('');
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -191,11 +260,104 @@ export const SalesList: React.FC = () => {
                         View and manage all warehouse sales transactions
                     </p>
                 </div>
-                <Button onClick={() => navigate('/warehouse/sales/create')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Record New Sale
-                </Button>
+                <div className="flex items-center space-x-3">
+                    <Button
+                        variant="outline"
+                        onClick={() => setShowFilters(!showFilters)}
+                    >
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filters
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleExportCSV}
+                        disabled={isExportingCSV || !salesData?.data?.sales?.length}
+                    >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {isExportingCSV ? 'Exporting...' : 'Export CSV'}
+                    </Button>
+                    <Button
+                        onClick={handleExportPDF}
+                        disabled={isExportingPDF || !salesData?.data?.sales?.length}
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        {isExportingPDF ? 'Exporting...' : 'Export PDF'}
+                    </Button>
+                    <Button onClick={() => navigate('/warehouse/sales/create')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Record New Sale
+                    </Button>
+                </div>
             </div>
+            {/* Filters Panel */}
+            {showFilters && (
+                <div className="bg-white shadow rounded-lg p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Filter Sales</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Period Filter */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Period
+                            </label>
+                            <select
+                                value={period}
+                                onChange={(e) => setPeriod(e.target.value as any)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">All Time</option>
+                                <option value="day">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="year">This Year</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+
+                        {/* Start Date */}
+                        {period === 'custom' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        )}
+
+                        {/* End Date */}
+                        {period === 'custom' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    End Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        )}
+
+                        {/* Clear Filters */}
+                        {(period || startDate || endDate) && (
+                            <div className="flex items-end">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleClearFilters}
+                                    className="w-full"
+                                >
+                                    Clear Filters
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
@@ -306,6 +468,6 @@ export const SalesList: React.FC = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };

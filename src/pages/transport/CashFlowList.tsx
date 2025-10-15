@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, DollarSign, TrendingUp, TrendingDown, Plus, Filter, X } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, TrendingDown, Plus, Filter, X, FileText, Download } from 'lucide-react';
 import { transportService, CreateTransportCashFlowData } from '../../services/transportService';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
@@ -23,6 +23,8 @@ export const TransportCashFlowList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
+    const [isExportingCSV, setIsExportingCSV] = useState(false);
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
     const queryClient = useQueryClient();
     const pageSize = 20;
 
@@ -86,6 +88,61 @@ export const TransportCashFlowList: React.FC = () => {
         });
         setFormErrors({});
     };
+
+    const handleExportCSV = async () => {
+        setIsExportingCSV(true);
+        try {
+            const blob = await transportService.exportCashFlowToCSV({
+                startDate: filters.startDate || undefined,
+                endDate: filters.endDate || undefined,
+                transactionType: filters.transactionType || undefined,
+                paymentMethod: filters.paymentMethod || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `transport-cashflow-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            globalToast.success('Cash flow exported to CSV successfully');
+        } catch (error) {
+            globalToast.error('Failed to export cash flow to CSV');
+        } finally {
+            setIsExportingCSV(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        setIsExportingPDF(true);
+        try {
+            const blob = await transportService.exportCashFlowToPDF({
+                startDate: filters.startDate || undefined,
+                endDate: filters.endDate || undefined,
+                transactionType: filters.transactionType || undefined,
+                paymentMethod: filters.paymentMethod || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `transport-cashflow-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            globalToast.success('Cash flow exported to PDF successfully');
+        } catch (error) {
+            globalToast.error('Failed to export cash flow to PDF');
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
+
 
     const validateForm = (): boolean => {
         const errors: Record<string, string> = {};
@@ -296,6 +353,22 @@ export const TransportCashFlowList: React.FC = () => {
                                 {Object.values(filters).filter(v => v !== '' && v !== undefined).length}
                             </span>
                         )}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleExportCSV}
+                        disabled={isExportingCSV || !cashFlowEntries.length}
+                    >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {isExportingCSV ? 'Exporting...' : 'Export CSV'}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleExportPDF}
+                        disabled={isExportingPDF || !cashFlowEntries.length}
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        {isExportingPDF ? 'Exporting...' : 'Export PDF'}
                     </Button>
                     <Button onClick={() => setShowCreateModal(true)}>
                         <Plus className="h-4 w-4 mr-2" />

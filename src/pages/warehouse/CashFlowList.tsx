@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, DollarSign, TrendingUp, TrendingDown, Plus, Filter, X } from 'lucide-react';
+import { Search, DollarSign, TrendingUp, TrendingDown, Plus, Filter, X, Download, FileText } from 'lucide-react';
 import { warehouseService, CreateCashFlowData } from '../../services/warehouseService';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
@@ -23,6 +23,8 @@ export const CashFlowList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
+    const [isExportingCSV, setIsExportingCSV] = useState(false);
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
     const queryClient = useQueryClient();
     const pageSize = 20;
 
@@ -103,6 +105,62 @@ export const CashFlowList: React.FC = () => {
         });
         setFormErrors({});
     };
+    const handleExportCSV = async () => {
+        setIsExportingCSV(true);
+        try {
+            const blob = await warehouseService.exportCashFlowToCSV({
+                startDate: filters.startDate || undefined,
+                endDate: filters.endDate || undefined,
+                transactionType: filters.transactionType || undefined,
+                paymentMethod: filters.paymentMethod || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `warehouse-cashflow-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            globalToast.success('Cash flow exported to CSV successfully');
+        } catch (error) {
+            globalToast.error('Failed to export cash flow to CSV');
+            console.error('Export error:', error);
+        } finally {
+            setIsExportingCSV(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        setIsExportingPDF(true);
+        try {
+            const blob = await warehouseService.exportCashFlowToPDF({
+                startDate: filters.startDate || undefined,
+                endDate: filters.endDate || undefined,
+                transactionType: filters.transactionType || undefined,
+                paymentMethod: filters.paymentMethod || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `warehouse-cashflow-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            globalToast.success('Cash flow exported to PDF successfully');
+        } catch (error) {
+            globalToast.error('Failed to export cash flow to PDF');
+            console.error('Export error:', error);
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
+
 
     const validateForm = (): boolean => {
         const errors: Record<string, string> = {};
@@ -318,6 +376,22 @@ export const CashFlowList: React.FC = () => {
                                 {Object.values(filters).filter(v => v !== '' && v !== undefined).length}
                             </span>
                         )}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleExportCSV}
+                        disabled={isExportingCSV || !cashFlowEntries.length}
+                    >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {isExportingCSV ? 'Exporting...' : 'Export CSV'}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleExportPDF}
+                        disabled={isExportingPDF || !cashFlowEntries.length}
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        {isExportingPDF ? 'Exporting...' : 'Export PDF'}
                     </Button>
                     <Button onClick={() => setShowCreateModal(true)}>
                         <Plus className="h-4 w-4 mr-2" />
@@ -752,8 +826,8 @@ export const CashFlowList: React.FC = () => {
                             value={formData.paymentMethod}
                             onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as any })}
                             className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${formErrors.paymentMethod
-                                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                                 }`}
                         >
                             <option value="CASH">Cash</option>

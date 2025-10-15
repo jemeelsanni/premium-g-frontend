@@ -370,6 +370,96 @@ export class TransportService extends BaseApiService {
     
     return response.data;
   }
+
+  // Add these methods to the TransportService class
+
+async exportSalesToCSV(filters?: {
+  period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  locationId?: string;
+}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+  }
+  
+  const response = await apiClient.get(`/transport/sales/export/csv?${params}`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+async exportSalesToPDF(filters?: {
+  period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  locationId?: string;
+  limit?: number;
+}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, String(value));
+      }
+    });
+  }
+  
+  const response = await apiClient.get(`/transport/sales/export/pdf?${params}`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+async exportCashFlowToCSV(filters?: {
+  startDate?: string;
+  endDate?: string;
+  transactionType?: string;
+  paymentMethod?: string;
+}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+  }
+  
+  const response = await apiClient.get(`/transport/cash-flow/export/csv?${params}`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+async exportCashFlowToPDF(filters?: {
+  startDate?: string;
+  endDate?: string;
+  transactionType?: string;
+  paymentMethod?: string;
+}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+  }
+  
+  const response = await apiClient.get(`/transport/cash-flow/export/pdf?${params}`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+async exportOrderToPDF(id: string): Promise<Blob> {
+        const response = await apiClient.get(`/orders/${id}/export`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    }
 }
 
 export const transportService = new TransportService();

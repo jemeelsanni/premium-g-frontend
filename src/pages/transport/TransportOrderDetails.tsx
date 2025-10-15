@@ -12,7 +12,8 @@ import {
     Calendar,
     DollarSign,
     Package,
-    Route
+    Route,
+    Download
 } from 'lucide-react';
 import { transportService } from '../../services/transportService';
 import { Button } from '../../components/ui/Button';
@@ -28,6 +29,7 @@ export const TransportOrderDetails: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
     const [newStatus, setNewStatus] = useState<TransportOrderStatus | ''>('');
 
     const { data: order, isLoading, error } = useQuery({
@@ -35,6 +37,30 @@ export const TransportOrderDetails: React.FC = () => {
         queryFn: () => transportService.getOrder(id!),
         enabled: Boolean(id),
     });
+
+    const handleExportPDF = async () => {
+        setIsExportingPDF(true);
+        try {
+            const blob = await transportService.exportOrderToPDF(id!);
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `transport-order-${order?.orderNumber || 'unknown'}-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            globalToast.success('Order exported to PDF successfully');
+        } catch (error) {
+            globalToast.error('Failed to export order to PDF');
+            console.error('Export error:', error);
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
+
 
     const updateStatusMutation = useMutation({
         mutationFn: ({ orderId, status }: { orderId: string; status: string }) =>
@@ -108,13 +134,6 @@ export const TransportOrderDetails: React.FC = () => {
             {/* Header */}
             <div className="md:flex md:items-center md:justify-between">
                 <div className="flex items-center space-x-3">
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate('/transport/orders')}
-                        className="p-2"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
                     <div>
                         <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
                             Transport Order #{order.orderNumber}
@@ -133,6 +152,14 @@ export const TransportOrderDetails: React.FC = () => {
                             Update Status
                         </Button>
                     )}
+                    <Button
+                        variant="outline"
+                        onClick={handleExportPDF}
+                        disabled={isExportingPDF}
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        {isExportingPDF ? 'Exporting...' : 'Export PDF'}
+                    </Button>
                     <Link to={`/transport/orders/${order.id}/edit`}>
                         <Button className="inline-flex items-center">
                             <Edit className="h-4 w-4 mr-2" />

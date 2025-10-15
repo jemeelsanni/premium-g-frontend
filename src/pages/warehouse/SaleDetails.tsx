@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/warehouse/SaleDetails.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, User, Phone, Receipt, Calendar, Package, Tag, TrendingDown, CheckCircle, AlertCircle } from 'lucide-react';
+import { User, Phone, Receipt, Calendar, Package, Tag, TrendingDown, CheckCircle, AlertCircle, Download } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
+import { toast } from 'react-hot-toast';
+
 
 export const SaleDetails: React.FC = () => {
     const navigate = useNavigate();
@@ -16,6 +18,32 @@ export const SaleDetails: React.FC = () => {
         queryFn: () => warehouseService.getSaleByReceipt(receiptNumber!),
         enabled: !!receiptNumber,
     });
+
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+    // Add this handler function
+    const handleExportPDF = async () => {
+        setIsExportingPDF(true);
+        try {
+            const blob = await warehouseService.exportSaleToPDF(receiptNumber!);
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `warehouse-sale-${receiptNumber}-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Sale exported to PDF successfully');
+        } catch (error) {
+            toast.error('Failed to export sale to PDF');
+            console.error('Export error:', error);
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -70,14 +98,27 @@ export const SaleDetails: React.FC = () => {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center space-x-3">
-                <Button
-                    variant="outline"
-                    onClick={() => navigate('/warehouse/sales')}
-                    className="inline-flex items-center"
-                >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Sales
-                </Button>
+                <div className="flex justify-end gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={() => navigate('/warehouse/sales')}
+                    >
+                        Back to Sales List
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={handleExportPDF}
+                        disabled={isExportingPDF}
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        {isExportingPDF ? 'Exporting...' : 'Export PDF'}
+                    </Button>
+                    <Button
+                        onClick={() => window.print()}
+                    >
+                        Print Receipt
+                    </Button>
+                </div>
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Sale Details</h2>
                     <p className="text-sm text-gray-500 mt-1">Receipt #{receiptNumber}</p>

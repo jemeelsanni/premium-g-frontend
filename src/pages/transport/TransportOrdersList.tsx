@@ -1,9 +1,9 @@
-// src/pages/transport/TransportOrdersList.tsx - FIXED HEIGHT VERSION
+// src/pages/transport/TransportOrdersList.tsx - WITH EXPORT FUNCTIONALITY
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Download, Eye, Edit, MapPin } from 'lucide-react';
+import { Plus, Search, Download, Eye, Edit, MapPin, FileText, Filter } from 'lucide-react';
 import { transportService } from '../../services/transportService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -12,10 +12,20 @@ import { TransportOrderStatus } from '../../types/transport';
 import { StatusUpdateDropdown } from '../../components/transport/StatusUpdateDropdown';
 import { toast } from 'react-hot-toast';
 
+type PeriodFilter = 'day' | 'week' | 'month' | 'year' | 'custom' | '';
+
 export const TransportOrdersList: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<TransportOrderStatus | ''>('');
+
+    // Export filters
+    const [showFilters, setShowFilters] = useState(false);
+    const [period, setPeriod] = useState<PeriodFilter>('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [isExportingCSV, setIsExportingCSV] = useState(false);
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
 
     const pageSize = 10;
 
@@ -48,7 +58,9 @@ export const TransportOrdersList: React.FC = () => {
         setCurrentPage(1);
     };
 
-    const handleExport = async () => {
+    // Export to CSV
+    const handleExportCSV = async () => {
+        setIsExportingCSV(true);
         try {
             const blob = await transportService.exportOrdersToCSV({
                 search: searchTerm,
@@ -64,11 +76,78 @@ export const TransportOrdersList: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            toast.success('Orders exported successfully');
+            toast.success('Orders exported to CSV successfully');
         } catch (error) {
-            toast.error('Failed to export orders');
+            toast.error('Failed to export orders to CSV');
             console.error('Export error:', error);
+        } finally {
+            setIsExportingCSV(false);
         }
+    };
+
+    // Export Sales to CSV (with date filters)
+    const handleExportSalesCSV = async () => {
+        setIsExportingCSV(true);
+        try {
+            const blob = await transportService.exportSalesToCSV({
+                period: period || undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+                status: statusFilter || undefined
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `transport-sales-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Sales exported to CSV successfully');
+        } catch (error) {
+            toast.error('Failed to export sales to CSV');
+            console.error('Export error:', error);
+        } finally {
+            setIsExportingCSV(false);
+        }
+    };
+
+    // Export Sales to PDF (with date filters)
+    const handleExportSalesPDF = async () => {
+        setIsExportingPDF(true);
+        try {
+            const blob = await transportService.exportSalesToPDF({
+                period: period || undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+                status: statusFilter || undefined,
+                limit: 100
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `transport-sales-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Sales exported to PDF successfully');
+        } catch (error) {
+            toast.error('Failed to export sales to PDF');
+            console.error('Export error:', error);
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
+
+    const handleClearFilters = () => {
+        setPeriod('');
+        setStartDate('');
+        setEndDate('');
     };
 
     const orderColumns = [
@@ -302,7 +381,6 @@ export const TransportOrdersList: React.FC = () => {
     }
 
     return (
-        // ✅ FIX: Changed from space-y-6 to flex flex-col with h-full
         <div className="flex flex-col h-full">
             {/* Header - Fixed height */}
             <div className="flex-shrink-0 flex justify-between items-center mb-6">
@@ -312,15 +390,115 @@ export const TransportOrdersList: React.FC = () => {
                         Manage and track all transport orders
                     </p>
                 </div>
-                <Link to="/transport/orders/create">
-                    <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        New Order
+                <div className="flex items-center space-x-3">
+                    <Button
+                        variant="outline"
+                        onClick={() => setShowFilters(!showFilters)}
+                    >
+                        <Filter className="h-4 w-4 mr-2" />
+                        Export Filters
                     </Button>
-                </Link>
+                    <Link to="/transport/orders/create">
+                        <Button>
+                            <Plus className="h-4 w-4 mr-2" />
+                            New Order
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
-            {/* Filters - Fixed height */}
+            {/* Export Filters Panel */}
+            {showFilters && (
+                <div className="flex-shrink-0 bg-white shadow rounded-lg p-6 mb-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Export Sales Data</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        {/* Period Filter */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Period
+                            </label>
+                            <select
+                                value={period}
+                                onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">All Time</option>
+                                <option value="day">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="year">This Year</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+
+                        {/* Start Date */}
+                        {period === 'custom' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        )}
+
+                        {/* End Date */}
+                        {period === 'custom' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    End Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        )}
+
+                        {/* Export Buttons */}
+                        <div className="flex items-end space-x-2">
+                            <Button
+                                variant="outline"
+                                onClick={handleExportSalesCSV}
+                                disabled={isExportingCSV}
+                                className="flex-1"
+                            >
+                                <FileText className="h-4 w-4 mr-2" />
+                                {isExportingCSV ? 'Exporting...' : 'CSV'}
+                            </Button>
+                            <Button
+                                onClick={handleExportSalesPDF}
+                                disabled={isExportingPDF}
+                                className="flex-1"
+                            >
+                                <Download className="h-4 w-4 mr-2" />
+                                {isExportingPDF ? 'Exporting...' : 'PDF'}
+                            </Button>
+                        </div>
+
+                        {/* Clear Filters */}
+                        {(period || startDate || endDate) && (
+                            <div className="flex items-end">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleClearFilters}
+                                    className="w-full"
+                                >
+                                    Clear
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Search & Status Filters - Fixed height */}
             <div className="flex-shrink-0 bg-white shadow rounded-lg p-6 mb-6">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                     <div className="sm:col-span-2">
@@ -352,10 +530,11 @@ export const TransportOrdersList: React.FC = () => {
                     <Button
                         variant="outline"
                         className="inline-flex items-center justify-center"
-                        onClick={handleExport}
+                        onClick={handleExportCSV}
+                        disabled={isExportingCSV || processedOrders.length === 0}
                     >
                         <Download className="h-4 w-4 mr-2" />
-                        Export
+                        {isExportingCSV ? 'Exporting...' : 'Quick Export'}
                     </Button>
                 </div>
 
@@ -386,7 +565,7 @@ export const TransportOrdersList: React.FC = () => {
                 )}
             </div>
 
-            {/* ✅ FIX: Table Container - Takes remaining height */}
+            {/* Table Container - Takes remaining height */}
             <div className="flex-1 flex flex-col bg-white shadow rounded-lg min-h-0">
                 {/* Table - Fills available space */}
                 <div className="flex-1 overflow-auto">
