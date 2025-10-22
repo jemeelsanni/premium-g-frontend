@@ -455,11 +455,11 @@ async exportCashFlowToPDF(filters?: {
 }
 
 async exportOrderToPDF(id: string): Promise<Blob> {
-        const response = await apiClient.get(`/orders/${id}/export`, {
-            responseType: 'blob'
-        });
-        return response.data;
-    }
+    const response = await apiClient.get(`/transport/orders/${id}/export/pdf`, {
+        responseType: 'blob'
+    });
+    return response.data;
+}
 }
 
 export const transportService = new TransportService();

@@ -97,7 +97,7 @@ export const SaleDetails: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-between space-x-3">
                 <div className="flex justify-end gap-3">
                     <Button
                         variant="outline"

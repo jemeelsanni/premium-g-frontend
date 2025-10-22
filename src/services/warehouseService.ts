@@ -452,7 +452,7 @@ async exportSalesToCSV(filters?: {
     });
   }
 
-  const response = await apiClient.get(`/sales/export/csv?${params}`, {
+  const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
     responseType: 'blob'
   });
   return response.data;
@@ -474,18 +474,18 @@ async exportSalesToPDF(filters?: {
       }
     });
   }
-  
-  const response = await apiClient.get(`/sales/export/pdf?${params.toString()}`, {
-    responseType: 'blob'
-  });
-  return response.data;
+
+   const response = await apiClient.get(`/warehouse/sales/export/pdf?${params.toString()}`, {
+        responseType: 'blob'
+    });
+    return response.data;
 }
 
 async exportSaleToPDF(saleId: string): Promise<Blob> {
-  const response = await apiClient.get(`/sales/${saleId}/export/pdf`, {
-    responseType: 'blob'
-  });
-  return response.data;
+    const response = await apiClient.get(`/warehouse/sales/${saleId}/export/pdf`, {
+        responseType: 'blob'
+    });
+    return response.data;
 }
 
 // Export Methods - Cash Flow
@@ -509,22 +509,22 @@ async exportCashFlowToCSV(filters?: {
 }
 
 async exportCashFlowToPDF(filters?: {
-  startDate?: string;
-  endDate?: string;
-  transactionType?: string;
-  paymentMethod?: string;
+    startDate?: string;
+    endDate?: string;
+    transactionType?: string;
+    paymentMethod?: string;
 }): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value);
-    });
-  }
+    const params = new URLSearchParams();
+    if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value) params.append(key, value);
+        });
+    }
 
-  const response = await apiClient.get(`/cash-flow/export/pdf?${params.toString()}`, {
-    responseType: 'blob'
-  });
-  return response.data;
+    const response = await apiClient.get(`/warehouse/cash-flow/export/pdf?${params.toString()}`, {
+        responseType: 'blob'
+    });
+    return response.data;
 }
 
 
