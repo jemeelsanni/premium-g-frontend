@@ -9,6 +9,7 @@ import { DiscountRequests } from './DiscountRequests';
 import { CashFlowList } from './CashFlowList';
 import { ExpensesList } from './ExpensesList';
 import DebtorsDashboard from './DebtorsDashboard';
+import OffloadPurchase from './OffloadPurchase';
 
 export const WarehouseRoutes = () => {
     return (
@@ -24,6 +25,7 @@ export const WarehouseRoutes = () => {
             <Route path="cash-flow" element={<CashFlowList />} />
             <Route path="expenses" element={<ExpensesList />} />
             <Route path="debtors" element={<DebtorsDashboard />} />
+            <Route path="offload-purchases" element={<OffloadPurchase />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
     );

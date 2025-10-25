@@ -198,6 +198,73 @@ export interface DebtorFilters {
   status?: 'OUTSTANDING' | 'PARTIAL' | 'OVERDUE' | 'PAID' | 'all';
 }
 
+export interface WarehousePurchase {
+  id: string;
+  productId: string;
+  vendorName: string;
+  vendorPhone?: string;
+  vendorEmail?: string;
+  orderNumber?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  quantity: number;
+  unitType: WarehouseUnitType;
+  costPerUnit: number;
+  totalCost: number;
+  paymentMethod: WarehousePaymentMethod;
+  paymentStatus: 'PAID' | 'PARTIAL' | 'PENDING';
+  amountPaid: number;
+  amountDue: number;
+  purchaseDate: string;
+  invoiceNumber?: string;
+  receiptUrl?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  product: {
+    name: string;
+    productNo: string;
+  };
+  createdByUser: {
+    username: string;
+    role?: string;
+  };
+}
+
+export interface CreatePurchaseData {
+  productId: string;
+  vendorName: string;
+  vendorPhone?: string;
+  vendorEmail?: string;
+  orderNumber?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  quantity: number;
+  unitType: WarehouseUnitType;
+  costPerUnit: number;
+  paymentMethod: WarehousePaymentMethod;
+  paymentStatus?: 'PAID' | 'PARTIAL' | 'PENDING';
+  amountPaid?: number;
+  purchaseDate: string;
+  invoiceNumber?: string;
+  notes?: string;
+}
+
+export interface PurchaseFilters {
+  page?: number;
+  limit?: number;
+  productId?: string;
+  vendorName?: string;
+  paymentStatus?: 'PAID' | 'PARTIAL' | 'PENDING';
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface ExpiringPurchase extends WarehousePurchase {
+  daysUntilExpiry: number;
+  urgency: 'critical' | 'high' | 'medium';
+}
+
 export interface RecordPaymentData {
   amount: number;
   paymentMethod: WarehousePaymentMethod;
@@ -632,6 +699,90 @@ export class WarehouseService extends BaseApiService {
     });
     return response.data;
   }
+
+  // Warehouse Purchases
+  async getPurchases(filters?: PurchaseFilters): Promise<PaginatedResponse<WarehousePurchase>> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+    }
+    const query = params.toString();
+    return this.get<PaginatedResponse<WarehousePurchase>>(
+      query ? `/purchases?${query}` : '/purchases'
+    );
+  }
+
+  async createPurchase(data: CreatePurchaseData): Promise<{
+    success: boolean;
+    message: string;
+    warning?: {
+      message: string;
+      daysRemaining: number;
+      expiryDate: string;
+    };
+    data: WarehousePurchase;
+  }> {
+    return this.post<any>(data, '/purchases');
+  }
+
+  async getPurchaseById(id: string): Promise<{ success: boolean; data: { purchase: WarehousePurchase } }> {
+    return this.get(`/purchases/${id}`);
+  }
+
+  async getExpiringPurchases(): Promise<{
+    success: boolean;
+    data: {
+      expiringPurchases: ExpiringPurchase[];
+      count: number;
+    };
+  }> {
+    return this.get('/purchases/expiring');
+  }
+
+  async getPurchaseAnalytics(filters?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{
+    success: boolean;
+    data: {
+      summary: {
+        totalPurchases: number;
+        totalCost: number;
+        totalPaid: number;
+        totalDue: number;
+      };
+      topProducts: Array<{
+        product: {
+          id: string;
+          name: string;
+          productNo: string;
+        };
+        totalQuantity: number;
+        totalCost: number;
+        purchaseCount: number;
+      }>;
+      topVendors: Array<{
+        vendorName: string;
+        totalSpent: number;
+        purchaseCount: number;
+      }>;
+      paymentBreakdown: any[];
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+    }
+    const query = params.toString();
+    return this.get(query ? `/purchases/analytics?${query}` : '/purchases/analytics');
+  }
+
 }
 
 export const warehouseService = new WarehouseService();
