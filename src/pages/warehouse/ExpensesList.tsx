@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { CheckCircle2, XCircle, Clock, AlertCircle, Plus } from 'lucide-react';
 
 import { warehouseService } from '../../services/warehouseService';
@@ -60,7 +60,7 @@ export const ExpensesList: React.FC = () => {
             limit: pageSize,
             status: statusFilter || undefined
         }),
-        keepPreviousData: true
+        placeholderData: keepPreviousData
     });
 
     const expenses: WarehouseExpense[] = data?.data?.expenses || [];
@@ -259,7 +259,7 @@ export const ExpensesList: React.FC = () => {
                         </Button>
                         <Button
                             size="sm"
-                            variant="destructive"
+                            variant="danger"
                             onClick={() => handleReject(record)}
                             disabled={updateStatusMutation.isPending || record.status === 'REJECTED'}
                         >

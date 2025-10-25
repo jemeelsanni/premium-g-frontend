@@ -1,19 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/pages/warehouse/CustomersList.tsx
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Search, Edit, Users, Phone } from 'lucide-react';
-import { warehouseService } from '../../services/warehouseService';
+import { warehouseService, CustomerFilters } from '../../services/warehouseService';
+import { WarehouseCustomer } from '../../types/warehouse';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
-import { WarehouseCustomer } from '../../types/warehouse';
 import { globalToast } from '../../components/ui/Toast';
+
+interface CustomerAnalytics {
+    totalCustomers: number;
+    totalSpent: number;
+    totalPurchases: number;
+    averageOrderValue: number;
+    averagePaymentScore: number;
+    totalOutstandingDebt: number;
+}
 
 const customerSchema = z.object({
     name: z.string().min(1, 'Customer name is required'),
@@ -25,39 +35,56 @@ const customerSchema = z.object({
 type CustomerFormData = z.infer<typeof customerSchema>;
 
 export const CustomersList: React.FC = () => {
-    const [currentPage, setCurrentPage] = useState(1);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [filters, setFilters] = useState<Required<Pick<CustomerFilters, 'page' | 'limit' | 'sortBy'>>>({
+        page: 1,
+        limit: 10,
+        sortBy: 'name',
+    });
+    const [search, setSearch] = useState('');
+    const [filterType, setFilterType] = useState<CustomerFilters['customerType']>();
+    const [hasDebt, setHasDebt] = useState<boolean | undefined>();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<WarehouseCustomer | null>(null);
     const queryClient = useQueryClient();
-    const pageSize = 10;
 
     const {
         register,
         handleSubmit,
         reset,
-        formState: { errors, isSubmitting }
+        formState: { errors, isSubmitting },
     } = useForm<CustomerFormData>({
         resolver: zodResolver(customerSchema),
     });
 
-    const searchValue = searchTerm.trim();
-
-    const { data: customersData, isLoading } = useQuery({
-        queryKey: ['warehouse-customers', currentPage, pageSize, searchValue],
-        queryFn: () => warehouseService.getCustomers(currentPage, pageSize, searchValue),
+    // ======== FETCH CUSTOMERS =========
+    const { data, isLoading } = useQuery({
+        queryKey: ['warehouse-customers', filters, search, filterType, hasDebt],
+        queryFn: async () => {
+            const queryFilters: CustomerFilters = {
+                ...filters,
+                search: search || undefined,
+                customerType: filterType,
+                hasOutstandingDebt: hasDebt,
+            };
+            return warehouseService.getCustomers(queryFilters);
+        },
     });
 
+    const customers = data?.data?.customers || [];
+    const analytics = data?.data?.analytics || null;
+    const pagination = data?.data?.pagination || { page: 1, limit: 10, total: 0, pages: 1 };
+
+    // ======== CREATE & UPDATE =========
     const createMutation = useMutation({
-        mutationFn: (data: CustomerFormData) => warehouseService.createCustomer(data),
+        mutationFn: (payload: CustomerFormData) => warehouseService.createCustomer(payload),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-customers'] });
             globalToast.success('Customer added successfully!');
-            handleCloseModal();
+            closeModal();
         },
-        onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to add customer');
-        }
+        onError: (err: any) => {
+            globalToast.error(err.response?.data?.message || 'Failed to add customer');
+        },
     });
 
     const updateMutation = useMutation({
@@ -66,14 +93,15 @@ export const CustomersList: React.FC = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-customers'] });
             globalToast.success('Customer updated successfully!');
-            handleCloseModal();
+            closeModal();
         },
-        onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to update customer');
-        }
+        onError: (err: any) => {
+            globalToast.error(err.response?.data?.message || 'Failed to update customer');
+        },
     });
 
-    const handleOpenModal = (customer?: WarehouseCustomer) => {
+    // ======== MODAL HANDLERS =========
+    const openModal = (customer?: WarehouseCustomer) => {
         if (customer) {
             setEditingCustomer(customer);
             reset({
@@ -84,17 +112,12 @@ export const CustomersList: React.FC = () => {
             });
         } else {
             setEditingCustomer(null);
-            reset({
-                name: '',
-                phone: '',
-                address: '',
-                customerType: '',
-            });
+            reset({ name: '', phone: '', address: '', customerType: '' });
         }
         setIsModalOpen(true);
     };
 
-    const handleCloseModal = () => {
+    const closeModal = () => {
         setIsModalOpen(false);
         setEditingCustomer(null);
         reset();
@@ -108,21 +131,11 @@ export const CustomersList: React.FC = () => {
         }
     };
 
-    const customers = customersData?.data?.customers ?? [];
-    const pagination = customersData?.data?.pagination;
+    // ======== HELPERS =========
+    const formatCurrency = (amount: number) =>
+        new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
 
-    useEffect(() => {
-        if (pagination?.page && pagination.page !== currentPage) {
-            setCurrentPage(pagination.page);
-        }
-    }, [pagination?.page, currentPage]);
-
-    const page = pagination?.page ?? currentPage;
-    const total = pagination?.total ?? customers.length;
-    const totalPages = pagination?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
-    const paginatedData = pagination
-        ? customers
-        : customers.slice((page - 1) * pageSize, page * pageSize);
+    const handleSearch = () => setFilters((prev) => ({ ...prev, page: 1 }));
 
     const customerColumns = [
         {
@@ -133,62 +146,35 @@ export const CustomersList: React.FC = () => {
                     <Users className="h-4 w-4 mr-2 text-blue-600" />
                     <span className="font-medium">{value}</span>
                 </div>
-            )
+            ),
         },
-        {
-            key: 'phone',
-            title: 'Phone',
-            render: (value: string | undefined | null) => (
-                <div className="flex items-center">
-                    <Phone className="h-3 w-3 mr-1 text-gray-400" />
-                    <span>{value || 'N/A'}</span>
-                </div>
-            )
-        },
+        { key: 'phone', title: 'Phone' },
         {
             key: 'address',
             title: 'Address',
-            render: (value: string | undefined | null) => (
-                <span className="text-sm text-gray-600 truncate max-w-48" title={value || 'N/A'}>
-                    {value || 'N/A'}
-                </span>
-            )
+            render: (value: string | null) => value || 'N/A',
+        },
+        { key: 'customerType', title: 'Type' },
+        {
+            key: 'totalSpent',
+            title: 'Total Spent',
+            render: (value: number) => formatCurrency(value || 0),
         },
         {
-            key: 'customerType',
-            title: 'Type',
-            render: (value: string) => (
-                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                    {value}
-                </span>
-            )
-        },
-        {
-            key: 'totalPurchases',
-            title: 'Total Purchases',
-            render: (_value: number, record: WarehouseCustomer) => `₦${(record.totalSpent ?? 0).toLocaleString()}`
-        },
-        {
-            key: 'lastPurchaseDate',
-            title: 'Last Purchase',
-            render: (value: string) =>
-                value ? new Date(value).toLocaleDateString() : 'Never'
+            key: 'outstandingDebt',
+            title: 'Debt',
+            render: (value: number) =>
+                value > 0 ? <span className="text-red-600">{formatCurrency(value)}</span> : '—',
         },
         {
             key: 'actions',
             title: 'Actions',
-            render: (value: any, record: WarehouseCustomer) => (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenModal(record)}
-                    className="inline-flex items-center"
-                >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Edit
+            render: (_v: any, record: WarehouseCustomer) => (
+                <Button variant="outline" size="sm" onClick={() => openModal(record)}>
+                    <Edit className="h-3 w-3 mr-1" /> Edit
                 </Button>
-            )
-        }
+            ),
+        },
     ];
 
     return (
@@ -196,117 +182,128 @@ export const CustomersList: React.FC = () => {
             {/* Header */}
             <div className="md:flex md:items-center md:justify-between">
                 <div className="flex-1 min-w-0">
-                    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
-                        Customer Database
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Manage warehouse customers and their information
-                    </p>
+                    <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">Warehouse Customers</h2>
+                    <p className="mt-1 text-sm text-gray-500">Analytics, filters, and management</p>
                 </div>
                 <div className="mt-4 flex md:mt-0 md:ml-4">
-                    <Button
-                        onClick={() => handleOpenModal()}
-                        className="inline-flex items-center"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Customer
+                    <Button onClick={() => openModal()} className="inline-flex items-center">
+                        <Plus className="h-4 w-4 mr-2" /> Add Customer
                     </Button>
                 </div>
             </div>
 
-            {/* Search */}
-            <div className="bg-white shadow rounded-lg">
-                <div className="p-6">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                            placeholder="Search customers..."
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="pl-10"
-                        />
+            {/* Analytics Summary */}
+            {analytics && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-lg shadow">
+                        <p className="text-sm text-gray-500">Total Customers</p>
+                        <p className="text-2xl font-bold">{analytics.totalCustomers}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow">
+                        <p className="text-sm text-gray-500">Total Spent</p>
+                        <p className="text-2xl font-bold text-green-600">{formatCurrency(analytics.totalSpent)}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow">
+                        <p className="text-sm text-gray-500">Avg Order Value</p>
+                        <p className="text-2xl font-bold">{formatCurrency(analytics.averageOrderValue)}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow">
+                        <p className="text-sm text-gray-500">Outstanding Debt</p>
+                        <p className="text-2xl font-bold text-red-600">
+                            {formatCurrency(analytics.totalOutstandingDebt)}
+                        </p>
                     </div>
                 </div>
+            )}
+
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3 items-center bg-white p-4 rounded-lg shadow">
+                <div className="flex flex-1 gap-2 min-w-[200px]">
+                    <Input
+                        placeholder="Search customers..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                        className="flex-1"
+                    />
+                    <Button onClick={handleSearch}>Search</Button>
+                </div>
+
+                <select
+                    value={filters.sortBy}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value as any }))}
+                    className="px-3 py-2 border rounded-lg"
+                >
+                    <option value="name">Name</option>
+                    <option value="recent">Recent</option>
+                    <option value="topSpender">Top Spenders</option>
+                    <option value="topPurchases">Most Purchases</option>
+                </select>
+
+                <select
+                    value={filterType || 'all'}
+                    onChange={(e) =>
+                        setFilterType(e.target.value === 'all' ? undefined : (e.target.value as any))
+                    }
+                    className="px-3 py-2 border rounded-lg"
+                >
+                    <option value="all">All Types</option>
+                    <option value="INDIVIDUAL">Individuals</option>
+                    <option value="BUSINESS">Businesses</option>
+                    <option value="RETAILER">Retailers</option>
+                </select>
+
+                <select
+                    value={hasDebt === undefined ? 'all' : hasDebt ? 'true' : 'false'}
+                    onChange={(e) =>
+                        setHasDebt(e.target.value === 'all' ? undefined : e.target.value === 'true')
+                    }
+                    className="px-3 py-2 border rounded-lg"
+                >
+                    <option value="all">All Customers</option>
+                    <option value="true">With Debt</option>
+                    <option value="false">No Debt</option>
+                </select>
             </div>
 
-            {/* Customers Table */}
+            {/* Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
                 <Table
-                    data={paginatedData}
+                    data={customers}
                     columns={customerColumns}
                     loading={isLoading}
                     emptyMessage="No customers found"
                 />
-                {total > 0 && totalPages > 1 && (
-                    <div className="border-t border-gray-200 bg-white px-4 py-3 flex items-center justify-between">
-                        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                            <p className="text-sm text-gray-700">
-                                Showing <span className="font-medium">{((page - 1) * pageSize) + 1}</span> to{' '}
-                                <span className="font-medium">{Math.min(page * pageSize, total)}</span> of{' '}
-                                <span className="font-medium">{total}</span> customers
-                            </p>
-                            <div className="inline-flex -space-x-px rounded-md shadow-sm">
-                                <Button
-                                    variant="outline"
-                                    disabled={page === 1}
-                                    onClick={() => setCurrentPage(page - 1)}
-                                    className="rounded-l-md"
-                                >
-                                    Previous
-                                </Button>
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
-                                    const offset = Math.floor(Math.min(Math.max(page - 3, 0), Math.max(totalPages - 5, 0)));
-                                    const pageNumber = 1 + offset + index;
-                                    if (pageNumber > totalPages) return null;
-                                    return (
-                                        <Button
-                                            key={pageNumber}
-                                            variant={pageNumber === page ? 'primary' : 'outline'}
-                                            onClick={() => setCurrentPage(pageNumber)}
-                                            className="rounded-none"
-                                        >
-                                            {pageNumber}
-                                        </Button>
-                                    );
-                                })}
-                                <Button
-                                    variant="outline"
-                                    disabled={page === totalPages}
-                                    onClick={() => setCurrentPage(page + 1)}
-                                    className="rounded-r-md"
-                                >
-                                    Next
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="flex sm:hidden w-full justify-between">
-                            <Button
-                                variant="outline"
-                                disabled={page === 1}
-                                onClick={() => setCurrentPage(page - 1)}
-                            >
-                                Previous
-                            </Button>
-                            <Button
-                                variant="outline"
-                                disabled={page === totalPages}
-                                onClick={() => setCurrentPage(page + 1)}
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {/* Pagination */}
+            {typeof pagination.pages === 'number' && pagination.pages > 1 && (
+                <div className="mt-4 flex justify-center gap-2">
+                    <Button
+                        variant="outline"
+                        disabled={pagination.page === 1}
+                        onClick={() => setFilters((p) => ({ ...p, page: p.page - 1 }))}
+                    >
+                        Prev
+                    </Button>
+                    <span className="px-4 py-2">
+                        Page {pagination.page} of {pagination.pages}
+                    </span>
+                    <Button
+                        variant="outline"
+                        disabled={pagination.page === pagination.pages}
+                        onClick={() => setFilters((p) => ({ ...p, page: p.page + 1 }))}
+                    >
+                        Next
+                    </Button>
+                </div>
+            )}
 
             {/* Add/Edit Customer Modal */}
             <Modal
                 isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
+                onClose={closeModal}
+                title={editingCustomer ? 'Edit Customer' : 'Add Customer'}
             >
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <Input
@@ -315,48 +312,42 @@ export const CustomersList: React.FC = () => {
                         error={errors.name?.message}
                         placeholder="Enter customer name"
                     />
-
                     <Input
-                        label="Phone Number *"
+                        label="Phone *"
                         {...register('phone')}
                         error={errors.phone?.message}
                         placeholder="Enter phone number"
                     />
-
                     <Input
                         label="Address *"
                         {...register('address')}
                         error={errors.address?.message}
                         placeholder="Enter address"
                     />
-
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Customer Type *
-                        </label>
+                        <label className="block text-sm font-medium mb-1">Customer Type *</label>
                         <select
                             {...register('customerType')}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            className="block w-full border rounded-md px-3 py-2"
                         >
-                            <option value="">Select type</option>
+                            <option value="">Select</option>
                             <option value="INDIVIDUAL">Individual</option>
                             <option value="BUSINESS">Business</option>
                             <option value="RETAILER">Retailer</option>
                         </select>
                         {errors.customerType && (
-                            <p className="mt-1 text-sm text-red-600">{errors.customerType.message}</p>
+                            <p className="text-sm text-red-600 mt-1">{errors.customerType.message}</p>
                         )}
                     </div>
-
                     <div className="flex justify-end space-x-3 pt-4">
-                        <Button type="button" variant="outline" onClick={handleCloseModal}>
+                        <Button type="button" variant="outline" onClick={closeModal}>
                             Cancel
                         </Button>
                         <Button
                             type="submit"
                             loading={isSubmitting || createMutation.isPending || updateMutation.isPending}
                         >
-                            {editingCustomer ? 'Update Customer' : 'Add Customer'}
+                            {editingCustomer ? 'Update' : 'Add Customer'}
                         </Button>
                     </div>
                 </form>

@@ -28,12 +28,12 @@ export const ProductSelector = ({ onProductSelect, selectedProductId }: ProductS
     });
 
     // Filter products based on search term
-    const filteredProducts = products.filter(product =>
+    const filteredProducts: Product[] = products.filter((product: Product): boolean =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
         product.isActive
     );
 
-    const selectedProduct = products.find(p => p.id === selectedProductId);
+    const selectedProduct = products.find((p: { id: string | undefined; }) => p.id === selectedProductId);
 
     const handleProductSelect = (product: Product) => {
         onProductSelect(product);

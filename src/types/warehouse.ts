@@ -14,6 +14,8 @@ export interface WarehouseCustomer {
   totalSpent?: number;
   averageOrderValue?: number;
   lastPurchaseDate?: string | null;
+   paymentReliabilityScore: number;
+    outstandingDebt: number;
   isActive?: boolean;
   createdAt: string;
   updatedAt: string;

@@ -29,6 +29,15 @@ export interface CreateSaleData {
   receiptNumber?: string;
 }
 
+export interface CustomerFilters {
+  page?: number;
+  limit?: number;
+  sortBy?: 'name' | 'recent' | 'topSpender' | 'topPurchases' | 'creditScore';
+  customerType?: 'INDIVIDUAL' | 'BUSINESS' | 'RETAILER';
+  hasOutstandingDebt?: boolean;
+  search?: string;
+}
+
 export interface CreateCashFlowData {
   transactionType: 'CASH_IN' | 'CASH_OUT';
   amount: number;
@@ -121,9 +130,6 @@ export interface RequestDiscountData {
   businessJustification?: string;
 }
 
-
-
-
 export interface UpdateInventoryData {
   currentStock?: number;
   minimumStock?: number;
@@ -134,6 +140,72 @@ export interface UpdateInventoryData {
   reorderLevel?: number;
   maxStockLevel?: number;
 }
+
+// ===== NEW INTERFACES ADDED FROM SECOND VERSION =====
+export interface DebtorAnalytics {
+  [key: string]: {
+    count: number;
+    totalAmount: number;
+    amountPaid: number;
+    amountDue: number;
+  };
+}
+
+export interface Debtor {
+  id: string;
+  warehouseCustomerId: string;
+  saleId: string;
+  totalAmount: number;
+  amountPaid: number;
+  amountDue: number;
+  dueDate: string | null;
+  status: 'OUTSTANDING' | 'PARTIAL' | 'OVERDUE' | 'PAID';
+  createdAt: string;
+  customer: {
+    name: string;
+    phone: string;
+    email?: string;
+  };
+  sale: {
+    receiptNumber: string;
+    createdAt: string;
+    productId: string;
+    quantity: number;
+    unitType: string;
+  };
+  payments?: Array<{
+        id: string;
+        amount: number;
+        paymentMethod: string;
+        paymentDate: string;
+    }>;
+}
+
+export interface DebtorPayment {
+  id: string;
+  debtorId: string;
+  amount: number;
+  paymentMethod: WarehousePaymentMethod;
+  paymentDate: string;
+  referenceNumber?: string;
+  notes?: string;
+  receivedBy: string;
+}
+
+export interface DebtorFilters {
+  page?: number;
+  limit?: number;
+  status?: 'OUTSTANDING' | 'PARTIAL' | 'OVERDUE' | 'PAID' | 'all';
+}
+
+export interface RecordPaymentData {
+  amount: number;
+  paymentMethod: WarehousePaymentMethod;
+  paymentDate: string;
+  referenceNumber?: string;
+  notes?: string;
+}
+// =====================================================
 
 export class WarehouseService extends BaseApiService {
   constructor() {
@@ -163,23 +235,21 @@ export class WarehouseService extends BaseApiService {
     }
   }
 
-  
-
   async createSale(data: CreateSaleData): Promise<CreateSaleResponse> {
     return this.post<CreateSaleResponse>(data, '/sales');
   }
 
   async getProducts(): Promise<Product[]> {
-  const response = await this.get<{ success: boolean; data: { products: Product[] } }>('/products');
-  return response.data.products;
-}
+    const response = await this.get<{ success: boolean; data: { products: Product[] } }>('/products');
+    return response.data.products;
+  }
 
- async getSaleByReceipt(receiptNumber: string): Promise<{
-  success: boolean;
-  data: WarehouseSale;
-}> {
-  return this.get(`/sales/receipt/${receiptNumber}`);
-}
+  async getSaleByReceipt(receiptNumber: string): Promise<{
+    success: boolean;
+    data: WarehouseSale;
+  }> {
+    return this.get(`/sales/receipt/${receiptNumber}`);
+  }
 
   // Inventory
   async getInventory(page = 1, limit = 10): Promise<PaginatedResponse<WarehouseInventory>> {
@@ -206,6 +276,7 @@ export class WarehouseService extends BaseApiService {
     return this.put<WarehouseInventory>(payload, `/inventory/${id}`);
   }
 
+  // Expenses
   async getExpenses(filters?: WarehouseExpenseFilters): Promise<{
     success: boolean;
     data: {
@@ -289,12 +360,27 @@ export class WarehouseService extends BaseApiService {
   }
 
   // Customers
-  async getCustomers(page = 1, limit = 10, search?: string): Promise<PaginatedResponse<WarehouseCustomer>> {
-    if (search && search.trim().length > 0) {
-      const safeSearch = encodeURIComponent(search.trim());
-      return this.get<PaginatedResponse<WarehouseCustomer>>(`/customers?search=${safeSearch}&page=${page}&limit=${limit}`);
+ async getCustomers(filters: CustomerFilters | number, limit?: number, search?: string): Promise<PaginatedResponse<WarehouseCustomer>> {
+    if (typeof filters === 'number') {
+      // Handle legacy calls with separate parameters
+      const page = filters;
+      let url = `/customers?page=${page}&limit=${limit || 10}`;
+      if (search?.trim()) {
+        url += `&search=${encodeURIComponent(search.trim())}`;
+      }
+      return this.get<PaginatedResponse<WarehouseCustomer>>(url);
     }
-    return this.get<PaginatedResponse<WarehouseCustomer>>(`/customers?page=${page}&limit=${limit}`);
+
+    // Handle new calls with filters object
+    const params = new URLSearchParams();
+    params.append('page', (filters.page || 1).toString());
+    params.append('limit', (filters.limit || 10).toString());
+    if (filters.search) params.append('search', filters.search);
+    if (filters.customerType) params.append('customerType', filters.customerType);
+    if (filters.hasOutstandingDebt !== undefined) params.append('hasOutstandingDebt', filters.hasOutstandingDebt.toString());
+    if (filters.sortBy) params.append('sortBy', filters.sortBy);
+
+    return this.get<PaginatedResponse<WarehouseCustomer>>(`/customers?${params.toString()}`);
   }
 
   async getCustomer(id: string): Promise<WarehouseCustomer> {
@@ -311,65 +397,64 @@ export class WarehouseService extends BaseApiService {
 
   // Cash Flow
   async getCashFlow(
-  page = 1, 
-  limit = 20,
-  transactionType?: string,
-  paymentMethod?: string,
-  startDate?: string,
-  endDate?: string,
-  isReconciled?: boolean
-): Promise<any> {
-  const params = new URLSearchParams();
-  params.append('page', page.toString());
-  params.append('limit', limit.toString());
-  
-  if (transactionType) params.append('transactionType', transactionType);
-  if (paymentMethod) params.append('paymentMethod', paymentMethod);
-  if (startDate) params.append('startDate', startDate);
-  if (endDate) params.append('endDate', endDate);
-  if (isReconciled !== undefined) params.append('isReconciled', isReconciled.toString());
-  
-  return this.get(`/cash-flow?${params.toString()}`);
-}
+    page = 1, 
+    limit = 20,
+    transactionType?: string,
+    paymentMethod?: string,
+    startDate?: string,
+    endDate?: string,
+    isReconciled?: boolean
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    
+    if (transactionType) params.append('transactionType', transactionType);
+    if (paymentMethod) params.append('paymentMethod', paymentMethod);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (isReconciled !== undefined) params.append('isReconciled', isReconciled.toString());
+    
+    return this.get(`/cash-flow?${params.toString()}`);
+  }
 
   async createCashFlow(data: CreateCashFlowData): Promise<any> {
-  const response = await this.post<{ 
-    success: boolean; 
-    message: string;
-    data: { cashFlow: any } 
-  }>(data, '/cash-flow');
-  return response;
-}
+    const response = await this.post<{ 
+      success: boolean; 
+      message: string;
+      data: { cashFlow: any } 
+    }>(data, '/cash-flow');
+    return response;
+  }
 
-    // Discount Requests
+  // Discount Requests
+  async checkDiscount(data: {
+    warehouseCustomerId: string;
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+  }): Promise<any> {
+    return this.post(data, '/discounts/check');
+  }
 
-async checkDiscount(data: {
-  warehouseCustomerId: string;
-  productId: string;
-  quantity: number;
-  unitPrice: number;
-}): Promise<any> {
-  return this.post(data, '/discounts/check');
-}
+  async requestDiscount(data: {
+    warehouseCustomerId: string;
+    productId?: string;
+    requestedDiscountType: string;
+    requestedDiscountValue: number;
+    reason: string;
+    validFrom: string;
+    validUntil?: string;
+    minimumQuantity?: number;
+    maximumDiscountAmount?: number;
+    businessJustification?: string;
+  }): Promise<any> {
+    return this.post(data, '/discounts/request');
+  }
 
-async requestDiscount(data: {
-  warehouseCustomerId: string;
-  productId?: string;
-  requestedDiscountType: string;
-  requestedDiscountValue: number;
-  reason: string;
-  validFrom: string;
-  validUntil?: string;
-  minimumQuantity?: number;
-  maximumDiscountAmount?: number;
-  businessJustification?: string;
-}): Promise<any> {
-  return this.post(data, '/discounts/request');
-}
-
-async getDiscountRequests(page = 1, limit = 20, status = 'PENDING'): Promise<any> {
-  return this.get(`/discounts/requests?page=${page}&limit=${limit}&status=${status}`);
-}
+  async getDiscountRequests(page = 1, limit = 20, status = 'PENDING'): Promise<any> {
+    return this.get(`/discounts/requests?page=${page}&limit=${limit}&status=${status}`);
+  }
 
   async reviewDiscountRequest(id: string, action: 'approve' | 'reject', data: {
     adminNotes?: string;
@@ -435,101 +520,118 @@ async getDiscountRequests(page = 1, limit = 20, status = 'PENDING'): Promise<any
     }
   }
 
-  // Add these methods to the WarehouseService class
-
-// Export Methods - Sales
-async exportSalesToCSV(filters?: {
-  period?: 'day' | 'week' | 'month' | 'year' | 'custom';
-  startDate?: string;
-  endDate?: string;
-  customerId?: string;
-  productId?: string;
-}): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value);
-    });
+  // ===== ADDED METHODS FROM SECOND VERSION =====
+  async getCustomerDetails(customerId: string): Promise<any> {
+    return this.get(`/customers/${customerId}`);
   }
 
-  const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
-    responseType: 'blob'
-  });
-  return response.data;
-}
-
-async exportSalesToPDF(filters?: {
-  period?: 'day' | 'week' | 'month' | 'year' | 'custom';
-  startDate?: string;
-  endDate?: string;
-  customerId?: string;
-  productId?: string;
-  limit?: number;
-}): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        params.append(key, String(value));
-      }
-    });
+  async getCustomerPurchases(customerId: string, filters?: { page?: number; limit?: number; startDate?: string; endDate?: string }): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters) Object.entries(filters).forEach(([k, v]) => v && params.append(k, String(v)));
+    const query = params.toString();
+    return this.get(query ? `/customers/${customerId}/purchases?${query}` : `/customers/${customerId}/purchases`);
   }
 
-   const response = await apiClient.get(`/warehouse/sales/export/pdf?${params.toString()}`, {
-        responseType: 'blob'
+  async getDebtors(filters?: DebtorFilters): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters) Object.entries(filters).forEach(([k, v]) => v && params.append(k, String(v)));
+    const query = params.toString();
+    return this.get(query ? `/debtors?${query}` : '/debtors');
+  }
+
+  async recordDebtorPayment(debtorId: string, data: RecordPaymentData): Promise<any> {
+    return this.post(data, `/debtors/${debtorId}/payments`);
+  }
+  // ============================================
+
+  // Export Methods
+  async exportSalesToCSV(filters?: {
+    period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+    startDate?: string;
+    endDate?: string;
+    customerId?: string;
+    productId?: string;
+  }): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+    }
+
+    const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
+      responseType: 'blob'
     });
     return response.data;
-}
+  }
 
-async exportSaleToPDF(saleId: string): Promise<Blob> {
+  async exportSalesToPDF(filters?: {
+    period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+    startDate?: string;
+    endDate?: string;
+    customerId?: string;
+    productId?: string;
+    limit?: number;
+  }): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+    }
+
+    const response = await apiClient.get(`/warehouse/sales/export/pdf?${params.toString()}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  async exportSaleToPDF(saleId: string): Promise<Blob> {
     const response = await apiClient.get(`/warehouse/sales/${saleId}/export/pdf`, {
-        responseType: 'blob'
+      responseType: 'blob'
     });
     return response.data;
-}
-
-// Export Methods - Cash Flow
-async exportCashFlowToCSV(filters?: {
-  startDate?: string;
-  endDate?: string;
-  transactionType?: string;
-  paymentMethod?: string;
-}): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value);
-    });
   }
 
-  const response = await apiClient.get(`/cash-flow/export/csv?${params.toString()}`, {
-    responseType: 'blob'
-  });
-  return response.data;
-}
-
-async exportCashFlowToPDF(filters?: {
+  async exportCashFlowToCSV(filters?: {
     startDate?: string;
     endDate?: string;
     transactionType?: string;
     paymentMethod?: string;
-}): Promise<Blob> {
+  }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value) params.append(key, value);
-        });
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+    }
+
+    const response = await apiClient.get(`/warehouse/cash-flow/export/csv?${params.toString()}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  async exportCashFlowToPDF(filters?: {
+    startDate?: string;
+    endDate?: string;
+    transactionType?: string;
+    paymentMethod?: string;
+  }): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
     }
 
     const response = await apiClient.get(`/warehouse/cash-flow/export/pdf?${params.toString()}`, {
-        responseType: 'blob'
+      responseType: 'blob'
     });
     return response.data;
-}
-
-
-
-
+  }
 }
 
 export const warehouseService = new WarehouseService();
