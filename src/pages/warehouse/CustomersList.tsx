@@ -3,11 +3,12 @@
 // src/pages/warehouse/CustomersList.tsx
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Search, Edit, Users, Phone } from 'lucide-react';
+import { Plus, Search, Edit, Users, Phone, Eye } from 'lucide-react';
 import { warehouseService, CustomerFilters } from '../../services/warehouseService';
 import { WarehouseCustomer } from '../../types/warehouse';
 import { Button } from '../../components/ui/Button';
@@ -35,6 +36,7 @@ const customerSchema = z.object({
 type CustomerFormData = z.infer<typeof customerSchema>;
 
 export const CustomersList: React.FC = () => {
+    const navigate = useNavigate();
     const [filters, setFilters] = useState<Required<Pick<CustomerFilters, 'page' | 'limit' | 'sortBy'>>>({
         page: 1,
         limit: 10,
@@ -141,41 +143,88 @@ export const CustomersList: React.FC = () => {
         {
             key: 'name',
             title: 'Customer Name',
-            render: (value: string) => (
-                <div className="flex items-center">
-                    <Users className="h-4 w-4 mr-2 text-blue-600" />
-                    <span className="font-medium">{value}</span>
+            render: (value: string, record: WarehouseCustomer) => (
+                <div>
+                    <div className="font-medium text-gray-900">{value}</div>
+                    {record.businessName && (
+                        <div className="text-sm text-gray-500">{record.businessName}</div>
+                    )}
                 </div>
             ),
         },
-        { key: 'phone', title: 'Phone' },
         {
-            key: 'address',
-            title: 'Address',
+            key: 'phone',
+            title: 'Phone',
             render: (value: string | null) => value || 'N/A',
         },
-        { key: 'customerType', title: 'Type' },
+        {
+            key: 'customerType',
+            title: 'Type',
+            render: (value: string) => (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {value}
+                </span>
+            ),
+        },
+        {
+            key: 'totalPurchases',
+            title: 'Purchases',
+            render: (value: number) => value || 0,
+        },
         {
             key: 'totalSpent',
             title: 'Total Spent',
-            render: (value: number) => formatCurrency(value || 0),
+            render: (value: number) => `₦${(value || 0).toLocaleString()}`,
+        },
+        {
+            key: 'averageOrderValue',
+            title: 'Avg Order',
+            render: (value: number) => `₦${(value || 0).toLocaleString()}`,
         },
         {
             key: 'outstandingDebt',
-            title: 'Debt',
-            render: (value: number) =>
-                value > 0 ? <span className="text-red-600">{formatCurrency(value)}</span> : '—',
+            title: 'Outstanding Debt',
+            render: (value: number) => {
+                const debt = value || 0;
+                return (
+                    <span className={debt > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'}>
+                        ₦{debt.toLocaleString()}
+                    </span>
+                );
+            },
         },
         {
             key: 'actions',
             title: 'Actions',
-            render: (_v: any, record: WarehouseCustomer) => (
-                <Button variant="outline" size="sm" onClick={() => openModal(record)}>
-                    <Edit className="h-3 w-3 mr-1" /> Edit
-                </Button>
+            render: (_: unknown, record: WarehouseCustomer) => (
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/warehouse/customers/${record.id}`)}
+                        className="flex items-center"
+                    >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(record)}
+                    >
+                        <Edit className="h-4 w-4" />
+                    </Button>
+                </div>
             ),
         },
     ];
+
+
+
+
+    const handleEdit = (customer: WarehouseCustomer) => {
+        openModal(customer);
+    }
 
     return (
         <div className="space-y-6">

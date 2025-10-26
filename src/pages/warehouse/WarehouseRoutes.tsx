@@ -8,6 +8,7 @@ import { CustomersList } from './CustomersList';
 import { DiscountRequests } from './DiscountRequests';
 import { CashFlowList } from './CashFlowList';
 import { ExpensesList } from './ExpensesList';
+import { CustomerDetail } from './CustomerDetail'; // NEW IMPORT
 import DebtorsDashboard from './DebtorsDashboard';
 import OffloadPurchase from './OffloadPurchase';
 
@@ -21,6 +22,7 @@ export const WarehouseRoutes = () => {
             <Route path="sales/create" element={<CreateSale />} />
             <Route path="sales/:id" element={<SaleDetails />} />
             <Route path="customers" element={<CustomersList />} />
+            <Route path="customers/:id" element={<CustomerDetail />} />
             <Route path="discounts" element={<DiscountRequests />} />
             <Route path="cash-flow" element={<CashFlowList />} />
             <Route path="expenses" element={<ExpensesList />} />

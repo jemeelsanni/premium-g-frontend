@@ -38,6 +38,84 @@ export interface CustomerFilters {
   search?: string;
 }
 
+export interface CustomerPurchaseFilters {
+  page?: number;
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CustomerPurchaseHistory {
+  id: string;
+  receiptNumber: string;
+  productId: string;
+  quantity: number;
+  unitType: string;
+  unitPrice: number;
+  totalAmount: number;
+  totalDiscountAmount: number | null;
+  discountApplied: boolean;
+  discountPercentage: number | null;
+  paymentMethod: string;
+  createdAt: string;
+  product: {
+    name: string;
+    productNo: string;
+  };
+}
+
+export interface CustomerInsights {
+  topProducts: Array<{
+    product_name: string;
+    product_no: string;
+    purchase_count: number;
+    total_quantity: number;
+    total_spent: number;
+    avg_price: number;
+  }>;
+  spendingTrend: Array<{
+    month: string;
+    purchase_count: number;
+    total_spent: number;
+  }>;
+  debtSummary: {
+    activeDebts: number;
+    totalOutstanding: number;
+  };
+}
+
+export interface CustomerDetailResponse {
+  success: boolean;
+  data: {
+    customer: WarehouseCustomer;
+    insights: CustomerInsights;
+  };
+}
+
+export interface CustomerPurchaseHistoryResponse {
+  success: boolean;
+  data: {
+    purchases: CustomerPurchaseHistory[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      pages: number;
+    };
+    summary: {
+      totalPurchases: number;
+      totalSpent: number;
+      averageOrderValue: number;
+    };
+    customer: {
+      id: string;
+      name: string;
+      phone: string | null;
+      customerType: string;
+    };
+  };
+}
+
 export interface CreateCashFlowData {
   transactionType: 'CASH_IN' | 'CASH_OUT';
   amount: number;
@@ -461,6 +539,26 @@ export class WarehouseService extends BaseApiService {
   async updateCustomer(id: string, data: Partial<CreateCustomerData>): Promise<WarehouseCustomer> {
     return this.put<WarehouseCustomer>(data, `/customers/${id}`);
   }
+
+  async getCustomerById(id: string): Promise<CustomerDetailResponse> {
+  return this.get<CustomerDetailResponse>(`/customers/${id}`);
+}
+
+async getCustomerPurchaseHistory(
+  id: string,
+  filters?: CustomerPurchaseFilters
+): Promise<CustomerPurchaseHistoryResponse> {
+  const params = new URLSearchParams();
+  if (filters?.page) params.append('page', filters.page.toString());
+  if (filters?.limit) params.append('limit', filters.limit.toString());
+  if (filters?.startDate) params.append('startDate', filters.startDate);
+  if (filters?.endDate) params.append('endDate', filters.endDate);
+  
+  const queryString = params.toString();
+  const url = `/customers/${id}/purchases${queryString ? `?${queryString}` : ''}`;
+  
+  return this.get<CustomerPurchaseHistoryResponse>(url);
+}
 
   // Cash Flow
   async getCashFlow(
