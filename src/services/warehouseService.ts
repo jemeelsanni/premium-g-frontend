@@ -36,6 +36,10 @@ export interface CustomerFilters {
   customerType?: 'INDIVIDUAL' | 'BUSINESS' | 'RETAILER';
   hasOutstandingDebt?: boolean;
   search?: string;
+  startDate?: string;  // ✅ NEW
+  endDate?: string;    // ✅ NEW
+  filterMonth?: number;  // ✅ NEW: 1-12
+  filterYear?: number;   // ✅ NEW: e.g., 2024, 2025
 }
 
 export interface CustomerPurchaseFilters {
@@ -66,17 +70,17 @@ export interface CustomerPurchaseHistory {
 
 export interface CustomerInsights {
   topProducts: Array<{
-    product_name: string;
-    product_no: string;
+    name: string;
+    productNo: string;
     purchase_count: number;
-    total_quantity: number;
-    total_spent: number;
+    totalQuantity: number;
+    totalSpent: number;
     avg_price: number;
   }>;
   spendingTrend: Array<{
     month: string;
-    purchase_count: number;
-    total_spent: number;
+    purchaseCount: number;
+    totalSpent: number;
   }>;
   debtSummary: {
     activeDebts: number;

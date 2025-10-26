@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Save, ArrowLeft, ShoppingCart, User, Package, Tag, Plus, Trash2, Edit2, AlertTriangle } from 'lucide-react';
+import { Save, ArrowLeft, ShoppingCart, User, Package, Tag, Plus, Trash2, Edit2, AlertTriangle, CreditCard } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -21,7 +21,12 @@ const productItemSchema = z.object({
 
 const saleSchema = z.object({
     warehouseCustomerId: z.string().min(1, 'Customer is required'),
-    paymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY']),
+    paymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY', 'CREDIT']),
+    paymentStatus: z.enum(['PAID', 'CREDIT', 'PARTIAL']).optional(),
+    creditDueDate: z.string().optional(),
+    creditNotes: z.string().optional(),
+    amountPaid: z.number().optional(),
+    initialPaymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY']).optional(),
 });
 
 type ProductItemFormData = z.infer<typeof productItemSchema>;
@@ -69,8 +74,7 @@ export const CreateSale: React.FC = () => {
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
     const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
     const [currentDiscountInfo, setCurrentDiscountInfo] = useState<DiscountInfo | null>(null);
-
-
+    const [showPartialPayment, setShowPartialPayment] = useState(false);
 
     // Product item form
     const {
@@ -95,12 +99,16 @@ export const CreateSale: React.FC = () => {
         register,
         handleSubmit,
         watch,
+        setValue,
         formState: { errors, isSubmitting }
     } = useForm<SaleFormData>({
         resolver: zodResolver(saleSchema),
         defaultValues: {
             warehouseCustomerId: '',
             paymentMethod: 'CASH',
+            creditDueDate: '',
+            creditNotes: '',
+            amountPaid: 0,
         }
     });
 
@@ -121,6 +129,8 @@ export const CreateSale: React.FC = () => {
     const watchedQuantity = watchProduct('quantity');
     const watchedUnitPrice = watchProduct('unitPrice');
     const watchedCustomerId = watch('warehouseCustomerId');
+    const watchPaymentMethod = watch('paymentMethod');
+    const watchAmountPaid = watch('amountPaid');
 
     // Auto-fill unit price when product is selected
     useEffect(() => {
@@ -145,7 +155,6 @@ export const CreateSale: React.FC = () => {
                         unitPrice: watchedUnitPrice
                     });
 
-                    // Enhanced discount info with validation flags
                     const discountInfo: DiscountInfo = {
                         hasDiscount: result.data?.hasDiscount || false,
                         originalPrice: result.data?.originalPrice || watchedUnitPrice,
@@ -174,78 +183,61 @@ export const CreateSale: React.FC = () => {
         return () => clearTimeout(timeoutId);
     }, [watchedCustomerId, watchedProductId, watchedQuantity, watchedUnitPrice]);
 
+    // Reset partial payment when payment method changes
+    useEffect(() => {
+        if (watchPaymentMethod !== 'CREDIT') {
+            setShowPartialPayment(false);
+            setValue('amountPaid', 0);
+            setValue('initialPaymentMethod', undefined);
+        }
+    }, [watchPaymentMethod, setValue]);
+
     // Calculate days until discount expiry
-    const getDaysUntilExpiry = (validUntil?: string): number | null => {
-        if (!validUntil) return null;
-        const expiryDate = new Date(validUntil);
+    const getDaysUntilExpiry = (validUntil?: string): number => {
+        if (!validUntil) return 0;
         const today = new Date();
-        const diffTime = expiryDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
+        const expiry = new Date(validUntil);
+        const diffTime = expiry.getTime() - today.getTime();
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
 
-    // Add or update item in cart
-    const handleAddToCart = (data: ProductItemFormData) => {
+    // Add product to cart
+    const onAddToCart = (data: ProductItemFormData) => {
         const selectedProduct = products?.find((p: any) => p.id === data.productId);
         if (!selectedProduct) return;
 
-        // Validate discount conditions
-        const minimumQuantityMet = !currentDiscountInfo?.discount?.minimumQuantity ||
-            data.quantity >= currentDiscountInfo.discount.minimumQuantity;
-        const isDiscountValid = !currentDiscountInfo?.discount?.validUntil ||
-            new Date(currentDiscountInfo.discount.validUntil) >= new Date();
+        const originalPrice = currentDiscountInfo?.originalPrice || data.unitPrice;
+        const finalPrice = currentDiscountInfo?.finalPrice || data.unitPrice;
+        const discountAmount = currentDiscountInfo?.discountAmount || 0;
+        const discountPercentage = currentDiscountInfo?.discountPercentage || 0;
 
-        // Only apply discount if all conditions are met
-        const shouldApplyDiscount = Boolean(
-            currentDiscountInfo?.hasDiscount &&
-            minimumQuantityMet &&
-            isDiscountValid
-        );
-
-        const originalUnitPrice = data.unitPrice;
-        const discountedUnitPrice = shouldApplyDiscount && currentDiscountInfo
-            ? currentDiscountInfo.finalPrice
-            : data.unitPrice;
-        const discountAmount = shouldApplyDiscount && currentDiscountInfo
-            ? currentDiscountInfo.discountAmount
-            : 0;
-        const discountPercentage = shouldApplyDiscount && currentDiscountInfo
-            ? currentDiscountInfo.discountPercentage
-            : 0;
-
-        const subtotal = data.quantity * originalUnitPrice;
+        const subtotal = data.quantity * originalPrice;
         const discountTotal = data.quantity * discountAmount;
-        const finalTotal = data.quantity * discountedUnitPrice;
+        const finalTotal = data.quantity * finalPrice;
 
         const cartItem: CartItem = {
-            id: editingItemId || `item-${Date.now()}`,
-            productId: data.productId,
+            ...data,
+            id: editingItemId || `${Date.now()}-${Math.random()}`,
             productName: selectedProduct.name,
             productNo: selectedProduct.productNo,
-            quantity: data.quantity,
-            unitType: data.unitType,
-            unitPrice: data.unitPrice,
-            originalUnitPrice,
-            discountedUnitPrice,
+            originalUnitPrice: originalPrice,
+            discountedUnitPrice: finalPrice,
             discountAmount,
             discountPercentage,
             subtotal,
             discountTotal,
             finalTotal,
-            hasDiscount: shouldApplyDiscount,
-            discountInfo: shouldApplyDiscount && currentDiscountInfo ? currentDiscountInfo.discount : undefined
+            hasDiscount: discountAmount > 0,
+            discountInfo: currentDiscountInfo?.hasDiscount ? currentDiscountInfo.discount : undefined
         };
 
         if (editingItemId) {
-            // Update existing item
             setCart(cart.map(item => item.id === editingItemId ? cartItem : item));
             setEditingItemId(null);
         } else {
-            // Add new item
             setCart([...cart, cartItem]);
         }
 
-        // Reset form
         resetProduct({
             productId: '',
             quantity: 1,
@@ -293,19 +285,16 @@ export const CreateSale: React.FC = () => {
         { subtotal: 0, discount: 0, total: 0 }
     );
 
-    // Create sale mutation - Creates multiple sales with same receipt number
+    // Create sale mutation
     const createSaleMutation = useMutation({
         mutationFn: async (saleData: SaleFormData) => {
-            // Generate a unique receipt number for all items
             const receiptNumber = `WHS-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-
-            // Find selected customer to get their details
             const selectedCustomer = customersData?.data?.customers?.find(
                 (c: any) => c.id === saleData.warehouseCustomerId
             );
 
             const salePromises = cart.map(item => {
-                const payload = {
+                const payload: any = {
                     productId: item.productId,
                     quantity: item.quantity,
                     unitType: item.unitType,
@@ -317,19 +306,29 @@ export const CreateSale: React.FC = () => {
                     receiptNumber
                 };
 
-                console.log('📤 Sending sale payload:', payload);
+                // Add credit sale fields
+                if (saleData.paymentMethod === 'CREDIT') {
+                    payload.creditDueDate = saleData.creditDueDate;
+                    payload.creditNotes = saleData.creditNotes;
 
+                    // Add partial payment fields if applicable
+                    if (showPartialPayment && saleData.amountPaid && saleData.amountPaid > 0) {
+                        payload.amountPaid = saleData.amountPaid;
+                        payload.initialPaymentMethod = saleData.initialPaymentMethod;
+                    }
+                }
+
+                console.log('📤 Sending sale payload:', payload);
                 return warehouseService.createSale(payload);
             });
 
-
-            // Execute all sales
             return Promise.all(salePromises);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-sales'] });
             queryClient.invalidateQueries({ queryKey: ['warehouse-inventory'] });
             queryClient.invalidateQueries({ queryKey: ['warehouse-customers'] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse-debtors'] });
             globalToast.success(`Sale recorded successfully with ${cart.length} item(s)!`);
             navigate('/warehouse/sales');
         },
@@ -343,15 +342,39 @@ export const CreateSale: React.FC = () => {
             globalToast.error('Please add at least one product to the cart');
             return;
         }
+
+        // Validate credit sale fields
+        if (data.paymentMethod === 'CREDIT') {
+            if (!data.creditDueDate) {
+                globalToast.error('Please specify a due date for credit sale');
+                return;
+            }
+
+            // Validate partial payment
+            if (showPartialPayment) {
+                if (!data.amountPaid || data.amountPaid <= 0) {
+                    globalToast.error('Please enter a valid partial payment amount');
+                    return;
+                }
+
+                if (data.amountPaid > cartTotals.total) {
+                    globalToast.error('Partial payment cannot exceed total amount');
+                    return;
+                }
+
+                if (!data.initialPaymentMethod) {
+                    globalToast.error('Please select a payment method for partial payment');
+                    return;
+                }
+            }
+        }
+
         createSaleMutation.mutate(data);
     };
-
 
     // Check if minimum quantity is met for current item
     const minimumQuantityMet = !currentDiscountInfo?.discount?.minimumQuantity ||
         watchedQuantity >= currentDiscountInfo.discount.minimumQuantity;
-    const isDiscountValid = !currentDiscountInfo?.discount?.validUntil ||
-        new Date(currentDiscountInfo.discount.validUntil) >= new Date();
     const daysUntilExpiry = currentDiscountInfo?.discount?.validUntil
         ? getDaysUntilExpiry(currentDiscountInfo.discount.validUntil)
         : null;
@@ -418,7 +441,8 @@ export const CreateSale: React.FC = () => {
                         </h3>
                     </div>
                     <div className="p-6">
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                            {/* Product Selection */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Product *
@@ -426,14 +450,11 @@ export const CreateSale: React.FC = () => {
                                 <select
                                     {...registerProduct('productId')}
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                    disabled={!watchedCustomerId}
                                 >
-                                    <option value="">
-                                        {!watchedCustomerId ? 'Select a customer first' : 'Select a product'}
-                                    </option>
+                                    <option value="">Select product</option>
                                     {products?.map((product: any) => (
                                         <option key={product.id} value={product.id}>
-                                            {product.name} ({product.productNo}) - ₦{product.pricePerPack?.toLocaleString()}
+                                            {product.name} ({product.productNo})
                                         </option>
                                     ))}
                                 </select>
@@ -442,128 +463,125 @@ export const CreateSale: React.FC = () => {
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Unit Type *
-                                    </label>
-                                    <select
-                                        {...registerProduct('unitType')}
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                    >
-                                        <option value="PACKS">Packs</option>
-                                        <option value="PALLETS">Pallets</option>
-                                        <option value="UNITS">Units</option>
-                                    </select>
-                                    {productErrors.unitType && (
-                                        <p className="mt-1 text-sm text-red-600">{productErrors.unitType.message}</p>
-                                    )}
-                                </div>
-
+                            {/* Quantity */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Quantity *
+                                </label>
                                 <Input
-                                    label="Quantity *"
                                     type="number"
+                                    min="1"
                                     {...registerProduct('quantity', { valueAsNumber: true })}
-                                    error={productErrors.quantity?.message}
-                                    placeholder="Enter quantity"
                                 />
-
-                                <Input
-                                    label="Unit Price (₦) *"
-                                    type="number"
-                                    step="0.01"
-                                    {...registerProduct('unitPrice', { valueAsNumber: true })}
-                                    error={productErrors.unitPrice?.message}
-                                    placeholder="Auto-filled from product"
-                                />
+                                {productErrors.quantity && (
+                                    <p className="mt-1 text-sm text-red-600">{productErrors.quantity.message}</p>
+                                )}
                             </div>
 
-                            {/* Discount Information */}
-                            {currentDiscountInfo?.hasDiscount && watchedCustomerId && (
-                                <div className={`border rounded-md p-4 ${!minimumQuantityMet || !isDiscountValid
-                                    ? 'bg-yellow-50 border-yellow-200'
-                                    : 'bg-green-50 border-green-200'
-                                    }`}>
-                                    <div className="flex items-center mb-2">
-                                        <Tag className="h-4 w-4 mr-2" />
-                                        <span className="text-sm font-medium">
-                                            {!minimumQuantityMet || !isDiscountValid ? 'Discount Available (Not Applied)' : 'Discount Will Be Applied'}
-                                        </span>
-                                    </div>
+                            {/* Unit Type */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Unit Type *
+                                </label>
+                                <select
+                                    {...registerProduct('unitType')}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                >
+                                    <option value="PACKS">Packs</option>
+                                    <option value="PALLETS">Pallets</option>
+                                    <option value="UNITS">Units</option>
+                                </select>
+                            </div>
 
-                                    {/* Minimum Quantity Warning */}
-                                    {!minimumQuantityMet && currentDiscountInfo.discount?.minimumQuantity && (
-                                        <p className="text-xs text-yellow-700 mb-2 flex items-center">
-                                            <AlertTriangle className="h-3 w-3 mr-1" />
-                                            Need {currentDiscountInfo.discount.minimumQuantity} units minimum
-                                        </p>
-                                    )}
+                            {/* Unit Price */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Unit Price *
+                                </label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    {...registerProduct('unitPrice', { valueAsNumber: true })}
+                                />
+                                {productErrors.unitPrice && (
+                                    <p className="mt-1 text-sm text-red-600">{productErrors.unitPrice.message}</p>
+                                )}
+                            </div>
 
-                                    {/* Expiry Warning */}
-                                    {!isDiscountValid && currentDiscountInfo.discount?.validUntil && (
-                                        <p className="text-xs text-red-700 mb-2 flex items-center">
-                                            <AlertTriangle className="h-3 w-3 mr-1" />
-                                            Discount expired on {new Date(currentDiscountInfo.discount.validUntil).toLocaleDateString()}
-                                        </p>
-                                    )}
-
-                                    {/* Expiring Soon Warning */}
-                                    {daysUntilExpiry !== null && daysUntilExpiry > 0 && daysUntilExpiry <= 7 && isDiscountValid && (
-                                        <p className="text-xs text-orange-600 mb-2 flex items-center">
-                                            <AlertTriangle className="h-3 w-3 mr-1" />
-                                            Discount expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}
-                                        </p>
-                                    )}
-
-                                    {minimumQuantityMet && isDiscountValid && (
-                                        <div className="text-xs space-y-1">
-                                            <p>Discount: <strong>{(currentDiscountInfo.discountPercentage ?? 0).toFixed(2)}%</strong></p>
-                                            <p>Original Price: <strong>₦{(currentDiscountInfo.originalPrice ?? 0).toLocaleString()}</strong></p>
-                                            <p>Discounted Price: <strong className="text-green-700">₦{(currentDiscountInfo.finalPrice ?? 0).toLocaleString()}</strong></p>
-                                            <p>You Save: <strong className="text-green-700">₦{((currentDiscountInfo.totalSavings ?? 0)).toLocaleString()}</strong></p>
-                                            {currentDiscountInfo.discount?.reason && (
-                                                <p className="text-gray-600 italic mt-2">Reason: {currentDiscountInfo.discount.reason}</p>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {isCheckingDiscount && (
-                                <div className="text-sm text-gray-500 flex items-center">
-                                    <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Checking for available discounts...
-                                </div>
-                            )}
-
-                            <div className="flex gap-3 pt-4">
+                            {/* Action Buttons */}
+                            <div className="flex items-end space-x-2">
+                                <Button
+                                    type="button"
+                                    onClick={handleSubmitProduct(onAddToCart)}
+                                    disabled={!watchedCustomerId}
+                                    className="flex-1"
+                                >
+                                    {editingItemId ? <Edit2 className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                                    {editingItemId ? 'Update' : 'Add'}
+                                </Button>
                                 {editingItemId && (
-                                    <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleCancelEdit}
+                                    >
                                         Cancel
                                     </Button>
                                 )}
-                                <Button
-                                    type="button"
-                                    onClick={handleSubmitProduct(handleAddToCart)}
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    {editingItemId ? 'Update Item' : 'Add to Cart'}
-                                </Button>
                             </div>
                         </div>
+
+                        {/* Discount Information */}
+                        {isCheckingDiscount && (
+                            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="text-sm text-blue-700">Checking for available discounts...</p>
+                            </div>
+                        )}
+
+                        {currentDiscountInfo?.hasDiscount && (
+                            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-start">
+                                    <Tag className="h-5 w-5 text-green-600 mt-0.5 mr-2" />
+                                    <div className="flex-1">
+                                        <h4 className="text-sm font-semibold text-green-800">
+                                            {currentDiscountInfo.discountPercentage.toFixed(1)}% Discount Available!
+                                        </h4>
+                                        <div className="mt-2 space-y-1 text-sm text-green-700">
+                                            <p>
+                                                Original Price: <span className="line-through">₦{currentDiscountInfo.originalPrice.toLocaleString()}</span>
+                                                {' → '}
+                                                <span className="font-semibold">₦{currentDiscountInfo.finalPrice.toLocaleString()}</span>
+                                            </p>
+                                            <p>
+                                                Total Savings: <span className="font-semibold">₦{(currentDiscountInfo.totalSavings || 0).toLocaleString()}</span>
+                                            </p>
+                                            {currentDiscountInfo.discount?.minimumQuantity && (
+                                                <p className="flex items-center">
+                                                    {minimumQuantityMet ? '✅' : '⚠️'} Minimum quantity: {currentDiscountInfo.discount.minimumQuantity}
+                                                </p>
+                                            )}
+                                            {daysUntilExpiry !== null && (
+                                                <p className={`flex items-center ${daysUntilExpiry < 7 ? 'text-orange-600' : ''}`}>
+                                                    <AlertTriangle className="h-4 w-4 mr-1" />
+                                                    Expires in {daysUntilExpiry} days
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Shopping Cart */}
+                {/* Cart Display */}
                 {cart.length > 0 && (
                     <div className="bg-white shadow rounded-lg">
                         <div className="px-6 py-4 border-b border-gray-200">
                             <h3 className="text-lg font-medium text-gray-900 flex items-center">
                                 <ShoppingCart className="h-5 w-5 mr-2" />
-                                Shopping Cart ({cart.length} {cart.length === 1 ? 'item' : 'items'})
+                                Shopping Cart ({cart.length} items)
                             </h3>
                         </div>
                         <div className="overflow-x-auto">
@@ -594,40 +612,31 @@ export const CreateSale: React.FC = () => {
                                     {cart.map((item) => (
                                         <tr key={item.id}>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">{item.productName}</div>
-                                                <div className="text-sm text-gray-500">{item.productNo}</div>
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">{item.productName}</div>
+                                                    <div className="text-sm text-gray-500">{item.productNo}</div>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {item.quantity} {item.unitType}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                {item.hasDiscount ? (
-                                                    <div>
-                                                        <div className="text-sm text-gray-500 line-through">
-                                                            ₦{item.originalUnitPrice.toLocaleString()}
-                                                        </div>
-                                                        <div className="text-sm font-medium text-green-600">
-                                                            ₦{item.discountedUnitPrice.toLocaleString()}
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-sm text-gray-900">
-                                                        ₦{item.unitPrice.toLocaleString()}
-                                                    </div>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {item.hasDiscount && (
+                                                    <span className="line-through text-gray-400 mr-2">
+                                                        ₦{item.originalUnitPrice.toLocaleString()}
+                                                    </span>
                                                 )}
+                                                ₦{item.discountedUnitPrice.toLocaleString()}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {item.hasDiscount ? (
-                                                    <div>
-                                                        <div className="text-sm font-medium text-green-600">
-                                                            {item.discountPercentage.toFixed(2)}%
-                                                        </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            -₦{item.discountTotal.toLocaleString()}
-                                                        </div>
-                                                    </div>
+                                                    <span className="text-sm text-green-600 font-medium">
+                                                        -{item.discountPercentage.toFixed(1)}%
+                                                        <br />
+                                                        <span className="text-xs">(-₦{item.discountTotal.toLocaleString()})</span>
+                                                    </span>
                                                 ) : (
-                                                    <span className="text-sm text-gray-500">-</span>
+                                                    <span className="text-sm text-gray-400">-</span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -654,9 +663,9 @@ export const CreateSale: React.FC = () => {
                                         </tr>
                                     ))}
                                 </tbody>
-                                <tfoot className="bg-gray-50">
-                                    <tr>
-                                        <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                                <tfoot>
+                                    <tr className="bg-gray-50">
+                                        <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-700">
                                             Subtotal:
                                         </td>
                                         <td colSpan={2} className="px-6 py-4 text-sm text-gray-900">
@@ -664,11 +673,11 @@ export const CreateSale: React.FC = () => {
                                         </td>
                                     </tr>
                                     {cartTotals.discount > 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="px-6 py-3 text-right text-sm font-medium text-green-600">
+                                        <tr className="bg-green-50">
+                                            <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-green-700">
                                                 Total Discount:
                                             </td>
-                                            <td colSpan={2} className="px-6 py-3 text-sm text-green-600">
+                                            <td colSpan={2} className="px-6 py-4 text-sm text-green-700">
                                                 -₦{cartTotals.discount.toLocaleString()}
                                             </td>
                                         </tr>
@@ -695,7 +704,8 @@ export const CreateSale: React.FC = () => {
                                 Payment Information
                             </h3>
                         </div>
-                        <div className="p-6">
+                        <div className="p-6 space-y-4">
+                            {/* Payment Method */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Payment Method *
@@ -715,29 +725,120 @@ export const CreateSale: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* Discount Summary */}
-                            {cartTotals.discount > 0 && (
-                                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
-                                    <h4 className="text-sm font-medium text-green-900 mb-2">
-                                        💰 Discount Applied
-                                    </h4>
-                                    <div className="text-sm text-green-700 space-y-1">
-                                        <p>
-                                            Customer saves: <strong>₦{cartTotals.discount.toLocaleString()}</strong>
-                                        </p>
-                                        <p>
-                                            Percentage saved: <strong>
-                                                {((cartTotals.discount / cartTotals.subtotal) * 100).toFixed(2)}%
-                                            </strong>
-                                        </p>
-                                        <p className="text-xs italic mt-2">
-                                            All applied discounts have been verified and match approved discount requests.
-                                        </p>
+                            {/* Add Credit Checkbox */}
+                            <div className="mt-3 flex items-center">
+                                <input
+                                    type="checkbox"
+                                    checked={watchPaymentMethod === 'CREDIT'}
+                                    onChange={(e) => setValue('paymentStatus', e.target.checked ? 'CREDIT' : 'PAID')}
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                />
+                                <label className="ml-2 block text-sm text-gray-700">
+                                    This is a credit sale
+                                </label>
+                            </div>
+
+                            {/* Credit Sale Fields */}
+                            {watchPaymentMethod === 'CREDIT' && (
+                                <div className="space-y-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div className="flex items-center">
+                                        <CreditCard className="h-5 w-5 text-yellow-600 mr-2" />
+                                        <h4 className="text-sm font-semibold text-yellow-800">Credit Sale Information</h4>
+                                    </div>
+
+                                    {/* Due Date */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Due Date *
+                                        </label>
+                                        <Input
+                                            type="date"
+                                            {...register('creditDueDate')}
+                                            min={new Date().toISOString().split('T')[0]}
+                                        />
+                                        {errors.creditDueDate && (
+                                            <p className="mt-1 text-sm text-red-600">{errors.creditDueDate.message}</p>
+                                        )}
+                                    </div>
+
+                                    {/* Credit Notes */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Notes (Optional)
+                                        </label>
+                                        <textarea
+                                            {...register('creditNotes')}
+                                            rows={3}
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            placeholder="Any additional notes about this credit sale..."
+                                        />
+                                    </div>
+
+                                    {/* Partial Payment Option */}
+                                    <div className="border-t border-yellow-300 pt-4">
+                                        <div className="flex items-center mb-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={showPartialPayment}
+                                                onChange={(e) => setShowPartialPayment(e.target.checked)}
+                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            />
+                                            <label className="ml-2 block text-sm font-medium text-gray-700">
+                                                Accept Partial Payment Now
+                                            </label>
+                                        </div>
+
+                                        {showPartialPayment && (
+                                            <div className="space-y-4 pl-6">
+                                                {/* Amount Paid */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Amount Paid Now *
+                                                    </label>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0.01"
+                                                        max={cartTotals.total}
+                                                        {...register('amountPaid', { valueAsNumber: true })}
+                                                    />
+                                                    <p className="mt-1 text-xs text-gray-500">
+                                                        Total: ₦{cartTotals.total.toLocaleString()} |
+                                                        Remaining: ₦{((cartTotals.total - (watchAmountPaid || 0))).toLocaleString()}
+                                                    </p>
+                                                    {errors.amountPaid && (
+                                                        <p className="mt-1 text-sm text-red-600">{errors.amountPaid.message}</p>
+                                                    )}
+                                                </div>
+
+                                                {/* Initial Payment Method */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Payment Method for Initial Payment *
+                                                    </label>
+                                                    <select
+                                                        {...register('initialPaymentMethod')}
+                                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                                    >
+                                                        <option value="">Select method</option>
+                                                        <option value="CASH">Cash</option>
+                                                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                                                        <option value="CHECK">Check</option>
+                                                        <option value="CARD">Card</option>
+                                                        <option value="MOBILE_MONEY">Mobile Money</option>
+                                                    </select>
+                                                    {errors.initialPaymentMethod && (
+                                                        <p className="mt-1 text-sm text-red-600">{errors.initialPaymentMethod.message}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
 
-                            <div className="flex justify-end gap-3 pt-6">
+                            {/* Submit Button */}
+                            <div className="flex justify-end space-x-3 pt-4 border-t">
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -747,10 +848,11 @@ export const CreateSale: React.FC = () => {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    disabled={isSubmitting || cart.length === 0}
+                                    disabled={isSubmitting || createSaleMutation.isPending}
+                                    loading={isSubmitting || createSaleMutation.isPending}
                                 >
                                     <Save className="h-4 w-4 mr-2" />
-                                    {isSubmitting ? 'Recording Sale...' : 'Complete Sale'}
+                                    {isSubmitting || createSaleMutation.isPending ? 'Recording Sale...' : 'Complete Sale'}
                                 </Button>
                             </div>
                         </div>

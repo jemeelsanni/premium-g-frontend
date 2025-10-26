@@ -15,6 +15,12 @@ interface TableProps<T> {
     loading?: boolean;
     emptyMessage?: string;
     className?: string;
+    pagination?: {
+        current: number;
+        pageSize: number;
+        total: number;
+        onChange: (page: number) => void;
+    };
 }
 
 export function Table<T extends Record<string, any>>({

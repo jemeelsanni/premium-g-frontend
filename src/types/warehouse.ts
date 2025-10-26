@@ -19,6 +19,8 @@ export interface WarehouseCustomer {
   isActive?: boolean;
   createdAt: string;
   updatedAt: string;
+  isVIP?: boolean;
+    isRecent?: boolean;
 }
 
 export interface WarehouseSaleRecord {

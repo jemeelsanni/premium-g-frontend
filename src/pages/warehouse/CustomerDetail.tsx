@@ -11,8 +11,6 @@ import {
     Calendar,
     DollarSign,
     ShoppingCart,
-    TrendingUp,
-    Package,
     AlertCircle,
     Filter,
 } from 'lucide-react';
@@ -91,7 +89,6 @@ export const CustomerDetail: React.FC = () => {
     });
 
     const customer = customerData?.data.customer;
-    const insights = customerData?.data.insights;
     const purchases = purchaseData?.data.purchases || [];
     const pagination = purchaseData?.data.pagination;
     const summary = purchaseData?.data.summary;
@@ -265,60 +262,6 @@ export const CustomerDetail: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Additional Insights */}
-            {insights && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Top Products */}
-                    <div className="bg-white p-6 rounded-lg shadow">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                            <Package className="h-5 w-5 mr-2 text-blue-600" />
-                            Top Products
-                        </h3>
-                        <div className="space-y-3">
-                            {insights.topProducts.slice(0, 5).map((product, index) => (
-                                <div key={index} className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-gray-900">{product.product_name}</p>
-                                        <p className="text-xs text-gray-500">{product.product_no} • {product.purchase_count} purchases</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm font-semibold text-gray-900">
-                                            ₦{parseFloat(product.total_spent.toString()).toLocaleString()}
-                                        </p>
-                                        <p className="text-xs text-gray-500">{product.total_quantity} units</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Spending Trend */}
-                    <div className="bg-white p-6 rounded-lg shadow">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                            <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
-                            Recent Spending Trend
-                        </h3>
-                        <div className="space-y-3">
-                            {insights.spendingTrend.slice(0, 6).map((trend, index) => (
-                                <div key={index} className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {format(new Date(trend.month), 'MMMM yyyy')}
-                                        </p>
-                                        <p className="text-xs text-gray-500">{trend.purchase_count} purchases</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm font-semibold text-gray-900">
-                                            ₦{parseFloat(trend.total_spent.toString()).toLocaleString()}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Sales History Section */}
             <div className="bg-white shadow rounded-lg">
