@@ -22,9 +22,10 @@ const productItemSchema = z.object({
 const saleSchema = z.object({
     warehouseCustomerId: z.string().min(1, 'Customer is required'),
     paymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY', 'CREDIT']),
-    paymentStatus: z.enum(['PAID', 'CREDIT', 'PARTIAL']).optional(),
+    // Credit sale fields
     creditDueDate: z.string().optional(),
     creditNotes: z.string().optional(),
+    // Partial payment fields
     amountPaid: z.number().optional(),
     initialPaymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY']).optional(),
 });
@@ -719,23 +720,11 @@ export const CreateSale: React.FC = () => {
                                     <option value="CHECK">Check</option>
                                     <option value="CARD">Card</option>
                                     <option value="MOBILE_MONEY">Mobile Money</option>
+                                    <option value="CREDIT">Credit</option>
                                 </select>
                                 {errors.paymentMethod && (
                                     <p className="mt-1 text-sm text-red-600">{errors.paymentMethod.message}</p>
                                 )}
-                            </div>
-
-                            {/* Add Credit Checkbox */}
-                            <div className="mt-3 flex items-center">
-                                <input
-                                    type="checkbox"
-                                    checked={watchPaymentMethod === 'CREDIT'}
-                                    onChange={(e) => setValue('paymentStatus', e.target.checked ? 'CREDIT' : 'PAID')}
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                />
-                                <label className="ml-2 block text-sm text-gray-700">
-                                    This is a credit sale
-                                </label>
                             </div>
 
                             {/* Credit Sale Fields */}
