@@ -103,6 +103,7 @@ export interface WarehouseSale {
         amountPaid: number;
         amountDue: number;
     };
+    creditNotes?: string;
   items: WarehouseSaleItem[];
 }
 

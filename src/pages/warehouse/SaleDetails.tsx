@@ -425,29 +425,73 @@ export const SaleDetails: React.FC = () => {
                     {/* Add debt information for credit/partial sales */}
                     {(sale.paymentStatus === 'CREDIT' || sale.paymentStatus === 'PARTIAL') && sale.debtor && (
                         <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Debt Information</h4>
+                            {/* Header with Status Badge */}
+                            <div className="flex justify-between items-center mb-3">
+                                <h4 className="text-sm font-semibold text-gray-900">Debt Information</h4>
+                                {/* Payment Status Badge */}
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${sale.debtor.amountDue === 0 ? 'bg-green-100 text-green-800'
+                                    : sale.debtor.amountPaid > 0
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : sale.creditDueDate && new Date(sale.creditDueDate) < new Date()
+                                            ? 'bg-red-100 text-red-800'
+                                            : 'bg-blue-100 text-blue-800'
+                                    }`}>
+                                    {sale.debtor.amountDue === 0
+                                        ? 'PAID'
+                                        : sale.debtor.amountPaid > 0
+                                            ? 'PARTIAL'
+                                            : sale.creditDueDate && new Date(sale.creditDueDate) < new Date()
+                                                ? 'OVERDUE'
+                                                : 'PENDING'}
+                                </span>
+                            </div>
+
+                            {/* Debt Details */}
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">Total Amount:</span>
                                     <span className="font-medium">{formatCurrency(sale.totalAmount)}</span>
                                 </div>
+
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">Amount Paid:</span>
-                                    <span className="font-medium text-green-600">{formatCurrency(sale.debtor.amountPaid)}</span>
+                                    <span className="font-medium text-green-600">
+                                        {formatCurrency(sale.debtor.amountPaid)}
+                                    </span>
                                 </div>
+
                                 <div className="flex justify-between border-t pt-2">
                                     <span className="text-gray-900 font-semibold">Outstanding Balance:</span>
-                                    <span className="font-bold text-red-600">{formatCurrency(sale.debtor.amountDue)}</span>
+                                    <span className="font-bold text-red-600">
+                                        {formatCurrency(sale.debtor.amountDue)}
+                                    </span>
                                 </div>
+
                                 {sale.creditDueDate && (
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Due Date:</span>
-                                        <span className="font-medium">{new Date(sale.creditDueDate).toLocaleDateString()}</span>
+                                        <span className={`font-medium ${new Date(sale.creditDueDate) < new Date() && sale.debtor.amountDue > 0
+                                            ? 'text-red-600 font-semibold'
+                                            : 'text-gray-900'
+                                            }`}>
+                                            {new Date(sale.creditDueDate).toLocaleDateString()}
+                                            {new Date(sale.creditDueDate) < new Date() && sale.debtor.amountDue > 0 && (
+                                                <span className="ml-2 text-xs">(OVERDUE)</span>
+                                            )}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {sale.creditNotes && (
+                                    <div className="mt-3 pt-2 border-t">
+                                        <span className="text-gray-600 block mb-1">Notes:</span>
+                                        <p className="text-xs text-gray-700 italic">{sale.creditNotes}</p>
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
+
                     {sale.totalCost && (
                         <>
                             <div>
