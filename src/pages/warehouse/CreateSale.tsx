@@ -283,31 +283,25 @@ export const CreateSale: React.FC = () => {
                     warehouseCustomerId: saleData.warehouseCustomerId,
                     customerName: selectedCustomer?.name || '',
                     customerPhone: selectedCustomer?.phone || '',
-                    paymentMethod: saleData.paymentMethod,
+                    // paymentMethod: saleData.paymentMethod,
                     receiptNumber
                 };
 
                 // ✅ FIX: Handle credit sales properly
                 if (saleData.paymentMethod === 'CREDIT') {
-                    payload.paymentStatus = 'CREDIT';
+                    payload.paymentStatus = 'CREDIT';  // ✅ MAKE SURE THIS LINE EXISTS
                     payload.creditDueDate = saleData.creditDueDate;
                     payload.creditNotes = saleData.creditNotes;
-                    // ✅ No paymentMethod line here
 
                     if (showPartialPayment && itemAmountPaid > 0) {
                         payload.amountPaid = itemAmountPaid;
                         payload.initialPaymentMethod = saleData.initialPaymentMethod;
-                        // ✅ No paymentMethod line here either
+                        payload.paymentMethod = saleData.initialPaymentMethod; // ✅ Add actual payment method
+                    } else {
+                        // For credit without partial payment, don't send paymentMethod
+                        delete payload.paymentMethod;
                     }
-
-                    console.log('🔍 CREDIT SALE PAYLOAD:', {
-                        hasPartialPayment: showPartialPayment && itemAmountPaid > 0,
-                        amountPaid: itemAmountPaid,
-                        initialPaymentMethod: saleData.initialPaymentMethod,
-                        // ✅ Note: NOT sending paymentStatus
-                    });
                 } else {
-                    // ✅ For non-credit sales, keep paymentStatus='PAID'
                     payload.paymentStatus = 'PAID';
                 }
 
