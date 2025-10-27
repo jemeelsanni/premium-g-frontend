@@ -283,7 +283,7 @@ export const CreateSale: React.FC = () => {
                     payload.paymentStatus = 'CREDIT';
                     payload.creditDueDate = saleData.creditDueDate;
                     payload.creditNotes = saleData.creditNotes;
-                    payload.paymentMethod = 'CREDIT'; // ✅ Keep it as CREDIT
+                    // payload.paymentMethod = 'CREDIT'; // ✅ Keep it as CREDIT
 
 
                     // ✅ ADD DEBUG LOGGING
@@ -295,18 +295,19 @@ export const CreateSale: React.FC = () => {
 
                     // Add partial payment fields if applicable
                     if (showPartialPayment && itemAmountPaid > 0) {
-                        payload.paymentStatus = 'CREDIT'; // Still CREDIT
+                        payload.paymentMethod = saleData.initialPaymentMethod; // Use the actual method they paid with
                         payload.amountPaid = itemAmountPaid;
-                        payload.initialPaymentMethod = saleData.initialPaymentMethod; // Method for the partial payment
-                        // ✅ DON'T overwrite paymentMethod - keep it as CREDIT
+                        payload.initialPaymentMethod = saleData.initialPaymentMethod;
+                    } else {
+                        // For full credit sales (no partial payment), use a default method
+                        // The backend will handle this appropriately
+                        payload.paymentMethod = 'CASH'; // Placeholder for credit-only sales
                     }
-                } else {
-                    // For non-credit sales
-                    payload.paymentStatus = 'PAID';
-                    payload.paymentMethod = saleData.paymentMethod; // CASH, BANK_TRANSFER, etc.
-                }
 
-                console.log('📤 Sending sale payload:', payload);
+                    console.log('📤 Sending sale payload:', payload);
+                    return warehouseService.createSale(payload);
+                };
+
                 return warehouseService.createSale(payload);
             });
 
