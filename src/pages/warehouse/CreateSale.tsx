@@ -252,7 +252,20 @@ export const CreateSale: React.FC = () => {
                 (c: any) => c.id === saleData.warehouseCustomerId
             );
 
+            const cartTotal = cartTotals.total;
+            const totalAmountPaid = saleData.paymentMethod === 'CREDIT' && saleData.amountPaid
+                ? parseFloat(saleData.amountPaid.toString())
+                : 0;
+
             const salePromises = cart.map(item => {
+                const itemTotal = item.quantity * item.unitPrice;
+
+                // ✅ Calculate proportional partial payment for this item
+                let itemAmountPaid = 0;
+                if (totalAmountPaid > 0 && cartTotal > 0) {
+                    itemAmountPaid = (itemTotal / cartTotal) * totalAmountPaid;
+                }
+
                 const payload: any = {
                     productId: item.productId,
                     quantity: item.quantity,
@@ -261,6 +274,7 @@ export const CreateSale: React.FC = () => {
                     warehouseCustomerId: saleData.warehouseCustomerId,
                     customerName: selectedCustomer?.name || '',
                     customerPhone: selectedCustomer?.phone || '',
+                    paymentMethod: saleData.paymentMethod,
                     receiptNumber
                 };
 
@@ -270,12 +284,19 @@ export const CreateSale: React.FC = () => {
                     payload.creditDueDate = saleData.creditDueDate;
                     payload.creditNotes = saleData.creditNotes;
 
+                    // ✅ ADD DEBUG LOGGING
+                    console.log('🔍 FRONTEND CREDIT SALE:', {
+                        showPartialPayment,
+                        amountPaid: saleData.amountPaid,
+                        initialPaymentMethod: saleData.initialPaymentMethod
+                    });
+
                     // Add partial payment fields if applicable
-                    if (showPartialPayment && saleData.amountPaid && saleData.amountPaid > 0) {
-                        payload.paymentStatus = 'CREDIT'; // Backend will set to PARTIAL when creating
-                        payload.amountPaid = saleData.amountPaid;
+                    if (showPartialPayment && itemAmountPaid > 0) {
+                        payload.paymentStatus = 'CREDIT';
+                        payload.amountPaid = itemAmountPaid;  // Proportional amount for this item
                         payload.initialPaymentMethod = saleData.initialPaymentMethod;
-                        payload.paymentMethod = saleData.initialPaymentMethod; // ✅ Set actual payment method
+                        payload.paymentMethod = saleData.initialPaymentMethod;
                     }
                 } else {
                     // For non-credit sales
