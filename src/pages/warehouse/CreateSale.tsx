@@ -280,9 +280,11 @@ export const CreateSale: React.FC = () => {
 
                 // ✅ FIX: Handle credit sales properly
                 if (saleData.paymentMethod === 'CREDIT') {
-                    payload.paymentStatus = 'CREDIT'; // ✅ Set payment status
+                    payload.paymentStatus = 'CREDIT';
                     payload.creditDueDate = saleData.creditDueDate;
                     payload.creditNotes = saleData.creditNotes;
+                    payload.paymentMethod = 'CREDIT'; // ✅ Keep it as CREDIT
+
 
                     // ✅ ADD DEBUG LOGGING
                     console.log('🔍 FRONTEND CREDIT SALE:', {
@@ -293,10 +295,10 @@ export const CreateSale: React.FC = () => {
 
                     // Add partial payment fields if applicable
                     if (showPartialPayment && itemAmountPaid > 0) {
-                        payload.paymentStatus = 'CREDIT';
-                        payload.amountPaid = itemAmountPaid;  // Proportional amount for this item
-                        payload.initialPaymentMethod = saleData.initialPaymentMethod;
-                        payload.paymentMethod = saleData.initialPaymentMethod;
+                        payload.paymentStatus = 'CREDIT'; // Still CREDIT
+                        payload.amountPaid = itemAmountPaid;
+                        payload.initialPaymentMethod = saleData.initialPaymentMethod; // Method for the partial payment
+                        // ✅ DON'T overwrite paymentMethod - keep it as CREDIT
                     }
                 } else {
                     // For non-credit sales
@@ -331,6 +333,12 @@ export const CreateSale: React.FC = () => {
 
         // Validate credit sale fields
         if (data.paymentMethod === 'CREDIT') {
+            // ✅ FIX: Ensure customer is selected for credit sales
+            if (!data.warehouseCustomerId) {
+                globalToast.error('Please select a customer for credit sales');
+                return;
+            }
+
             if (!data.creditDueDate) {
                 globalToast.error('Please specify a due date for credit sale');
                 return;
