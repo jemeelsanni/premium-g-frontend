@@ -36,6 +36,8 @@ export interface CreateProductData {
   pricePerPack: number;
   costPerPack?: number;
   module: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
+  minSellingPrice?: number;
+  maxSellingPrice?: number;
 }
 
 export interface UpdateProductData {

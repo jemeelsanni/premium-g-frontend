@@ -247,24 +247,33 @@ export const CreateSale: React.FC = () => {
     // Create sale mutation
     const createSaleMutation = useMutation({
         mutationFn: async (saleData: SaleFormData) => {
-            const receiptNumber = `WHS-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-            const selectedCustomer = customersData?.data?.customers?.find(
-                (c: any) => c.id === saleData.warehouseCustomerId
-            );
-
+            const receiptNumber = await generateReceiptNumber();
             const cartTotal = cartTotals.total;
-            const totalAmountPaid = saleData.paymentMethod === 'CREDIT' && saleData.amountPaid
-                ? parseFloat(saleData.amountPaid.toString())
+
+            // 🔥 FIX: Clean the amount paid to prevent multiplication
+            const totalAmountPaid = showPartialPayment && saleData.amountPaid
+                ? parseFloat(String(saleData.amountPaid).replace(/[₦,\s]/g, ''))
                 : 0;
+
+            console.log('💰 FRONTEND PAYMENT CALC:', {
+                showPartialPayment,
+                rawAmountPaid: saleData.amountPaid,
+                cleanedAmountPaid: totalAmountPaid,
+                cartTotal
+            });
 
             const salePromises = cart.map(item => {
                 const itemTotal = item.quantity * item.unitPrice;
 
-                // ✅ Calculate proportional partial payment for this item
+                // Calculate proportional partial payment
                 let itemAmountPaid = 0;
                 if (totalAmountPaid > 0 && cartTotal > 0) {
                     itemAmountPaid = (itemTotal / cartTotal) * totalAmountPaid;
                 }
+
+                const selectedCustomer = customersData?.data?.customers?.find(
+                    (c: any) => c.id === saleData.warehouseCustomerId
+                );
 
                 const payload: any = {
                     productId: item.productId,
@@ -283,31 +292,26 @@ export const CreateSale: React.FC = () => {
                     payload.paymentStatus = 'CREDIT';
                     payload.creditDueDate = saleData.creditDueDate;
                     payload.creditNotes = saleData.creditNotes;
-                    // payload.paymentMethod = 'CREDIT'; // ✅ Keep it as CREDIT
+                    // ✅ No paymentMethod line here
 
-
-                    // ✅ ADD DEBUG LOGGING
-                    console.log('🔍 FRONTEND CREDIT SALE:', {
-                        showPartialPayment,
-                        amountPaid: saleData.amountPaid,
-                        initialPaymentMethod: saleData.initialPaymentMethod
-                    });
-
-                    // Add partial payment fields if applicable
                     if (showPartialPayment && itemAmountPaid > 0) {
-                        payload.paymentMethod = saleData.initialPaymentMethod; // Use the actual method they paid with
                         payload.amountPaid = itemAmountPaid;
                         payload.initialPaymentMethod = saleData.initialPaymentMethod;
-                    } else {
-                        // For full credit sales (no partial payment), use a default method
-                        // The backend will handle this appropriately
-                        payload.paymentMethod = 'CASH'; // Placeholder for credit-only sales
+                        // ✅ No paymentMethod line here either
                     }
 
-                    console.log('📤 Sending sale payload:', payload);
-                    return warehouseService.createSale(payload);
-                };
+                    console.log('🔍 CREDIT SALE PAYLOAD:', {
+                        hasPartialPayment: showPartialPayment && itemAmountPaid > 0,
+                        amountPaid: itemAmountPaid,
+                        initialPaymentMethod: saleData.initialPaymentMethod,
+                        // ✅ Note: NOT sending paymentStatus
+                    });
+                } else {
+                    // ✅ For non-credit sales, keep paymentStatus='PAID'
+                    payload.paymentStatus = 'PAID';
+                }
 
+                console.log('📤 Sending sale payload:', payload);
                 return warehouseService.createSale(payload);
             });
 
@@ -325,6 +329,7 @@ export const CreateSale: React.FC = () => {
             globalToast.error(error.response?.data?.message || 'Failed to record sale');
         }
     });
+
 
     const onSubmit = (data: SaleFormData) => {
         if (cart.length === 0) {
@@ -877,3 +882,19 @@ export const CreateSale: React.FC = () => {
         </div>
     );
 };
+async function generateReceiptNumber() {
+    // Generate a timestamp-based prefix (YYYYMMDD)
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const datePrefix = `${year}${month}${day}`;
+
+    // Generate a random 4-digit number
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+
+    // Combine to create receipt number: YYYYMMDD-XXXX
+    const receiptNumber = `${datePrefix}-${randomSuffix}`;
+
+    return receiptNumber;
+}

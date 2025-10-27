@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/admin/ProductManagement.tsx
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, Package, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -20,6 +19,9 @@ interface ProductFormData {
     pricePerPack?: number;
     costPerPack?: number;
     module: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
+    // 🔥 NEW FIELDS
+    minSellingPrice?: number;
+    maxSellingPrice?: number;
 }
 
 export const ProductManagement: React.FC = () => {
@@ -35,6 +37,8 @@ export const ProductManagement: React.FC = () => {
         pricePerPack: undefined,
         costPerPack: undefined,
         module: 'DISTRIBUTION',
+        minSellingPrice: undefined,
+        maxSellingPrice: undefined,
     });
 
     const queryClient = useQueryClient();
@@ -50,14 +54,12 @@ export const ProductManagement: React.FC = () => {
             }),
     });
 
-    // Fetch next product number when creating new product
     const { data: productNumberData } = useQuery({
         queryKey: ['next-product-number'],
         queryFn: () => adminService.getNextProductNumber(),
-        enabled: isModalOpen && !editingProduct, // Only fetch when creating new
+        enabled: isModalOpen && !editingProduct,
     });
 
-    // Auto-fill product number when it's fetched
     useEffect(() => {
         if (productNumberData && !editingProduct) {
             setFormData(prev => ({
@@ -67,19 +69,21 @@ export const ProductManagement: React.FC = () => {
         }
     }, [productNumberData, editingProduct]);
 
-    // Calculate pagination values
     const totalPages = productsData?.data?.pagination?.totalPages || 1;
     const total = productsData?.data?.pagination?.total || 0;
     const hasNext = currentPage < totalPages;
     const hasPrev = currentPage > 1;
 
     const createMutation = useMutation({
-        mutationFn: (data: ProductFormData) => adminService.createProduct({
-            ...data,
-            packsPerPallet: data.packsPerPallet || 0,
-            pricePerPack: data.pricePerPack || 0,
-            costPerPack: data.costPerPack || 0
-        }),
+        mutationFn: (data: ProductFormData) =>
+            adminService.createProduct({
+                ...data,
+                packsPerPallet: data.packsPerPallet || 0,
+                pricePerPack: data.pricePerPack || 0,
+                costPerPack: data.costPerPack || 0,
+                minSellingPrice: data.minSellingPrice || undefined,
+                maxSellingPrice: data.maxSellingPrice || undefined,
+            }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-products'] });
             queryClient.invalidateQueries({ queryKey: ['next-product-number'] });
@@ -118,15 +122,24 @@ export const ProductManagement: React.FC = () => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Prepare data based on module type
-        const submitData = {
+        // 🔥 Validation for price range
+        if (formData.minSellingPrice && formData.maxSellingPrice) {
+            if (formData.minSellingPrice > formData.maxSellingPrice) {
+                globalToast.error('Minimum selling price cannot be greater than maximum selling price');
+                return;
+            }
+        }
+
+        const submitData: ProductFormData = {
             productNo: formData.productNo,
             name: formData.name,
             description: formData.description,
             module: formData.module,
             packsPerPallet: formData.packsPerPallet || 0,
             pricePerPack: formData.pricePerPack || 0,
-            costPerPack: formData.costPerPack || 0
+            costPerPack: formData.costPerPack || 0,
+            minSellingPrice: formData.minSellingPrice || undefined,
+            maxSellingPrice: formData.maxSellingPrice || undefined,
         };
 
         if (editingProduct) {
@@ -146,6 +159,8 @@ export const ProductManagement: React.FC = () => {
             pricePerPack: product.pricePerPack,
             costPerPack: product.costPerPack || 0,
             module: product.module || 'DISTRIBUTION',
+            minSellingPrice: product.minSellingPrice || undefined,
+            maxSellingPrice: product.maxSellingPrice || undefined,
         });
         setIsModalOpen(true);
     };
@@ -167,19 +182,9 @@ export const ProductManagement: React.FC = () => {
             pricePerPack: undefined,
             costPerPack: undefined,
             module: 'DISTRIBUTION',
+            minSellingPrice: undefined,
+            maxSellingPrice: undefined,
         });
-    };
-
-    // Get required fields based on module
-    const getRequiredFields = () => {
-        const module = formData.module;
-        if (module === 'DISTRIBUTION') {
-            return ['packsPerPallet', 'costPerPack'];
-        } else if (module === 'WAREHOUSE') {
-            return ['pricePerPack', 'costPerPack'];
-        } else { // BOTH
-            return ['packsPerPallet', 'pricePerPack', 'costPerPack'];
-        }
     };
 
     const productColumns = [
@@ -196,34 +201,43 @@ export const ProductManagement: React.FC = () => {
         {
             key: 'name',
             title: 'Name',
-            render: (value: string) => (
-                <span className="text-gray-900">{value}</span>
-            ),
-        },
-        {
-            key: 'packsPerPallet',
-            title: 'Packs/Pallet',
-            render: (value: number) => (
-                <span className="text-gray-600">{value || 'N/A'}</span>
-            ),
+            render: (value: string) => <span className="text-gray-900">{value}</span>,
         },
         {
             key: 'pricePerPack',
             title: 'Price/Pack',
-            render: (value: number) => (
-                <span className="text-gray-900 font-medium">
-                    {value ? formatCurrency(value) : 'N/A'}
-                </span>
+            render: (value: number, product: any) => (
+                <div>
+                    <span className="font-medium text-gray-900">
+                        {value ? formatCurrency(value) : 'N/A'}
+                    </span>
+                    {(product.minSellingPrice || product.maxSellingPrice) && (
+                        <p className="text-xs text-gray-500">
+                            Range:{' '}
+                            {product.minSellingPrice
+                                ? `₦${product.minSellingPrice.toLocaleString()}`
+                                : 'N/A'}{' '}
+                            -{' '}
+                            {product.maxSellingPrice
+                                ? `₦${product.maxSellingPrice.toLocaleString()}`
+                                : 'N/A'}
+                        </p>
+                    )}
+                </div>
             ),
         },
         {
             key: 'module',
             title: 'Module',
             render: (value: string) => (
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${value === 'DISTRIBUTION' ? 'bg-blue-100 text-blue-800' :
-                    value === 'WAREHOUSE' ? 'bg-purple-100 text-purple-800' :
-                        'bg-green-100 text-green-800'
-                    }`}>
+                <span
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${value === 'DISTRIBUTION'
+                            ? 'bg-blue-100 text-blue-800'
+                            : value === 'WAREHOUSE'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-green-100 text-green-800'
+                        }`}
+                >
                     {value}
                 </span>
             ),
@@ -232,8 +246,10 @@ export const ProductManagement: React.FC = () => {
             key: 'isActive',
             title: 'Status',
             render: (value: boolean) => (
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
+                <span
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}
+                >
                     {value ? 'Active' : 'Inactive'}
                 </span>
             ),
@@ -260,11 +276,7 @@ export const ProductManagement: React.FC = () => {
         },
     ];
 
-    if (isLoading) {
-        return <LoadingSpinner />;
-    }
-
-    const requiredFields = getRequiredFields();
+    if (isLoading) return <LoadingSpinner />;
 
     return (
         <div className="space-y-6">
@@ -293,55 +305,43 @@ export const ProductManagement: React.FC = () => {
                     </div>
                 </div>
 
-                <Table
-                    data={productsData?.data?.products || []}
-                    columns={productColumns}
-                />
+                <Table data={productsData?.data?.products || []} columns={productColumns} />
 
                 {/* Pagination */}
-                <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 sm:px-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-700">
-                                Showing page <span className="font-medium">{currentPage}</span> of{' '}
-                                <span className="font-medium">{totalPages}</span>
-                                {' '}({total} total records)
-                            </p>
-                        </div>
-                        <div>
-                            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                <button
-                                    onClick={() => setCurrentPage(currentPage - 1)}
-                                    disabled={!hasPrev}
-                                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <ChevronLeft className="h-5 w-5" />
-                                </button>
-                                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                                    {currentPage}
-                                </span>
-                                <button
-                                    onClick={() => setCurrentPage(currentPage + 1)}
-                                    disabled={!hasNext}
-                                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <ChevronRight className="h-5 w-5" />
-                                </button>
-                            </nav>
-                        </div>
+                <div className="px-4 py-3 border-t bg-gray-50 flex justify-between items-center">
+                    <p className="text-sm text-gray-700">
+                        Page <span className="font-medium">{currentPage}</span> of{' '}
+                        <span className="font-medium">{totalPages}</span> ({total} total)
+                    </p>
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            disabled={!hasPrev}
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            disabled={!hasNext}
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
                     </div>
                 </div>
             </div>
 
+            {/* Modal */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
                 title={editingProduct ? 'Edit Product' : 'Add New Product'}
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* MODULE SELECTION - FIRST FIELD */}
+                    {/* Module */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium mb-1">
                             Module * (Select First)
                         </label>
                         <select
@@ -349,7 +349,7 @@ export const ProductManagement: React.FC = () => {
                             onChange={(e) =>
                                 setFormData({ ...formData, module: e.target.value as any })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border px-3 py-2 rounded"
                             required
                             disabled={!!editingProduct}
                         >
@@ -357,132 +357,145 @@ export const ProductManagement: React.FC = () => {
                             <option value="WAREHOUSE">Warehouse Product</option>
                             <option value="BOTH">Both Modules</option>
                         </select>
-                        <p className="mt-1 text-xs text-gray-500">
-                            {formData.module === 'DISTRIBUTION' && 'For distribution sales only'}
-                            {formData.module === 'WAREHOUSE' && 'For warehouse retail sales only'}
-                            {formData.module === 'BOTH' && 'Available in both distribution and warehouse'}
-                        </p>
                     </div>
 
-                    {/* PRODUCT NUMBER - AUTO-GENERATED */}
+                    {/* Product Number */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium mb-1">
                             Product Number
                         </label>
                         <Input
                             type="text"
                             value={formData.productNo}
-                            onChange={(e) =>
-                                setFormData({ ...formData, productNo: e.target.value })
-                            }
-                            placeholder="PRD-2025-001"
-                            required
-                            disabled={true} // Always disabled - auto-generated
+                            disabled
                             className="bg-gray-50"
                         />
-                        <p className="mt-1 text-xs text-gray-500">
-                            Auto-generated in format: PRD-YEAR-XXX
-                        </p>
                     </div>
 
-                    {/* PRODUCT NAME */}
+                    {/* Name & Description */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Product Name *
-                        </label>
+                        <label className="block text-sm font-medium mb-1">Name *</label>
                         <Input
                             type="text"
                             value={formData.name}
                             onChange={(e) =>
                                 setFormData({ ...formData, name: e.target.value })
                             }
-                            placeholder="e.g., Coca-Cola 35cl bottle"
                             required
                         />
                     </div>
 
-                    {/* DESCRIPTION */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Description (Optional)
-                        </label>
+                        <label className="block text-sm font-medium mb-1">Description</label>
                         <textarea
                             value={formData.description}
                             onChange={(e) =>
                                 setFormData({ ...formData, description: e.target.value })
                             }
-                            placeholder="Product description..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border px-3 py-2 rounded"
                             rows={3}
                         />
                     </div>
 
-                    {/* CONDITIONAL FIELDS BASED ON MODULE */}
-
-                    {/* DISTRIBUTION FIELDS */}
-                    {(formData.module === 'DISTRIBUTION' || formData.module === 'BOTH') && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Packs per Pallet *
-                            </label>
-                            <Input
-                                type="number"
-                                value={formData.packsPerPallet || ''}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, packsPerPallet: parseInt(e.target.value) || 0 })
-                                }
-                                placeholder="e.g., 50"
-                                required={requiredFields.includes('packsPerPallet')}
-                                min="1"
-                            />
-                            <p className="mt-1 text-xs text-gray-500">
-                                Number of packs in one pallet
-                            </p>
+                    {/* Warehouse Price Range */}
+                    {(formData.module === 'WAREHOUSE' || formData.module === 'BOTH') && (
+                        <div className="border-t pt-4 space-y-4">
+                            <h3 className="text-md font-semibold">
+                                Warehouse Price Range (Optional)
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Minimum Selling Price (₦)
+                                    </label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.minSellingPrice || ''}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                minSellingPrice: parseFloat(e.target.value) || undefined,
+                                            })
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Maximum Selling Price (₦)
+                                    </label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.maxSellingPrice || ''}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                maxSellingPrice: parseFloat(e.target.value) || undefined,
+                                            })
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            {formData.minSellingPrice && formData.maxSellingPrice && (
+                                <div className="bg-blue-50 border border-blue-200 p-2 rounded text-sm text-blue-700">
+                                    ✓ Warehouse sales must be between ₦
+                                    {formData.minSellingPrice.toLocaleString()} and ₦
+                                    {formData.maxSellingPrice.toLocaleString()}
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* WAREHOUSE FIELDS */}
-                    {(formData.module === 'WAREHOUSE' || formData.module === 'BOTH') && (
+                    {/* Price, Cost, Packs */}
+                    <div className="grid grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Price per Pack *
+                            <label className="block text-sm font-medium mb-1">
+                                Price per Pack
                             </label>
                             <Input
                                 type="number"
                                 step="0.01"
                                 value={formData.pricePerPack || ''}
                                 onChange={(e) =>
-                                    setFormData({ ...formData, pricePerPack: parseFloat(e.target.value) || 0 })
+                                    setFormData({
+                                        ...formData,
+                                        pricePerPack: parseFloat(e.target.value) || 0,
+                                    })
                                 }
-                                placeholder="e.g., 250.00"
-                                required={requiredFields.includes('pricePerPack')}
-                                min="0"
                             />
-                            <p className="mt-1 text-xs text-gray-500">
-                                Retail price for warehouse sales
-                            </p>
                         </div>
-                    )}
-
-                    {/* COST PER PACK - SHOWN FOR ALL MODULES */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Cost per Pack *
-                        </label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.costPerPack || ''}
-                            onChange={(e) =>
-                                setFormData({ ...formData, costPerPack: parseFloat(e.target.value) || 0 })
-                            }
-                            placeholder="e.g., 180.00"
-                            required
-                            min="0"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                            Cost price for profit calculations
-                        </p>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">
+                                Cost per Pack
+                            </label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                value={formData.costPerPack || ''}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        costPerPack: parseFloat(e.target.value) || 0,
+                                    })
+                                }
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">
+                                Packs per Pallet
+                            </label>
+                            <Input
+                                type="number"
+                                value={formData.packsPerPallet || ''}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        packsPerPallet: parseInt(e.target.value) || 0,
+                                    })
+                                }
+                            />
+                        </div>
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4">
