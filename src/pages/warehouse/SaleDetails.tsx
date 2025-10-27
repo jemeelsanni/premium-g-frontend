@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { User, Phone, Receipt, Calendar, Package, Tag, TrendingDown, CheckCircle, AlertCircle, Download } from 'lucide-react';
+import { User, Phone, Receipt, Calendar, Package, Tag, TrendingDown, CheckCircle, AlertCircle, Download, Clock } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { toast } from 'react-hot-toast';
@@ -397,13 +397,57 @@ export const SaleDetails: React.FC = () => {
                         <span className="text-sm font-medium text-gray-600">Receipt Number:</span>
                         <p className="mt-1 font-mono text-sm font-semibold text-gray-900">{sale.receiptNumber}</p>
                     </div>
+                    // In src/pages/warehouse/SaleDetails.tsx, update the payment status section:
                     <div>
                         <span className="text-sm font-medium text-gray-600">Payment Status:</span>
                         <div className="mt-1 flex items-center">
-                            <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-                            <span className="text-sm font-medium text-green-700">Paid</span>
+                            {sale.paymentStatus === 'PAID' && (
+                                <>
+                                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                                    <span className="text-sm font-medium text-green-700">Paid</span>
+                                </>
+                            )}
+                            {sale.paymentStatus === 'CREDIT' && (
+                                <>
+                                    <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
+                                    <span className="text-sm font-medium text-red-700">Credit Sale</span>
+                                </>
+                            )}
+                            {sale.paymentStatus === 'PARTIAL' && (
+                                <>
+                                    <Clock className="h-4 w-4 text-yellow-600 mr-2" />
+                                    <span className="text-sm font-medium text-yellow-700">Partially Paid</span>
+                                </>
+                            )}
                         </div>
                     </div>
+
+                    {/* Add debt information for credit/partial sales */}
+                    {(sale.paymentStatus === 'CREDIT' || sale.paymentStatus === 'PARTIAL') && sale.debtor && (
+                        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Debt Information</h4>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Total Amount:</span>
+                                    <span className="font-medium">{formatCurrency(sale.totalAmount)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Amount Paid:</span>
+                                    <span className="font-medium text-green-600">{formatCurrency(sale.debtor.amountPaid)}</span>
+                                </div>
+                                <div className="flex justify-between border-t pt-2">
+                                    <span className="text-gray-900 font-semibold">Outstanding Balance:</span>
+                                    <span className="font-bold text-red-600">{formatCurrency(sale.debtor.amountDue)}</span>
+                                </div>
+                                {sale.creditDueDate && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Due Date:</span>
+                                        <span className="font-medium">{new Date(sale.creditDueDate).toLocaleDateString()}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     {sale.totalCost && (
                         <>
                             <div>

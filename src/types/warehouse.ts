@@ -97,6 +97,12 @@ export interface WarehouseSale {
   createdAt: string;
   totalQuantity: number;
   itemsCount: number;
+  paymentStatus: 'PAID' | 'CREDIT' | 'PARTIAL';
+  creditDueDate?: string;
+  debtor?: {
+        amountPaid: number;
+        amountDue: number;
+    };
   items: WarehouseSaleItem[];
 }
 

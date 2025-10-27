@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/warehouse/CreateSale.tsx
 import React, { useState, useEffect } from 'react';
@@ -22,10 +23,9 @@ const productItemSchema = z.object({
 const saleSchema = z.object({
     warehouseCustomerId: z.string().min(1, 'Customer is required'),
     paymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY', 'CREDIT']),
-    // Credit sale fields
+    paymentStatus: z.enum(['PAID', 'CREDIT', 'PARTIAL']).optional(),
     creditDueDate: z.string().optional(),
     creditNotes: z.string().optional(),
-    // Partial payment fields
     amountPaid: z.number().optional(),
     initialPaymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY']).optional(),
 });
@@ -122,55 +122,30 @@ export const CreateSale: React.FC = () => {
     // Fetch customers
     const { data: customersData } = useQuery({
         queryKey: ['warehouse-customers'],
-        queryFn: () => warehouseService.getCustomers(1, 100),
+        queryFn: () => warehouseService.getCustomers({ page: 1, limit: 1000 }),
     });
 
-    // Watch form values
+    // Watch form fields
+    const watchedCustomerId = watch('warehouseCustomerId');
     const watchedProductId = watchProduct('productId');
     const watchedQuantity = watchProduct('quantity');
     const watchedUnitPrice = watchProduct('unitPrice');
-    const watchedCustomerId = watch('warehouseCustomerId');
-    const watchPaymentMethod = watch('paymentMethod');
-    const watchAmountPaid = watch('amountPaid');
+    const watchedPaymentMethod = watch('paymentMethod');
 
-    // Auto-fill unit price when product is selected
-    useEffect(() => {
-        if (watchedProductId && products) {
-            const selectedProduct = products.find((p: any) => p.id === watchedProductId);
-            if (selectedProduct && selectedProduct.pricePerPack) {
-                setValueProduct('unitPrice', selectedProduct.pricePerPack);
-            }
-        }
-    }, [watchedProductId, products, setValueProduct]);
-
-    // Check discount eligibility
+    // Check for discount when product, quantity, or price changes
     useEffect(() => {
         const checkDiscount = async () => {
             if (watchedCustomerId && watchedProductId && watchedQuantity > 0 && watchedUnitPrice > 0) {
                 setIsCheckingDiscount(true);
                 try {
-                    const result = await warehouseService.checkDiscount({
+                    const discountInfo = await warehouseService.checkDiscount({
                         warehouseCustomerId: watchedCustomerId,
                         productId: watchedProductId,
                         quantity: watchedQuantity,
-                        unitPrice: watchedUnitPrice
+                        unitPrice: watchedUnitPrice,
                     });
-
-                    const discountInfo: DiscountInfo = {
-                        hasDiscount: result.data?.hasDiscount || false,
-                        originalPrice: result.data?.originalPrice || watchedUnitPrice,
-                        finalPrice: result.data?.finalPrice || watchedUnitPrice,
-                        discountAmount: result.data?.discountAmount || 0,
-                        discountPercentage: result.data?.discountPercentage || 0,
-                        totalSavings: result.data?.totalSavings || 0,
-                        discount: result.data?.discount || undefined
-                    };
-
-                    if (result.data) {
-                        setCurrentDiscountInfo(discountInfo);
-                    }
+                    setCurrentDiscountInfo(discountInfo.data);
                 } catch (error) {
-                    console.error('Error checking discount:', error);
                     setCurrentDiscountInfo(null);
                 } finally {
                     setIsCheckingDiscount(false);
@@ -180,47 +155,30 @@ export const CreateSale: React.FC = () => {
             }
         };
 
-        const timeoutId = setTimeout(checkDiscount, 500);
-        return () => clearTimeout(timeoutId);
+        checkDiscount();
     }, [watchedCustomerId, watchedProductId, watchedQuantity, watchedUnitPrice]);
 
-    // Reset partial payment when payment method changes
-    useEffect(() => {
-        if (watchPaymentMethod !== 'CREDIT') {
-            setShowPartialPayment(false);
-            setValue('amountPaid', 0);
-            setValue('initialPaymentMethod', undefined);
-        }
-    }, [watchPaymentMethod, setValue]);
-
-    // Calculate days until discount expiry
-    const getDaysUntilExpiry = (validUntil?: string): number => {
-        if (!validUntil) return 0;
-        const today = new Date();
-        const expiry = new Date(validUntil);
-        const diffTime = expiry.getTime() - today.getTime();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    };
-
     // Add product to cart
-    const onAddToCart = (data: ProductItemFormData) => {
-        const selectedProduct = products?.find((p: any) => p.id === data.productId);
-        if (!selectedProduct) return;
+    const handleAddProduct = (data: ProductItemFormData) => {
+        const product = products?.find((p: any) => p.id === data.productId);
+        if (!product) {
+            globalToast.error('Product not found');
+            return;
+        }
 
         const originalPrice = currentDiscountInfo?.originalPrice || data.unitPrice;
         const finalPrice = currentDiscountInfo?.finalPrice || data.unitPrice;
-        const discountAmount = currentDiscountInfo?.discountAmount || 0;
-        const discountPercentage = currentDiscountInfo?.discountPercentage || 0;
-
+        const discountAmount = originalPrice - finalPrice;
+        const discountPercentage = originalPrice > 0 ? (discountAmount / originalPrice) * 100 : 0;
         const subtotal = data.quantity * originalPrice;
         const discountTotal = data.quantity * discountAmount;
         const finalTotal = data.quantity * finalPrice;
 
         const cartItem: CartItem = {
             ...data,
-            id: editingItemId || `${Date.now()}-${Math.random()}`,
-            productName: selectedProduct.name,
-            productNo: selectedProduct.productNo,
+            id: editingItemId || `item-${Date.now()}`,
+            productName: product.name,
+            productNo: product.productNo,
             originalUnitPrice: originalPrice,
             discountedUnitPrice: finalPrice,
             discountAmount,
@@ -228,8 +186,8 @@ export const CreateSale: React.FC = () => {
             subtotal,
             discountTotal,
             finalTotal,
-            hasDiscount: discountAmount > 0,
-            discountInfo: currentDiscountInfo?.hasDiscount ? currentDiscountInfo.discount : undefined
+            hasDiscount: currentDiscountInfo?.hasDiscount || false,
+            discountInfo: currentDiscountInfo?.discount ? currentDiscountInfo.discount : undefined
         };
 
         if (editingItemId) {
@@ -300,23 +258,29 @@ export const CreateSale: React.FC = () => {
                     quantity: item.quantity,
                     unitType: item.unitType,
                     unitPrice: item.discountedUnitPrice,
-                    paymentMethod: saleData.paymentMethod,
                     warehouseCustomerId: saleData.warehouseCustomerId,
                     customerName: selectedCustomer?.name || '',
                     customerPhone: selectedCustomer?.phone || '',
                     receiptNumber
                 };
 
-                // Add credit sale fields
+                // ✅ FIX: Handle credit sales properly
                 if (saleData.paymentMethod === 'CREDIT') {
+                    payload.paymentStatus = 'CREDIT'; // ✅ Set payment status
                     payload.creditDueDate = saleData.creditDueDate;
                     payload.creditNotes = saleData.creditNotes;
 
                     // Add partial payment fields if applicable
                     if (showPartialPayment && saleData.amountPaid && saleData.amountPaid > 0) {
+                        payload.paymentStatus = 'CREDIT'; // Backend will set to PARTIAL when creating
                         payload.amountPaid = saleData.amountPaid;
                         payload.initialPaymentMethod = saleData.initialPaymentMethod;
+                        payload.paymentMethod = saleData.initialPaymentMethod; // ✅ Set actual payment method
                     }
+                } else {
+                    // For non-credit sales
+                    payload.paymentStatus = 'PAID';
+                    payload.paymentMethod = saleData.paymentMethod; // CASH, BANK_TRANSFER, etc.
                 }
 
                 console.log('📤 Sending sale payload:', payload);
@@ -377,50 +341,45 @@ export const CreateSale: React.FC = () => {
     const minimumQuantityMet = !currentDiscountInfo?.discount?.minimumQuantity ||
         watchedQuantity >= currentDiscountInfo.discount.minimumQuantity;
     const daysUntilExpiry = currentDiscountInfo?.discount?.validUntil
-        ? getDaysUntilExpiry(currentDiscountInfo.discount.validUntil)
+        ? Math.ceil((new Date(currentDiscountInfo.discount.validUntil).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
         : null;
 
     return (
-        <div className="space-y-6">
+        <div className="p-6 space-y-6">
             {/* Header */}
-            <div className="md:flex md:items-center md:justify-between">
-                <div className="flex items-center space-x-3">
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate('/warehouse/sales')}
-                        className="p-2"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                    <div>
-                        <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
-                            Record New Sale
-                        </h2>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Add products to cart and complete the sale
-                        </p>
-                    </div>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Record New Sale</h1>
+                    <p className="text-sm text-gray-600 mt-1">
+                        Select customer and add products to cart
+                    </p>
                 </div>
+                <Button
+                    variant="outline"
+                    onClick={() => navigate('/warehouse/sales')}
+                    className="flex items-center space-x-2"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back to Sales</span>
+                </Button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Customer Selection */}
-                <div className="bg-white shadow rounded-lg">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                            <User className="h-5 w-5 mr-2" />
-                            Customer Information
-                        </h3>
-                    </div>
-                    <div className="p-6">
+            {/* Customer Selection */}
+            <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center space-x-2 mb-4">
+                    <User className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-lg font-medium text-gray-900">Customer Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Customer *
+                            Select Customer *
                         </label>
                         <select
                             {...register('warehouseCustomerId')}
                             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         >
-                            <option value="">Select a customer</option>
+                            <option value="">Choose customer</option>
                             {customersData?.data?.customers?.map((customer: any) => (
                                 <option key={customer.id} value={customer.id}>
                                     {customer.name} {customer.phone ? `(${customer.phone})` : ''}
@@ -432,422 +391,459 @@ export const CreateSale: React.FC = () => {
                         )}
                     </div>
                 </div>
+            </div>
 
-                {/* Add Product to Cart */}
-                <div className="bg-white shadow rounded-lg">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                            <Package className="h-5 w-5 mr-2" />
-                            {editingItemId ? 'Edit Product' : 'Add Product to Cart'}
-                        </h3>
-                    </div>
-                    <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                            {/* Product Selection */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Product *
-                                </label>
-                                <select
-                                    {...registerProduct('productId')}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                >
-                                    <option value="">Select product</option>
-                                    {products?.map((product: any) => (
-                                        <option key={product.id} value={product.id}>
-                                            {product.name} ({product.productNo})
-                                        </option>
-                                    ))}
-                                </select>
-                                {productErrors.productId && (
-                                    <p className="mt-1 text-sm text-red-600">{productErrors.productId.message}</p>
-                                )}
-                            </div>
+            {/* Add Product to Cart */}
+            <div className="bg-white shadow rounded-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                        <Package className="h-5 w-5 mr-2" />
+                        {editingItemId ? 'Edit Product' : 'Add Product to Cart'}
+                    </h3>
+                </div>
+                <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        {/* Product Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Product *
+                            </label>
+                            <select
+                                {...registerProduct('productId')}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                                <option value="">Select product</option>
+                                {products?.map((product: any) => (
+                                    <option key={product.id} value={product.id}>
+                                        {product.name} ({product.productNo})
+                                    </option>
+                                ))}
+                            </select>
+                            {productErrors.productId && (
+                                <p className="mt-1 text-sm text-red-600">{productErrors.productId.message}</p>
+                            )}
+                        </div>
 
-                            {/* Quantity */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Quantity *
-                                </label>
-                                <Input
-                                    type="number"
-                                    min="1"
-                                    {...registerProduct('quantity', { valueAsNumber: true })}
-                                />
-                                {productErrors.quantity && (
-                                    <p className="mt-1 text-sm text-red-600">{productErrors.quantity.message}</p>
-                                )}
-                            </div>
+                        {/* Quantity */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Quantity *
+                            </label>
+                            <Input
+                                type="number"
+                                {...registerProduct('quantity', { valueAsNumber: true })}
+                                min="1"
+                            />
+                            {productErrors.quantity && (
+                                <p className="mt-1 text-sm text-red-600">{productErrors.quantity.message}</p>
+                            )}
+                        </div>
 
-                            {/* Unit Type */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Unit Type *
-                                </label>
-                                <select
-                                    {...registerProduct('unitType')}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                >
-                                    <option value="PACKS">Packs</option>
-                                    <option value="PALLETS">Pallets</option>
-                                    <option value="UNITS">Units</option>
-                                </select>
-                            </div>
+                        {/* Unit Type */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Unit Type *
+                            </label>
+                            <select
+                                {...registerProduct('unitType')}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                                <option value="PACKS">Packs</option>
+                                <option value="PALLETS">Pallets</option>
+                                <option value="UNITS">Units</option>
+                            </select>
+                        </div>
 
-                            {/* Unit Price */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Unit Price *
-                                </label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    {...registerProduct('unitPrice', { valueAsNumber: true })}
-                                />
-                                {productErrors.unitPrice && (
-                                    <p className="mt-1 text-sm text-red-600">{productErrors.unitPrice.message}</p>
-                                )}
-                            </div>
+                        {/* Unit Price */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Unit Price (₦) *
+                            </label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                {...registerProduct('unitPrice', { valueAsNumber: true })}
+                                min="0.01"
+                            />
+                            {productErrors.unitPrice && (
+                                <p className="mt-1 text-sm text-red-600">{productErrors.unitPrice.message}</p>
+                            )}
+                        </div>
 
-                            {/* Action Buttons */}
-                            <div className="flex items-end space-x-2">
-                                <Button
-                                    type="button"
-                                    onClick={handleSubmitProduct(onAddToCart)}
-                                    disabled={!watchedCustomerId}
-                                    className="flex-1"
-                                >
-                                    {editingItemId ? <Edit2 className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
-                                    {editingItemId ? 'Update' : 'Add'}
-                                </Button>
-                                {editingItemId && (
+                        {/* Add Button */}
+                        <div className="flex items-end">
+                            {editingItemId ? (
+                                <div className="flex space-x-2 w-full">
                                     <Button
                                         type="button"
-                                        variant="outline"
+                                        onClick={handleSubmitProduct(handleAddProduct)}
+                                        variant="primary"
+                                        className="flex-1"
+                                    >
+                                        <Save className="h-4 w-4 mr-1" />
+                                        Update
+                                    </Button>
+                                    <Button
+                                        type="button"
                                         onClick={handleCancelEdit}
+                                        variant="outline"
                                     >
                                         Cancel
                                     </Button>
-                                )}
-                            </div>
+                                </div>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    onClick={handleSubmitProduct(handleAddProduct)}
+                                    variant="primary"
+                                    className="w-full"
+                                >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Add to Cart
+                                </Button>
+                            )}
                         </div>
+                    </div>
 
-                        {/* Discount Information */}
-                        {isCheckingDiscount && (
-                            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <p className="text-sm text-blue-700">Checking for available discounts...</p>
-                            </div>
-                        )}
+                    {/* Discount Info */}
+                    {isCheckingDiscount && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                            <p className="text-sm text-gray-600">Checking for discounts...</p>
+                        </div>
+                    )}
 
-                        {currentDiscountInfo?.hasDiscount && (
-                            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                <div className="flex items-start">
-                                    <Tag className="h-5 w-5 text-green-600 mt-0.5 mr-2" />
-                                    <div className="flex-1">
-                                        <h4 className="text-sm font-semibold text-green-800">
-                                            {currentDiscountInfo.discountPercentage.toFixed(1)}% Discount Available!
-                                        </h4>
-                                        <div className="mt-2 space-y-1 text-sm text-green-700">
+                    {currentDiscountInfo && currentDiscountInfo.hasDiscount && (
+                        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                            <div className="flex items-start">
+                                <Tag className="h-5 w-5 text-green-600 mt-0.5 mr-2" />
+                                <div className="flex-1">
+                                    <h4 className="text-sm font-semibold text-green-900">
+                                        Discount Available!
+                                        {!minimumQuantityMet && (
+                                            <span className="ml-2 text-yellow-700">(Minimum quantity not met)</span>
+                                        )}
+                                    </h4>
+                                    <div className="mt-2 text-sm text-green-800 space-y-1">
+                                        <p>
+                                            <strong>Discount:</strong> {currentDiscountInfo.discountPercentage.toFixed(2)}%
+                                            ({currentDiscountInfo.discount?.type})
+                                        </p>
+                                        <p>
+                                            <strong>Original Price:</strong> ₦{currentDiscountInfo.originalPrice.toLocaleString()}
+                                        </p>
+                                        <p>
+                                            <strong>Discounted Price:</strong> ₦{currentDiscountInfo.finalPrice.toLocaleString()}
+                                        </p>
+                                        {currentDiscountInfo.discount?.minimumQuantity && (
                                             <p>
-                                                Original Price: <span className="line-through">₦{currentDiscountInfo.originalPrice.toLocaleString()}</span>
-                                                {' → '}
-                                                <span className="font-semibold">₦{currentDiscountInfo.finalPrice.toLocaleString()}</span>
+                                                <strong>Minimum Quantity:</strong> {currentDiscountInfo.discount.minimumQuantity}
                                             </p>
-                                            <p>
-                                                Total Savings: <span className="font-semibold">₦{(currentDiscountInfo.totalSavings || 0).toLocaleString()}</span>
+                                        )}
+                                        {daysUntilExpiry !== null && (
+                                            <p className={daysUntilExpiry < 7 ? 'text-yellow-700' : ''}>
+                                                <strong>Valid for:</strong> {daysUntilExpiry} more days
                                             </p>
-                                            {currentDiscountInfo.discount?.minimumQuantity && (
-                                                <p className="flex items-center">
-                                                    {minimumQuantityMet ? '✅' : '⚠️'} Minimum quantity: {currentDiscountInfo.discount.minimumQuantity}
-                                                </p>
-                                            )}
-                                            {daysUntilExpiry !== null && (
-                                                <p className={`flex items-center ${daysUntilExpiry < 7 ? 'text-orange-600' : ''}`}>
-                                                    <AlertTriangle className="h-4 w-4 mr-1" />
-                                                    Expires in {daysUntilExpiry} days
-                                                </p>
-                                            )}
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Cart Display */}
-                {cart.length > 0 && (
-                    <div className="bg-white shadow rounded-lg">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                                <ShoppingCart className="h-5 w-5 mr-2" />
-                                Shopping Cart ({cart.length} items)
-                            </h3>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Product
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Quantity
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Unit Price
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Discount
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Total
-                                        </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {cart.map((item) => (
-                                        <tr key={item.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">{item.productName}</div>
-                                                    <div className="text-sm text-gray-500">{item.productNo}</div>
+                    )}
+                </div>
+            </div>
+
+            {/* Cart */}
+            {cart.length > 0 && (
+                <div className="bg-white shadow rounded-lg overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                            <ShoppingCart className="h-5 w-5 mr-2" />
+                            Shopping Cart ({cart.length} {cart.length === 1 ? 'item' : 'items'})
+                        </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Product
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Quantity
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Unit Price
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Discount
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Total
+                                    </th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {cart.map((item) => (
+                                    <tr key={item.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-gray-900">{item.productName}</div>
+                                            <div className="text-sm text-gray-500">{item.productNo}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {item.quantity} {item.unitType.toLowerCase()}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {item.hasDiscount && (
+                                                <div className="text-xs text-gray-500 line-through">
+                                                    ₦{item.originalUnitPrice.toLocaleString()}
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {item.quantity} {item.unitType}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {item.hasDiscount && (
-                                                    <span className="line-through text-gray-400 mr-2">
-                                                        ₦{item.originalUnitPrice.toLocaleString()}
-                                                    </span>
-                                                )}
+                                            )}
+                                            <div className={item.hasDiscount ? 'text-green-600 font-medium' : ''}>
                                                 ₦{item.discountedUnitPrice.toLocaleString()}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                {item.hasDiscount ? (
-                                                    <span className="text-sm text-green-600 font-medium">
-                                                        -{item.discountPercentage.toFixed(1)}%
-                                                        <br />
-                                                        <span className="text-xs">(-₦{item.discountTotal.toLocaleString()})</span>
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-sm text-gray-400">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                ₦{item.finalTotal.toLocaleString()}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            {item.hasDiscount ? (
+                                                <div className="text-green-600 font-medium">
+                                                    -{item.discountPercentage.toFixed(1)}%
+                                                    <div className="text-xs">
+                                                        -₦{item.discountTotal.toLocaleString()}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-500">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            ₦{item.finalTotal.toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex items-center justify-end space-x-2">
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => handleEditItem(item)}
                                                 >
-                                                    <Edit2 className="h-3 w-3" />
+                                                    <Edit2 className="h-4 w-4" />
                                                 </Button>
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => handleRemoveItem(item.id)}
+                                                    className="text-red-600 hover:text-red-700"
                                                 >
-                                                    <Trash2 className="h-3 w-3" />
+                                                    <Trash2 className="h-4 w-4" />
                                                 </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot>
-                                    <tr className="bg-gray-50">
-                                        <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-700">
-                                            Subtotal:
-                                        </td>
-                                        <td colSpan={2} className="px-6 py-4 text-sm text-gray-900">
-                                            ₦{cartTotals.subtotal.toLocaleString()}
-                                        </td>
-                                    </tr>
-                                    {cartTotals.discount > 0 && (
-                                        <tr className="bg-green-50">
-                                            <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-green-700">
-                                                Total Discount:
-                                            </td>
-                                            <td colSpan={2} className="px-6 py-4 text-sm text-green-700">
-                                                -₦{cartTotals.discount.toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    )}
-                                    <tr className="bg-gray-100">
-                                        <td colSpan={4} className="px-6 py-4 text-right text-base font-bold text-gray-900">
-                                            Total Amount:
-                                        </td>
-                                        <td colSpan={2} className="px-6 py-4 text-base font-bold text-gray-900">
-                                            ₦{cartTotals.total.toLocaleString()}
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* Payment Information */}
-                {cart.length > 0 && (
-                    <div className="bg-white shadow rounded-lg">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">
-                                Payment Information
-                            </h3>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            {/* Payment Method */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Payment Method *
-                                </label>
-                                <select
-                                    {...register('paymentMethod')}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                >
-                                    <option value="CASH">Cash</option>
-                                    <option value="BANK_TRANSFER">Bank Transfer</option>
-                                    <option value="CHECK">Check</option>
-                                    <option value="CARD">Card</option>
-                                    <option value="MOBILE_MONEY">Mobile Money</option>
-                                    <option value="CREDIT">Credit</option>
-                                </select>
-                                {errors.paymentMethod && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.paymentMethod.message}</p>
-                                )}
-                            </div>
-
-                            {/* Credit Sale Fields */}
-                            {watchPaymentMethod === 'CREDIT' && (
-                                <div className="space-y-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                    <div className="flex items-center">
-                                        <CreditCard className="h-5 w-5 text-yellow-600 mr-2" />
-                                        <h4 className="text-sm font-semibold text-yellow-800">Credit Sale Information</h4>
-                                    </div>
-
-                                    {/* Due Date */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Due Date *
-                                        </label>
-                                        <Input
-                                            type="date"
-                                            {...register('creditDueDate')}
-                                            min={new Date().toISOString().split('T')[0]}
-                                        />
-                                        {errors.creditDueDate && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.creditDueDate.message}</p>
-                                        )}
-                                    </div>
-
-                                    {/* Credit Notes */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Notes (Optional)
-                                        </label>
-                                        <textarea
-                                            {...register('creditNotes')}
-                                            rows={3}
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            placeholder="Any additional notes about this credit sale..."
-                                        />
-                                    </div>
-
-                                    {/* Partial Payment Option */}
-                                    <div className="border-t border-yellow-300 pt-4">
-                                        <div className="flex items-center mb-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={showPartialPayment}
-                                                onChange={(e) => setShowPartialPayment(e.target.checked)}
-                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                            />
-                                            <label className="ml-2 block text-sm font-medium text-gray-700">
-                                                Accept Partial Payment Now
-                                            </label>
-                                        </div>
-
-                                        {showPartialPayment && (
-                                            <div className="space-y-4 pl-6">
-                                                {/* Amount Paid */}
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Amount Paid Now *
-                                                    </label>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0.01"
-                                                        max={cartTotals.total}
-                                                        {...register('amountPaid', { valueAsNumber: true })}
-                                                    />
-                                                    <p className="mt-1 text-xs text-gray-500">
-                                                        Total: ₦{cartTotals.total.toLocaleString()} |
-                                                        Remaining: ₦{((cartTotals.total - (watchAmountPaid || 0))).toLocaleString()}
-                                                    </p>
-                                                    {errors.amountPaid && (
-                                                        <p className="mt-1 text-sm text-red-600">{errors.amountPaid.message}</p>
-                                                    )}
-                                                </div>
-
-                                                {/* Initial Payment Method */}
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Payment Method for Initial Payment *
-                                                    </label>
-                                                    <select
-                                                        {...register('initialPaymentMethod')}
-                                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                                    >
-                                                        <option value="">Select method</option>
-                                                        <option value="CASH">Cash</option>
-                                                        <option value="BANK_TRANSFER">Bank Transfer</option>
-                                                        <option value="CHECK">Check</option>
-                                                        <option value="CARD">Card</option>
-                                                        <option value="MOBILE_MONEY">Mobile Money</option>
-                                                    </select>
-                                                    {errors.initialPaymentMethod && (
-                                                        <p className="mt-1 text-sm text-red-600">{errors.initialPaymentMethod.message}</p>
-                                                    )}
-                                                </div>
                                             </div>
-                                        )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-gray-50">
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                                        Subtotal:
+                                    </td>
+                                    <td colSpan={2} className="px-6 py-4 text-sm text-gray-900">
+                                        ₦{cartTotals.subtotal.toLocaleString()}
+                                    </td>
+                                </tr>
+                                {cartTotals.discount > 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                                            Discount:
+                                        </td>
+                                        <td colSpan={2} className="px-6 py-4 text-sm text-green-700">
+                                            -₦{cartTotals.discount.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                )}
+                                <tr className="bg-gray-100">
+                                    <td colSpan={4} className="px-6 py-4 text-right text-base font-bold text-gray-900">
+                                        Total Amount:
+                                    </td>
+                                    <td colSpan={2} className="px-6 py-4 text-base font-bold text-gray-900">
+                                        ₦{cartTotals.total.toLocaleString()}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Payment Information */}
+            {cart.length > 0 && (
+                <div className="bg-white shadow rounded-lg">
+                    <div className="px-6 py-4 border-b border-gray-200">
+                        <h3 className="text-lg font-medium text-gray-900">
+                            Payment Information
+                        </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        {/* Payment Method */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Payment Method *
+                            </label>
+                            <select
+                                {...register('paymentMethod')}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                                <option value="CASH">Cash</option>
+                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                <option value="CARD">Card</option>
+                                <option value="MOBILE_MONEY">Mobile Money</option>
+                                <option value="CREDIT">Credit (Pay Later)</option>
+                            </select>
+                            {errors.paymentMethod && (
+                                <p className="mt-1 text-sm text-red-600">{errors.paymentMethod.message}</p>
+                            )}
+                        </div>
+
+                        {/* Credit Sale Fields */}
+                        {watchedPaymentMethod === 'CREDIT' && (
+                            <>
+                                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                                    <div className="flex items-start">
+                                        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" />
+                                        <div className="flex-1">
+                                            <h4 className="text-sm font-semibold text-yellow-900">Credit Sale</h4>
+                                            <p className="text-sm text-yellow-800 mt-1">
+                                                This sale will be recorded as credit. The customer will need to pay later.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Submit Button */}
-                            <div className="flex justify-end space-x-3 pt-4 border-t">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => navigate('/warehouse/sales')}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={isSubmitting || createSaleMutation.isPending}
-                                    loading={isSubmitting || createSaleMutation.isPending}
-                                >
-                                    <Save className="h-4 w-4 mr-2" />
-                                    {isSubmitting || createSaleMutation.isPending ? 'Recording Sale...' : 'Complete Sale'}
-                                </Button>
-                            </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Due Date *
+                                    </label>
+                                    <Input
+                                        type="date"
+                                        {...register('creditDueDate')}
+                                        min={new Date().toISOString().split('T')[0]}
+                                    />
+                                    {errors.creditDueDate && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.creditDueDate.message}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Credit Notes
+                                    </label>
+                                    <textarea
+                                        {...register('creditNotes')}
+                                        rows={3}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                        placeholder="Optional notes about this credit sale..."
+                                    />
+                                </div>
+
+                                {/* Partial Payment Option */}
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="partialPayment"
+                                        checked={showPartialPayment}
+                                        onChange={(e) => {
+                                            setShowPartialPayment(e.target.checked);
+                                            if (!e.target.checked) {
+                                                setValue('amountPaid', 0);
+                                                setValue('initialPaymentMethod', undefined);
+                                            }
+                                        }}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <label htmlFor="partialPayment" className="text-sm font-medium text-gray-700">
+                                        Customer making partial payment now
+                                    </label>
+                                </div>
+
+                                {/* Partial Payment Fields */}
+                                {showPartialPayment && (
+                                    <div className="ml-6 space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Amount Paid Now (₦) *
+                                            </label>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                {...register('amountPaid', { valueAsNumber: true })}
+                                                min="0.01"
+                                                max={cartTotals.total}
+                                                placeholder={`Max: ₦${cartTotals.total.toLocaleString()}`}
+                                            />
+                                            {errors.amountPaid && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.amountPaid.message}</p>
+                                            )}
+                                            <p className="mt-1 text-xs text-gray-600">
+                                                Remaining balance: ₦{((cartTotals.total) - (watch('amountPaid') || 0)).toLocaleString()}
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Payment Method for Partial Payment *
+                                            </label>
+                                            <select
+                                                {...register('initialPaymentMethod')}
+                                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            >
+                                                <option value="">Select method</option>
+                                                <option value="CASH">Cash</option>
+                                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                                <option value="CARD">Card</option>
+                                                <option value="MOBILE_MONEY">Mobile Money</option>
+                                            </select>
+                                            {errors.initialPaymentMethod && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.initialPaymentMethod.message}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Submit Button */}
+                        <div className="flex justify-end space-x-3 pt-4 border-t">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => navigate('/warehouse/sales')}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={handleSubmit(onSubmit)}
+                                disabled={createSaleMutation.isPending || isSubmitting}
+                                className="flex items-center space-x-2"
+                            >
+                                {createSaleMutation.isPending ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                                        <span>Recording Sale...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CreditCard className="h-4 w-4" />
+                                        <span>Record Sale</span>
+                                    </>
+                                )}
+                            </Button>
                         </div>
                     </div>
-                )}
-            </form>
+                </div>
+            )}
         </div>
     );
 };

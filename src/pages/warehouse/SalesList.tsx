@@ -125,29 +125,21 @@ export const SalesList: React.FC = () => {
             }
         },
         {
-            key: 'discountApplied',
-            title: 'Discount',
-            render: (_value: any, record: any) => {
-                const hasDiscount = record?.discountApplied;
-                const discountAmount = parseNumber(record?.totalDiscountAmount);
-                const discountPercent = parseNumber(record?.discountPercentage);
-
-                if (!hasDiscount || discountAmount <= 0) {
-                    return <span className="text-gray-400 text-sm">—</span>;
-                }
+            key: 'paymentStatus',
+            title: 'Payment Status',
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            render: (value: string, record: any) => {
+                const status = value || 'PAID';
+                const colors = {
+                    'PAID': 'bg-green-100 text-green-800',
+                    'CREDIT': 'bg-red-100 text-red-800',
+                    'PARTIAL': 'bg-yellow-100 text-yellow-800'
+                };
 
                 return (
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-1">
-                            <Tag className="h-3 w-3 text-green-600" />
-                            <span className="text-xs font-semibold text-green-700">
-                                {discountPercent > 0 ? `${discountPercent.toFixed(1)}%` : 'Applied'}
-                            </span>
-                        </div>
-                        <div className="text-xs text-green-600">
-                            -₦{discountAmount.toLocaleString()}
-                        </div>
-                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'}`}>
+                        {status}
+                    </span>
                 );
             }
         },
