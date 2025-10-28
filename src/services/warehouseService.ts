@@ -718,49 +718,49 @@ async getCustomerDebtSummary(customerId: string): Promise<any> {
 }
   // ============================================
 
-  // Export Methods
-  async exportSalesToCSV(filters?: {
-    period?: 'day' | 'week' | 'month' | 'year' | 'custom';
-    startDate?: string;
-    endDate?: string;
-    customerId?: string;
-    productId?: string;
-  }): Promise<Blob> {
-    const params = new URLSearchParams();
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
-    }
+  // // Export Methods
+  // async exportSalesToCSV(filters?: {
+  //   period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+  //   startDate?: string;
+  //   endDate?: string;
+  //   customerId?: string;
+  //   productId?: string;
+  // }): Promise<Blob> {
+  //   const params = new URLSearchParams();
+  //   if (filters) {
+  //     Object.entries(filters).forEach(([key, value]) => {
+  //       if (value) params.append(key, value);
+  //     });
+  //   }
 
-    const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
-      responseType: 'blob'
-    });
-    return response.data;
-  }
+  //   const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
+  //     responseType: 'blob'
+  //   });
+  //   return response.data;
+  // }
 
-  async exportSalesToPDF(filters?: {
-    period?: 'day' | 'week' | 'month' | 'year' | 'custom';
-    startDate?: string;
-    endDate?: string;
-    customerId?: string;
-    productId?: string;
-    limit?: number;
-  }): Promise<Blob> {
-    const params = new URLSearchParams();
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params.append(key, String(value));
-        }
-      });
-    }
+  // async exportSalesToPDF(filters?: {
+  //   period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+  //   startDate?: string;
+  //   endDate?: string;
+  //   customerId?: string;
+  //   productId?: string;
+  //   limit?: number;
+  // }): Promise<Blob> {
+  //   const params = new URLSearchParams();
+  //   if (filters) {
+  //     Object.entries(filters).forEach(([key, value]) => {
+  //       if (value !== undefined && value !== null) {
+  //         params.append(key, String(value));
+  //       }
+  //     });
+  //   }
 
-    const response = await apiClient.get(`/warehouse/sales/export/pdf?${params.toString()}`, {
-      responseType: 'blob'
-    });
-    return response.data;
-  }
+  //   const response = await apiClient.get(`/warehouse/sales/export/pdf?${params.toString()}`, {
+  //     responseType: 'blob'
+  //   });
+  //   return response.data;
+  // }
 
   async exportSaleToPDF(saleId: string): Promise<Blob> {
     const response = await apiClient.get(`/warehouse/sales/${saleId}/export/pdf`, {
@@ -806,6 +806,50 @@ async getCustomerDebtSummary(customerId: string): Promise<any> {
     });
     return response.data;
   }
+
+  async exportSalesToCSV(filters?: {
+  period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+  startDate?: string;
+  endDate?: string;
+  customerId?: string;
+  productId?: string;
+}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+  }
+  
+  const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+// Export Sales to PDF with filters
+async exportSalesToPDF(filters?: {
+  period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+  startDate?: string;
+  endDate?: string;
+  customerId?: string;
+  productId?: string;
+  limit?: number;
+}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, String(value));
+      }
+    });
+  }
+  
+  const response = await apiClient.get(`/warehouse/sales/export/pdf?${params}`, {
+    responseType: 'blob'
+  });
+  return response.data;
+}
 
   // Warehouse Purchases
   async getPurchases(filters?: PurchaseFilters): Promise<PaginatedResponse<WarehousePurchase>> {

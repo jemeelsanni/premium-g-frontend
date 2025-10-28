@@ -1,124 +1,204 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/pages/warehouse/CustomerDetail.tsx
-import React, { useState } from 'react';
+// src/pages/warehouse/CustomerDetail.tsx - WITH PDF EXPORT
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import {
     ArrowLeft,
     User,
     Phone,
+    Mail,
     MapPin,
     Calendar,
     DollarSign,
     ShoppingCart,
+    TrendingUp,
     AlertCircle,
-    Filter,
     CheckCircle,
     CreditCard,
-    TrendingUp,
+    Award,
+    Download,
+    Loader2,
 } from 'lucide-react';
-import { warehouseService, CustomerPurchaseFilters } from '../../services/warehouseService';
+import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Table } from '../../components/ui/Table';
-import { format, startOfWeek, startOfMonth, subMonths, endOfMonth } from 'date-fns';
-type DatePreset = 'today' | 'week' | 'month' | 'lastMonth' | 'custom' | 'all';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { generateCustomerDetailPDF } from '../../services/pdf/customerDetailPDF';
+import { toast } from 'react-hot-toast';
+
+type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom';
 
 export const CustomerDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
+    // Purchase History Pagination
+    const [purchasePage, setPurchasePage] = useState(1);
+    const [purchaseLimit, setPurchaseLimit] = useState(10);
+
+    // Debt History Pagination  
+    const [debtPage, setDebtPage] = useState(1);
+    const [debtLimit, setDebtLimit] = useState(10);
+
+    // PDF Export State
+    const [isExporting, setIsExporting] = useState(false);
+
+    // Date filtering
     const [datePreset, setDatePreset] = useState<DatePreset>('all');
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
-    const [purchasePage, setPurchasePage] = useState(1);
-    const [purchaseLimit, setPurchaseLimit] = useState(10);
-    const [debtPage, setDebtPage] = useState(1);
-    const [debtLimit, setDebtLimit] = useState(10);
-    const [page, setPage] = useState(1);
-    const limit = 10;
 
-    // Calculate date range based on preset
-    const getDateRange = (): { startDate?: string; endDate?: string } => {
-        const today = new Date();
+    const filters = useMemo(() => {
+        const baseFilters: any = {
+            page: purchasePage,
+            limit: purchaseLimit,
+        };
 
-        switch (datePreset) {
-            case 'today':
-                return {
-                    startDate: format(today, 'yyyy-MM-dd'),
-                    endDate: format(today, 'yyyy-MM-dd'),
-                };
-            case 'week':
-                return {
-                    startDate: format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-                    endDate: format(today, 'yyyy-MM-dd'),
-                };
-            case 'month':
-                return {
-                    startDate: format(startOfMonth(today), 'yyyy-MM-dd'),
-                    endDate: format(today, 'yyyy-MM-dd'),
-                };
-            case 'lastMonth': {
-                const lastMonth = subMonths(today, 1);
-                return {
-                    startDate: format(startOfMonth(lastMonth), 'yyyy-MM-dd'),
-                    endDate: format(endOfMonth(lastMonth), 'yyyy-MM-dd'),
-                };
+        if (datePreset === 'custom') {
+            if (customStartDate) baseFilters.startDate = customStartDate;
+            if (customEndDate) baseFilters.endDate = customEndDate;
+        } else if (datePreset !== 'all') {
+            const today = new Date();
+            let startDate = new Date();
+
+            switch (datePreset) {
+                case 'today':
+                    startDate = today;
+                    break;
+                case 'week':
+                    startDate.setDate(today.getDate() - 7);
+                    break;
+                case 'month':
+                    startDate.setMonth(today.getMonth() - 1);
+                    break;
+                case 'year':
+                    startDate.setFullYear(today.getFullYear() - 1);
+                    break;
             }
-            case 'custom':
-                return {
-                    startDate: customStartDate || undefined,
-                    endDate: customEndDate || undefined,
-                };
-            default:
-                return {};
+
+            baseFilters.startDate = startDate.toISOString().split('T')[0];
+            baseFilters.endDate = today.toISOString().split('T')[0];
         }
-    };
 
-    const filters: CustomerPurchaseFilters = {
-        page,
-        limit,
-        ...getDateRange(),
-    };
+        return baseFilters;
+    }, [datePreset, customStartDate, customEndDate, purchasePage, purchaseLimit]);
 
-    // Fetch customer details with insights
+    // Fetch customer details
     const { data: customerData, isLoading: customerLoading } = useQuery({
         queryKey: ['warehouse-customer-detail', id],
-        queryFn: () => warehouseService.getCustomerById(id!),
+        queryFn: () => warehouseService.getCustomerDetails(id!),
         enabled: !!id,
     });
 
-    // Fetch purchase history with filters
+    // Fetch purchase history with pagination
     const { data: purchaseData, isLoading: purchaseLoading } = useQuery({
         queryKey: ['warehouse-customer-purchases', id, filters],
         queryFn: () => warehouseService.getCustomerPurchaseHistory(id!, filters),
         enabled: !!id,
     });
 
+
+    // Fetch debt history
     const { data: debtData, isLoading: debtLoading } = useQuery({
         queryKey: ['warehouse-customer-debts', id],
         queryFn: () => warehouseService.getCustomerDebtSummary(id!),
         enabled: !!id,
     });
 
-    const debts = debtData?.data?.debtors || [];
+    const customer = customerData?.data.customer;
+    const insights = customerData?.data.insights;
+    const purchases = purchaseData?.data.purchases || [];
+    const purchasePagination = purchaseData?.data.pagination;
+    const purchaseSummary = purchaseData?.data.summary;
+
+    // Paginate debts manually
+    const allDebts = debtData?.data?.debtors || [];
     const debtSummary = debtData?.data?.summary;
 
+    const paginatedDebts = useMemo(() => {
+        const startIndex = (debtPage - 1) * debtLimit;
+        const endIndex = startIndex + debtLimit;
+        return allDebts.slice(startIndex, endIndex);
+    }, [allDebts, debtPage, debtLimit]);
 
-    const customer = customerData?.data.customer;
-    const purchases = purchaseData?.data.purchases || [];
-    const pagination = purchaseData?.data.pagination;
-    const summary = purchaseData?.data.summary;
+    const debtPagination = {
+        page: debtPage,
+        limit: debtLimit,
+        total: allDebts.length,
+        pages: Math.ceil(allDebts.length / debtLimit),
+    };
+
+    // Reset to first page when filters change
+    useEffect(() => {
+        setPurchasePage(1);
+    }, [datePreset, customStartDate, customEndDate, purchaseLimit]);
 
     const handleDatePresetChange = (preset: DatePreset) => {
         setDatePreset(preset);
-        setPage(1); // Reset to first page when filter changes
     };
 
     const handleCustomDateApply = () => {
         if (customStartDate || customEndDate) {
             setDatePreset('custom');
-            setPage(1);
+        }
+    };
+
+    // PDF Export Handler
+    const handleExportPDF = async () => {
+        if (!customer) return;
+
+        try {
+            setIsExporting(true);
+            toast.loading('Generating PDF...', { id: 'pdf-export' });
+
+            // Fetch all purchases for export
+            const allPurchases = await warehouseService.getCustomerPurchaseHistory(id!, {
+                page: 1,
+                limit: 10000,
+                startDate: filters.startDate,
+                endDate: filters.endDate,
+            });
+
+            // Prepare filter info for PDF
+            let periodText = 'All Time';
+            if (datePreset === 'custom') {
+                periodText = `${customStartDate || 'Beginning'} to ${customEndDate || 'Now'}`;
+            } else if (datePreset !== 'all') {
+                periodText = datePreset.charAt(0).toUpperCase() + datePreset.slice(1);
+            }
+
+            // Generate PDF
+            const pdfBlob = await generateCustomerDetailPDF({
+                customer,
+                purchases: allPurchases.data.purchases || [],
+                debtSummary,
+                insights,
+                summary: allPurchases.data.summary,
+                filters: {
+                    startDate: filters.startDate,
+                    endDate: filters.endDate,
+                    period: periodText,
+                },
+            });
+
+            // Download PDF
+            const url = window.URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Customer_${customer.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('PDF exported successfully!', { id: 'pdf-export' });
+        } catch (error) {
+            console.error('PDF Export Error:', error);
+            toast.error('Failed to export PDF', { id: 'pdf-export' });
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -144,6 +224,7 @@ export const CustomerDetail: React.FC = () => {
         );
     }
 
+    // Purchase Table Columns
     const purchaseColumns = [
         {
             key: 'createdAt',
@@ -154,7 +235,7 @@ export const CustomerDetail: React.FC = () => {
             key: 'receiptNumber',
             title: 'Receipt #',
             render: (value: string) => (
-                <span className="font-mono text-sm">{value}</span>
+                <span className="font-mono text-sm font-medium">{value}</span>
             ),
         },
         {
@@ -189,22 +270,28 @@ export const CustomerDetail: React.FC = () => {
             title: 'Discount',
             render: (_: unknown, record: any) =>
                 record.discountApplied ? (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {record.discountPercentage}% (-₦{record.totalDiscountAmount?.toLocaleString() || 0})
-                    </span>
+                    <div>
+                        <span className="text-green-600 font-medium">
+                            {record.discountPercentage}% Off
+                        </span>
+                        <div className="text-xs text-gray-500">
+                            Saved: ₦{record.totalDiscountAmount?.toLocaleString() || 0}
+                        </div>
+                    </div>
                 ) : (
-                    <span className="text-gray-400">-</span>
+                    <span className="text-gray-400">No Discount</span>
                 ),
         },
         {
             key: 'paymentMethod',
             title: 'Payment',
             render: (value: string) => (
-                <span className="text-sm">{value.replace(/_/g, ' ')}</span>
+                <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{value}</span>
             ),
         },
     ];
 
+    // Debt Table Columns
     const debtColumns = [
         {
             key: 'createdAt',
@@ -263,274 +350,463 @@ export const CustomerDetail: React.FC = () => {
                 const Icon = config.icon;
 
                 return (
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}>
+                    <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}
+                    >
                         <Icon className="h-3 w-3 mr-1" />
                         {value}
                     </span>
                 );
             },
         },
-        {
-            key: 'payments',
-            title: 'Payments',
-            render: (payments: any[]) => (
-                <div className="text-xs">
-                    {payments && payments.length > 0 ? (
-                        <span className="text-gray-600">{payments.length} payment(s)</span>
-                    ) : (
-                        <span className="text-gray-400">No payments</span>
-                    )}
-                </div>
-            ),
-        },
     ];
+
+    // Pagination Component
+    const PaginationControls = ({
+        pagination,
+        onPageChange,
+        onLimitChange,
+    }: {
+        pagination: any;
+        onPageChange: (page: number) => void;
+        onLimitChange: (limit: number) => void;
+    }) => (
+        <div className="mt-6 px-4 py-3 bg-white border-t border-gray-200 rounded-lg">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-700">
+                    Showing page <span className="font-semibold">{pagination.page}</span> of{' '}
+                    <span className="font-semibold">{pagination.pages}</span> ({pagination.total}{' '}
+                    total records)
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => onPageChange(1)}
+                        disabled={pagination.page === 1}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        ««
+                    </button>
+
+                    <button
+                        onClick={() => onPageChange(pagination.page - 1)}
+                        disabled={pagination.page === 1}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Previous
+                    </button>
+
+                    <div className="hidden sm:flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                            let pageNum;
+                            if (pagination.pages <= 5) {
+                                pageNum = i + 1;
+                            } else if (pagination.page <= 3) {
+                                pageNum = i + 1;
+                            } else if (pagination.page >= pagination.pages - 2) {
+                                pageNum = pagination.pages - 4 + i;
+                            } else {
+                                pageNum = pagination.page - 2 + i;
+                            }
+
+                            return (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => onPageChange(pageNum)}
+                                    className={`px-3 py-2 text-sm font-medium rounded-md ${pagination.page === pageNum
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    {pageNum}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="sm:hidden px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md">
+                        {pagination.page} / {pagination.pages}
+                    </div>
+
+                    <button
+                        onClick={() => onPageChange(pagination.page + 1)}
+                        disabled={pagination.page === pagination.pages}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Next
+                    </button>
+
+                    <button
+                        onClick={() => onPageChange(pagination.pages)}
+                        disabled={pagination.page === pagination.pages}
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        »»
+                    </button>
+                </div>
+
+                <div className="hidden lg:flex items-center gap-2">
+                    <span className="text-sm text-gray-700">Items per page:</span>
+                    <select
+                        value={pagination.limit}
+                        onChange={(e) => onLimitChange(parseInt(e.target.value))}
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="5">5</option>
+                        <option value="8">8</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate('/warehouse/customers')}
-                        className="flex items-center"
-                    >
+                <div className="flex items-center gap-4">
+                    <Button variant="outline" onClick={() => navigate('/warehouse/customers')}>
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back
                     </Button>
-                    <h1 className="text-2xl font-bold text-gray-900">Customer Details</h1>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
+                        <p className="text-sm text-gray-500">Customer Details</p>
+                    </div>
                 </div>
+
+                {/* Export PDF Button */}
+                <Button
+                    onClick={handleExportPDF}
+                    disabled={isExporting}
+                    className="flex items-center gap-2"
+                >
+                    {isExporting ? (
+                        <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Generating PDF...
+                        </>
+                    ) : (
+                        <>
+                            <Download className="h-4 w-4" />
+                            Export PDF
+                        </>
+                    )}
+                </Button>
             </div>
 
             {/* Customer Info Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Basic Info Card */}
                 <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-500">Customer Name</p>
-                            <p className="text-lg font-semibold text-gray-900 mt-1">{customer.name}</p>
-                            <p className="text-sm text-gray-600 mt-1">{customer.customerType}</p>
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                            <User className="h-5 w-5 text-blue-600" />
                         </div>
-                        <User className="h-8 w-8 text-blue-600" />
+                        <h3 className="font-semibold text-gray-900">Basic Information</h3>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-gray-600">
+                            <Phone className="h-4 w-4" />
+                            {customer.phone || 'N/A'}
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-600">
+                            <Mail className="h-4 w-4" />
+                            {customer.email || 'N/A'}
+                        </div>
+                        <div className="flex items-start gap-2 text-gray-600">
+                            <MapPin className="h-4 w-4 mt-0.5" />
+                            <span>{customer.address || 'N/A'}</span>
+                        </div>
+                        <div className="pt-2 border-t">
+                            <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
+                                {customer.customerType}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
+                {/* Purchase Stats Card */}
                 <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-500">Contact Info</p>
-                            <p className="text-sm text-gray-900 mt-1 flex items-center">
-                                <Phone className="h-4 w-4 mr-2" />
-                                {customer.phone || 'N/A'}
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1 flex items-center">
-                                <MapPin className="h-4 w-4 mr-2" />
-                                {customer.address ? customer.address.substring(0, 30) + '...' : 'N/A'}
-                            </p>
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                            <ShoppingCart className="h-5 w-5 text-green-600" />
                         </div>
+                        <h3 className="font-semibold text-gray-900">Purchase Stats</h3>
                     </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-500">Total Purchases</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">
+                    <div className="space-y-3">
+                        <div>
+                            <p className="text-xs text-gray-500">Total Purchases</p>
+                            <p className="text-2xl font-bold text-gray-900">
                                 {customer.totalPurchases}
                             </p>
-                            <p className="text-sm text-gray-600 mt-1">Orders</p>
                         </div>
-                        <ShoppingCart className="h-8 w-8 text-green-600" />
+                        <div>
+                            <p className="text-xs text-gray-500">Total Spent</p>
+                            <p className="text-lg font-semibold text-green-600">
+                                ₦{customer.totalSpent?.toLocaleString() || 0}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Avg. Order Value</p>
+                            <p className="text-sm font-medium text-gray-700">
+                                ₦{customer.averageOrderValue?.toLocaleString() || 0}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
+                {/* Credit Info Card */}
                 <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-500">Total Spent</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">
-                                ₦{parseFloat(customer.totalSpent?.toString() || '0').toLocaleString()}
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                                Avg: ₦{parseFloat(customer.averageOrderValue?.toString() || '0').toLocaleString()}
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-yellow-100 rounded-lg">
+                            <CreditCard className="h-5 w-5 text-yellow-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Credit Info</h3>
+                    </div>
+                    <div className="space-y-3">
+                        <div>
+                            <p className="text-xs text-gray-500">Credit Limit</p>
+                            <p className="text-lg font-semibold text-gray-900">
+                                ₦{customer.creditLimit?.toLocaleString() || 0}
                             </p>
                         </div>
-                        <DollarSign className="h-8 w-8 text-purple-600" />
+                        <div>
+                            <p className="text-xs text-gray-500">Outstanding Debt</p>
+                            <p className="text-lg font-semibold text-red-600">
+                                ₦{customer.outstandingDebt?.toLocaleString() || 0}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Payment Reliability</p>
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div
+                                        className="bg-green-500 h-2 rounded-full"
+                                        style={{
+                                            width: `${customer.paymentReliabilityScore || 0}%`,
+                                        }}
+                                    />
+                                </div>
+                                <span className="text-sm font-medium">
+                                    {customer.paymentReliabilityScore || 0}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Last Activity Card */}
+                <div className="bg-white p-6 rounded-lg shadow">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                            <Calendar className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Activity</h3>
+                    </div>
+                    <div className="space-y-3">
+                        <div>
+                            <p className="text-xs text-gray-500">Last Purchase</p>
+                            <p className="text-sm font-medium text-gray-900">
+                                {customer.lastPurchaseDate
+                                    ? format(new Date(customer.lastPurchaseDate), 'MMM dd, yyyy')
+                                    : 'Never'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Preferred Payment</p>
+                            <p className="text-sm font-medium text-gray-900">
+                                {customer.preferredPaymentMethod || 'Not Set'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Status</p>
+                            <span
+                                className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${customer.isActive
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                    }`}
+                            >
+                                {customer.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-
-
-            {/* Sales History Section */}
-            <div className="bg-white shadow rounded-lg">
-                <div className="p-6 border-b border-gray-200">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                            <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-                            Sales History
-                        </h2>
+            {/* Top Products Insight */}
+            {insights?.topProducts && insights.topProducts.length > 0 && (
+                <div className="bg-white p-6 rounded-lg shadow">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-indigo-100 rounded-lg">
+                            <Award className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">Top Purchased Products</h3>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {insights.topProducts.slice(0, 5).map((product: any, index: number) => (
+                            <div key={index} className="border rounded-lg p-4">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                    {product.product?.name || product.name}
+                                </p>
+                                <p className="text-xs text-gray-500 mb-2">
+                                    {product.product?.productNo || product.productNo}
+                                </p>
+                                <div className="space-y-1 text-xs">
+                                    <p className="text-gray-600">
+                                        Purchases: {product.purchaseCount || product.purchase_count}
+                                    </p>
+                                    <p className="text-gray-600">
+                                        Quantity: {product.totalQuantity}
+                                    </p>
+                                    <p className="font-semibold text-green-600">
+                                        ₦{product.totalSpent?.toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
-                    {/* Date Filter Pills */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        <button
-                            onClick={() => handleDatePresetChange('all')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${datePreset === 'all'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            All Time
-                        </button>
-                        <button
-                            onClick={() => handleDatePresetChange('today')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${datePreset === 'today'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            Today
-                        </button>
-                        <button
-                            onClick={() => handleDatePresetChange('week')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${datePreset === 'week'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            This Week
-                        </button>
-                        <button
-                            onClick={() => handleDatePresetChange('month')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${datePreset === 'month'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            This Month
-                        </button>
-                        <button
-                            onClick={() => handleDatePresetChange('lastMonth')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${datePreset === 'lastMonth'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            Last Month
-                        </button>
+            {/* Purchase History Section */}
+            <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                Purchase History
+                            </h2>
+                            <p className="text-sm text-gray-600">
+                                Complete transaction history
+                            </p>
+                        </div>
+
+                        {/* Date Filter */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {(['all', 'today', 'week', 'month', 'year', 'custom'] as DatePreset[]).map(
+                                (preset) => (
+                                    <button
+                                        key={preset}
+                                        onClick={() => handleDatePresetChange(preset)}
+                                        className={`px-3 py-1 text-xs font-medium rounded-md ${datePreset === preset
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        {preset.charAt(0).toUpperCase() + preset.slice(1)}
+                                    </button>
+                                )
+                            )}
+                        </div>
                     </div>
 
                     {/* Custom Date Range */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Start Date
-                            </label>
+                    {datePreset === 'custom' && (
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
                             <input
                                 type="date"
                                 value={customStartDate}
                                 onChange={(e) => setCustomStartDate(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
                             />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                End Date
-                            </label>
+                            <span className="text-gray-500">to</span>
                             <input
                                 type="date"
                                 value={customEndDate}
                                 onChange={(e) => setCustomEndDate(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
                             />
-                        </div>
-                        <div>
-                            <Button
-                                onClick={handleCustomDateApply}
-                                disabled={!customStartDate && !customEndDate}
-                                className="w-full"
-                            >
-                                <Filter className="h-4 w-4 mr-2" />
-                                Apply Custom Range
+                            <Button size="sm" onClick={handleCustomDateApply}>
+                                Apply
                             </Button>
-                        </div>
-                    </div>
-
-                    {/* Summary Stats for Filtered Period */}
-                    {summary && (
-                        <div className="grid grid-cols-3 gap-4 mt-6 p-4 bg-blue-50 rounded-lg">
-                            <div className="text-center">
-                                <p className="text-sm font-medium text-gray-600">Total Purchases</p>
-                                <p className="text-2xl font-bold text-gray-900 mt-1">{summary.totalPurchases}</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-sm font-medium text-gray-600">Total Spent</p>
-                                <p className="text-2xl font-bold text-gray-900 mt-1">
-                                    ₦{parseFloat(summary.totalSpent.toString()).toLocaleString()}
-                                </p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
-                                <p className="text-2xl font-bold text-gray-900 mt-1">
-                                    ₦{parseFloat(summary.averageOrderValue.toString()).toLocaleString()}
-                                </p>
-                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* Purchase History Table */}
-                <div className="overflow-x-auto">
-                    <Table
-                        data={purchases}
-                        columns={purchaseColumns}
-                        loading={purchaseLoading}
-                        emptyMessage="No purchases found for the selected period"
-                    />
-                </div>
-
-                {/* Pagination */}
-                {pagination && pagination.pages > 1 && (
-                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                        <div className="text-sm text-gray-700">
-                            Showing page {pagination.page} of {pagination.pages} ({pagination.total} total)
+                {/* Purchase Summary */}
+                {purchaseSummary && (
+                    <div className="grid grid-cols-3 gap-4 p-6 bg-gray-50 border-b">
+                        <div className="text-center">
+                            <p className="text-sm text-gray-600">Total Purchases</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                                {purchaseSummary.totalPurchases}
+                            </p>
                         </div>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                disabled={pagination.page === 1}
-                            >
-                                Previous
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
-                                disabled={pagination.page === pagination.pages}
-                            >
-                                Next
-                            </Button>
+                        <div className="text-center">
+                            <p className="text-sm text-gray-600">Total Spent</p>
+                            <p className="text-2xl font-bold text-green-600">
+                                ₦{purchaseSummary.totalSpent?.toLocaleString()}
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-sm text-gray-600">Avg. Order Value</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                                ₦{purchaseSummary.averageOrderValue?.toLocaleString()}
+                            </p>
                         </div>
                     </div>
                 )}
+
+                {/* Purchases Table */}
+                <div className="p-6">
+                    {purchaseLoading ? (
+                        <div className="text-center py-8">
+                            <LoadingSpinner size="lg" />
+                            <p className="mt-2 text-gray-600">Loading purchases...</p>
+                        </div>
+                    ) : purchases.length === 0 ? (
+                        <div className="text-center py-8">
+                            <ShoppingCart className="mx-auto h-12 w-12 text-gray-400" />
+                            <h3 className="mt-2 text-sm font-medium text-gray-900">
+                                No Purchases Yet
+                            </h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                                This customer hasn't made any purchases yet
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <Table data={purchases} columns={purchaseColumns} />
+
+                            {/* Purchase Pagination */}
+                            {purchasePagination && (
+                                <PaginationControls
+                                    pagination={{
+                                        ...purchasePagination,
+                                        pages: purchasePagination.pages ||
+                                            Math.ceil(
+                                                (purchasePagination.total || 0) /
+                                                (purchasePagination.limit || purchaseLimit || 10)
+                                            )
+                                    }}
+                                    onPageChange={setPurchasePage}
+                                    onLimitChange={setPurchaseLimit}
+                                />
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
 
-            {/* Debt History Section - NEW */}
+            {/* Debt History Section */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
                     <div className="flex items-center justify-between">
                         <div>
                             <h2 className="text-lg font-semibold text-gray-900">Debt History</h2>
-                            <p className="text-sm text-gray-600">Track all credit sales and payments</p>
+                            <p className="text-sm text-gray-600">
+                                Track all credit sales and payments
+                            </p>
                         </div>
                         {debtSummary && (
                             <div className="text-right">
                                 <div className="text-sm text-gray-600">Outstanding Debt</div>
                                 <div className="text-2xl font-bold text-red-600">
-                                    ₦{debtSummary.outstandingAmount.toLocaleString()}
+                                    ₦{debtSummary.outstandingAmount?.toLocaleString() || 0}
                                 </div>
                             </div>
                         )}
@@ -546,9 +822,11 @@ export const CustomerDetail: React.FC = () => {
                                 <h3 className="text-sm font-medium text-gray-600">Total Debt</h3>
                             </div>
                             <p className="text-xl font-bold text-gray-900">
-                                ₦{debtSummary.totalDebt.toLocaleString()}
+                                ₦{debtSummary.totalDebt?.toLocaleString() || 0}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">{debtSummary.numberOfDebts} records</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {debtSummary.numberOfDebts || 0} records
+                            </p>
                         </div>
 
                         <div className="bg-white p-4 rounded-lg shadow-sm border">
@@ -557,7 +835,7 @@ export const CustomerDetail: React.FC = () => {
                                 <h3 className="text-sm font-medium text-gray-600">Total Paid</h3>
                             </div>
                             <p className="text-xl font-bold text-green-600">
-                                ₦{debtSummary.totalPaid.toLocaleString()}
+                                ₦{debtSummary.totalPaid?.toLocaleString() || 0}
                             </p>
                         </div>
 
@@ -567,7 +845,7 @@ export const CustomerDetail: React.FC = () => {
                                 <h3 className="text-sm font-medium text-gray-600">Outstanding</h3>
                             </div>
                             <p className="text-xl font-bold text-red-600">
-                                ₦{debtSummary.outstandingAmount.toLocaleString()}
+                                ₦{debtSummary.outstandingAmount?.toLocaleString() || 0}
                             </p>
                         </div>
 
@@ -577,9 +855,11 @@ export const CustomerDetail: React.FC = () => {
                                 <h3 className="text-sm font-medium text-gray-600">Overdue</h3>
                             </div>
                             <p className="text-xl font-bold text-yellow-600">
-                                ₦{debtSummary.overdueAmount.toLocaleString()}
+                                ₦{debtSummary.overdueAmount?.toLocaleString() || 0}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">{debtSummary.overdueCount} debts</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {debtSummary.overdueCount || 0} debts
+                            </p>
                         </div>
                     </div>
                 )}
@@ -591,67 +871,32 @@ export const CustomerDetail: React.FC = () => {
                             <LoadingSpinner size="lg" />
                             <p className="mt-2 text-gray-600">Loading debt history...</p>
                         </div>
-                    ) : debts.length === 0 ? (
+                    ) : allDebts.length === 0 ? (
                         <div className="text-center py-8">
                             <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
-                            <h3 className="mt-2 text-sm font-medium text-gray-900">No Debt Records</h3>
+                            <h3 className="mt-2 text-sm font-medium text-gray-900">
+                                No Debt Records
+                            </h3>
                             <p className="mt-1 text-sm text-gray-500">
                                 This customer has no outstanding or historical debts
                             </p>
                         </div>
                     ) : (
                         <>
-                            <Table
-                                data={debts}
-                                columns={debtColumns}
-                            />
+                            <Table data={paginatedDebts} columns={debtColumns} />
 
-
-                            {/* Payment Details Section */}
-                            <div className="mt-6">
-                                <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Payments</h3>
-                                <div className="space-y-2">
-                                    {debts
-                                        .filter((debt: any) => debt.payments && debt.payments.length > 0)
-                                        .slice(0, 5)
-                                        .map((debt: any) => (
-                                            <div key={debt.id} className="border rounded-lg p-3 bg-gray-50">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm font-medium text-gray-900">
-                                                        {debt.sale.receiptNumber}
-                                                    </span>
-                                                    <span className={`text-xs px-2 py-1 rounded-full ${debt.status === 'PAID'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-yellow-100 text-yellow-800'
-                                                        }`}>
-                                                        {debt.status}
-                                                    </span>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    {debt.payments.map((payment: any) => (
-                                                        <div key={payment.id} className="flex items-center justify-between text-xs text-gray-600">
-                                                            <span>
-                                                                {format(new Date(payment.paymentDate), 'MMM dd, yyyy')} - {payment.paymentMethod}
-                                                            </span>
-                                                            <span className="font-semibold text-green-600">
-                                                                +₦{payment.amount.toLocaleString()}
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                </div>
-                            </div>
+                            {/* Debt Pagination */}
+                            {debtPagination.pages > 1 && (
+                                <PaginationControls
+                                    pagination={debtPagination}
+                                    onPageChange={setDebtPage}
+                                    onLimitChange={setDebtLimit}
+                                />
+                            )}
                         </>
                     )}
                 </div>
             </div>
-
-
-
-
-
         </div>
     );
 };
