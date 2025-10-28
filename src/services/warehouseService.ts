@@ -711,6 +711,11 @@ async getCustomerPurchaseHistory(
   async recordDebtorPayment(debtorId: string, data: RecordPaymentData): Promise<any> {
     return this.post(data, `/debtors/${debtorId}/payments`);
   }
+
+  // Get customer debt summary
+async getCustomerDebtSummary(customerId: string): Promise<any> {
+  return this.get(`/debtors/customer/${customerId}/summary`);
+}
   // ============================================
 
   // Export Methods

@@ -13,6 +13,9 @@ import {
     ShoppingCart,
     AlertCircle,
     Filter,
+    CheckCircle,
+    CreditCard,
+    TrendingUp,
 } from 'lucide-react';
 import { warehouseService, CustomerPurchaseFilters } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
@@ -28,6 +31,10 @@ export const CustomerDetail: React.FC = () => {
     const [datePreset, setDatePreset] = useState<DatePreset>('all');
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
+    const [purchasePage, setPurchasePage] = useState(1);
+    const [purchaseLimit, setPurchaseLimit] = useState(10);
+    const [debtPage, setDebtPage] = useState(1);
+    const [debtLimit, setDebtLimit] = useState(10);
     const [page, setPage] = useState(1);
     const limit = 10;
 
@@ -87,6 +94,16 @@ export const CustomerDetail: React.FC = () => {
         queryFn: () => warehouseService.getCustomerPurchaseHistory(id!, filters),
         enabled: !!id,
     });
+
+    const { data: debtData, isLoading: debtLoading } = useQuery({
+        queryKey: ['warehouse-customer-debts', id],
+        queryFn: () => warehouseService.getCustomerDebtSummary(id!),
+        enabled: !!id,
+    });
+
+    const debts = debtData?.data?.debtors || [];
+    const debtSummary = debtData?.data?.summary;
+
 
     const customer = customerData?.data.customer;
     const purchases = purchaseData?.data.purchases || [];
@@ -188,6 +205,86 @@ export const CustomerDetail: React.FC = () => {
         },
     ];
 
+    const debtColumns = [
+        {
+            key: 'createdAt',
+            title: 'Date',
+            render: (value: string) => format(new Date(value), 'MMM dd, yyyy'),
+        },
+        {
+            key: 'sale',
+            title: 'Receipt / Product',
+            render: (_: unknown, record: any) => (
+                <div>
+                    <div className="font-mono text-sm font-medium">{record.sale.receiptNumber}</div>
+                    <div className="text-xs text-gray-500">{record.sale.product?.name}</div>
+                </div>
+            ),
+        },
+        {
+            key: 'totalAmount',
+            title: 'Total Amount',
+            render: (value: number) => (
+                <span className="font-semibold">₦{value.toLocaleString()}</span>
+            ),
+        },
+        {
+            key: 'amountPaid',
+            title: 'Amount Paid',
+            render: (value: number) => (
+                <span className="text-green-600 font-medium">₦{value.toLocaleString()}</span>
+            ),
+        },
+        {
+            key: 'amountDue',
+            title: 'Amount Due',
+            render: (value: number) => (
+                <span className="text-red-600 font-medium">₦{value.toLocaleString()}</span>
+            ),
+        },
+        {
+            key: 'dueDate',
+            title: 'Due Date',
+            render: (value: string | null) =>
+                value ? format(new Date(value), 'MMM dd, yyyy') : 'N/A',
+        },
+        {
+            key: 'status',
+            title: 'Status',
+            render: (value: string) => {
+                const statusConfig: Record<string, { bg: string; text: string; icon: any }> = {
+                    PAID: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
+                    PARTIAL: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: DollarSign },
+                    OUTSTANDING: { bg: 'bg-blue-100', text: 'text-blue-800', icon: CreditCard },
+                    OVERDUE: { bg: 'bg-red-100', text: 'text-red-800', icon: AlertCircle },
+                };
+
+                const config = statusConfig[value] || statusConfig.OUTSTANDING;
+                const Icon = config.icon;
+
+                return (
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}>
+                        <Icon className="h-3 w-3 mr-1" />
+                        {value}
+                    </span>
+                );
+            },
+        },
+        {
+            key: 'payments',
+            title: 'Payments',
+            render: (payments: any[]) => (
+                <div className="text-xs">
+                    {payments && payments.length > 0 ? (
+                        <span className="text-gray-600">{payments.length} payment(s)</span>
+                    ) : (
+                        <span className="text-gray-400">No payments</span>
+                    )}
+                </div>
+            ),
+        },
+    ];
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -262,6 +359,8 @@ export const CustomerDetail: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+
 
             {/* Sales History Section */}
             <div className="bg-white shadow rounded-lg">
@@ -418,6 +517,141 @@ export const CustomerDetail: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Debt History Section - NEW */}
+            <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">Debt History</h2>
+                            <p className="text-sm text-gray-600">Track all credit sales and payments</p>
+                        </div>
+                        {debtSummary && (
+                            <div className="text-right">
+                                <div className="text-sm text-gray-600">Outstanding Debt</div>
+                                <div className="text-2xl font-bold text-red-600">
+                                    ₦{debtSummary.outstandingAmount.toLocaleString()}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Debt Summary Cards */}
+                {debtSummary && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-gray-50 border-b">
+                        <div className="bg-white p-4 rounded-lg shadow-sm border">
+                            <div className="flex items-center gap-2 mb-2">
+                                <CreditCard className="h-5 w-5 text-blue-500" />
+                                <h3 className="text-sm font-medium text-gray-600">Total Debt</h3>
+                            </div>
+                            <p className="text-xl font-bold text-gray-900">
+                                ₦{debtSummary.totalDebt.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">{debtSummary.numberOfDebts} records</p>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-lg shadow-sm border">
+                            <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                                <h3 className="text-sm font-medium text-gray-600">Total Paid</h3>
+                            </div>
+                            <p className="text-xl font-bold text-green-600">
+                                ₦{debtSummary.totalPaid.toLocaleString()}
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-lg shadow-sm border">
+                            <div className="flex items-center gap-2 mb-2">
+                                <AlertCircle className="h-5 w-5 text-red-500" />
+                                <h3 className="text-sm font-medium text-gray-600">Outstanding</h3>
+                            </div>
+                            <p className="text-xl font-bold text-red-600">
+                                ₦{debtSummary.outstandingAmount.toLocaleString()}
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-lg shadow-sm border">
+                            <div className="flex items-center gap-2 mb-2">
+                                <TrendingUp className="h-5 w-5 text-yellow-500" />
+                                <h3 className="text-sm font-medium text-gray-600">Overdue</h3>
+                            </div>
+                            <p className="text-xl font-bold text-yellow-600">
+                                ₦{debtSummary.overdueAmount.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">{debtSummary.overdueCount} debts</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Debts Table */}
+                <div className="p-6">
+                    {debtLoading ? (
+                        <div className="text-center py-8">
+                            <LoadingSpinner size="lg" />
+                            <p className="mt-2 text-gray-600">Loading debt history...</p>
+                        </div>
+                    ) : debts.length === 0 ? (
+                        <div className="text-center py-8">
+                            <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
+                            <h3 className="mt-2 text-sm font-medium text-gray-900">No Debt Records</h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                                This customer has no outstanding or historical debts
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <Table
+                                data={debts}
+                                columns={debtColumns}
+                            />
+
+
+                            {/* Payment Details Section */}
+                            <div className="mt-6">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Payments</h3>
+                                <div className="space-y-2">
+                                    {debts
+                                        .filter((debt: any) => debt.payments && debt.payments.length > 0)
+                                        .slice(0, 5)
+                                        .map((debt: any) => (
+                                            <div key={debt.id} className="border rounded-lg p-3 bg-gray-50">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-sm font-medium text-gray-900">
+                                                        {debt.sale.receiptNumber}
+                                                    </span>
+                                                    <span className={`text-xs px-2 py-1 rounded-full ${debt.status === 'PAID'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-yellow-100 text-yellow-800'
+                                                        }`}>
+                                                        {debt.status}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    {debt.payments.map((payment: any) => (
+                                                        <div key={payment.id} className="flex items-center justify-between text-xs text-gray-600">
+                                                            <span>
+                                                                {format(new Date(payment.paymentDate), 'MMM dd, yyyy')} - {payment.paymentMethod}
+                                                            </span>
+                                                            <span className="font-semibold text-green-600">
+                                                                +₦{payment.amount.toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+
+
+
+
+
         </div>
     );
 };

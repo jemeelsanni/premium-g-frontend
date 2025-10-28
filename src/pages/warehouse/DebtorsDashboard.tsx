@@ -9,7 +9,7 @@ const DebtorsDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({
         page: 1,
-        limit: 20,
+        limit: 5,
         total: 0,
         pages: 0
     });
@@ -300,24 +300,110 @@ const DebtorsDashboard: React.FC = () => {
 
                     {/* Pagination */}
                     {pagination.pages > 1 && (
-                        <div className="mt-6 flex justify-center gap-2">
-                            <button
-                                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                                disabled={pagination.page === 1}
-                                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                            >
-                                Previous
-                            </button>
-                            <span className="px-4 py-2">
-                                Page {pagination.page} of {pagination.pages}
-                            </span>
-                            <button
-                                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                                disabled={pagination.page === pagination.pages}
-                                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                            >
-                                Next
-                            </button>
+                        <div className="mt-6 px-4 py-3 bg-white border-t border-gray-200 sm:px-6 rounded-lg shadow">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                {/* Pagination Info */}
+                                <div className="text-sm text-gray-700">
+                                    Showing page <span className="font-semibold">{pagination.page}</span> of{' '}
+                                    <span className="font-semibold">{pagination.pages}</span>
+                                    {' '}({pagination.total} total records)
+                                </div>
+
+                                {/* Pagination Controls */}
+                                <div className="flex items-center gap-2">
+                                    {/* First Page Button */}
+                                    <button
+                                        onClick={() => setPagination(prev => ({ ...prev, page: 1 }))}
+                                        disabled={pagination.page === 1}
+                                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+                                        title="First page"
+                                    >
+                                        ««
+                                    </button>
+
+                                    {/* Previous Button */}
+                                    <button
+                                        onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                                        disabled={pagination.page === 1}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+                                    >
+                                        Previous
+                                    </button>
+
+                                    {/* Page Numbers */}
+                                    <div className="hidden sm:flex items-center gap-1">
+                                        {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                                            // Smart page number display logic
+                                            let pageNum;
+                                            if (pagination.pages <= 5) {
+                                                pageNum = i + 1;
+                                            } else if (pagination.page <= 3) {
+                                                pageNum = i + 1;
+                                            } else if (pagination.page >= pagination.pages - 2) {
+                                                pageNum = pagination.pages - 4 + i;
+                                            } else {
+                                                pageNum = pagination.page - 2 + i;
+                                            }
+
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    onClick={() => setPagination(prev => ({ ...prev, page: pageNum }))}
+                                                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${pagination.page === pageNum
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Mobile: Current Page Display */}
+                                    <div className="sm:hidden px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md">
+                                        {pagination.page} / {pagination.pages}
+                                    </div>
+
+                                    {/* Next Button */}
+                                    <button
+                                        onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                                        disabled={pagination.page === pagination.pages}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+                                    >
+                                        Next
+                                    </button>
+
+                                    {/* Last Page Button */}
+                                    <button
+                                        onClick={() => setPagination(prev => ({ ...prev, page: pagination.pages }))}
+                                        disabled={pagination.page === pagination.pages}
+                                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white transition-colors"
+                                        title="Last page"
+                                    >
+                                        »»
+                                    </button>
+                                </div>
+
+                                {/* Items Per Page Selector (Optional Enhancement) */}
+                                <div className="hidden lg:flex items-center gap-2">
+                                    <span className="text-sm text-gray-700">Items per page:</span>
+                                    <select
+                                        value={pagination.limit}
+                                        onChange={(e) => setPagination(prev => ({
+                                            ...prev,
+                                            limit: parseInt(e.target.value),
+                                            page: 1 // Reset to first page when changing limit
+                                        }))}
+                                        className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="10">10</option>
+                                        <option value="20">20</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </>
