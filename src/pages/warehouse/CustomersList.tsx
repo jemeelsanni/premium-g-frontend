@@ -371,7 +371,7 @@ export const CustomersList: React.FC = () => {
                         {showDateFilter ? 'Hide Dates' : 'Filter by Date'}
                     </Button>
 
-                    <Button onClick={() => navigate('/warehouse/customers/new')}>
+                    <Button onClick={() => openModal()}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Customer
                     </Button>
