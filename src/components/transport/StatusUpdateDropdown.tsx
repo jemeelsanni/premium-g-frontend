@@ -1,5 +1,5 @@
-// src/components/transport/StatusUpdateDropdown.tsx - FIXED ENUM VALUES
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// src/components/transport/StatusUpdateDropdown.tsx - FIXED ENUM VALUES
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -92,7 +92,7 @@ export const StatusUpdateDropdown: React.FC<StatusUpdateDropdownProps> = ({
 
     const updateStatusMutation = useMutation({
         mutationFn: (newStatus: OrderStatus) => transportService.updateOrderStatus(orderId, newStatus),
-        onSuccess: (data, newStatus) => {
+        onSuccess: (newStatus) => {
             queryClient.invalidateQueries({ queryKey: ['transport-orders'] });
             queryClient.invalidateQueries({ queryKey: ['transport-order', orderId] });
             queryClient.invalidateQueries({ queryKey: ['transport-dashboard'] });

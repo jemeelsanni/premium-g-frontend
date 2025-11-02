@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -73,7 +72,7 @@ export const CreateOrder: React.FC = () => {
     });
 
     // Fetch products
-    const { data: productsResponse, isLoading: loadingProducts, error: productsError } = useQuery({
+    const { data: productsResponse, error: productsError } = useQuery({
         queryKey: ['distribution-products'],
         queryFn: async () => {
             try {
@@ -210,11 +209,24 @@ export const CreateOrder: React.FC = () => {
 
     // Extract data from nested API responses
     let customers: any[] = [];
-    let products: any[] = [];
+    let products: any[] = React.useMemo(() => {
+        if (productsResponse) {
+            if ((productsResponse as any).data?.products) {
+                return (productsResponse as any).data.products;
+            } else if ((productsResponse as any).products) {
+                return (productsResponse as any).products;
+            } else if (Array.isArray((productsResponse as any).data)) {
+                return (productsResponse as any).data;
+            } else if (Array.isArray(productsResponse)) {
+                return productsResponse;
+            }
+        }
+        return [];
+    }, [productsResponse]);
     let locations: any[] = [];
 
     useEffect(() => {
-        const subscription = watch((value, { name, type }) => {
+        const subscription = watch((value, { name }) => {
             // Only trigger on productId or pallets changes
             if (!name || (!name.includes('.productId') && !name.includes('.pallets'))) {
                 return;

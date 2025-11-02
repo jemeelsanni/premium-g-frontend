@@ -143,7 +143,7 @@ export const CustomersList: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (value: any, record: any) => (
+            render: (record: any) => (
                 <Button
                     variant="outline"
                     size="sm"

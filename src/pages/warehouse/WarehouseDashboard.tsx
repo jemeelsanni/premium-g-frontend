@@ -132,10 +132,7 @@ export const WarehouseDashboard: React.FC = () => {
     const summary = (stats?.data?.summary ?? stats?.summary ?? {}) as Record<string, unknown>;
     const inventorySummary = (stats?.data?.inventory ?? stats?.inventory ?? {}) as Record<string, unknown>;
     const customerSummary = (stats?.data?.customerSummary ?? stats?.customerSummary ?? {}) as Record<string, unknown>;
-    const activeCustomers = parseNumber(summary.activeCustomers, 0);
-    const totalRevenue = parseNumber(summary.totalRevenue, 0);
-    const totalSales = parseNumber(summary.totalSales, 0);
-    const grossProfit = parseNumber(summary.grossProfit, 0);
+
 
     const safeSummaryNumber = (key: string, fallback = 0) => parseNumber(summary[key], fallback);
 

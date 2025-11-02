@@ -133,7 +133,7 @@ export const DiscountRequests: React.FC = () => {
         {
             key: 'customer',
             title: 'Customer',
-            render: (value: any, record: any) => (
+            render: (record: any) => (
                 <div>
                     <p className="font-medium">{record.warehouseCustomer?.name}</p>
                     <p className="text-xs text-gray-500">{record.warehouseCustomer?.customerType}</p>
@@ -143,12 +143,12 @@ export const DiscountRequests: React.FC = () => {
         {
             key: 'product',
             title: 'Product',
-            render: (value: any, record: any) => record.product?.name || 'General Discount'
+            render: (record: any) => record.product?.name || 'General Discount'
         },
         {
             key: 'discountDetails',
             title: 'Discount Details',
-            render: (value: any, record: any) => (
+            render: (record: any) => (
                 <div>
                     <p className="font-medium">
                         {record.requestedDiscountType === 'PERCENTAGE'
@@ -173,7 +173,7 @@ export const DiscountRequests: React.FC = () => {
         {
             key: 'requestedBy',
             title: 'Requested By',
-            render: (value: any, record: any) => record.requestedByUser?.username
+            render: (record: any) => record.requestedByUser?.username
         },
         {
             key: 'createdAt',
@@ -203,7 +203,7 @@ export const DiscountRequests: React.FC = () => {
         columns.push({
             key: 'actions',
             title: 'Actions',
-            render: (value: any, record: any) => (
+            render: (record: any) => (
                 <div className="flex gap-2">
                     <Button
                         variant="outline"

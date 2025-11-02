@@ -194,7 +194,7 @@ const OffloadPurchase: React.FC = () => {
                         {
                             key: 'product',
                             title: 'Product',
-                            render: (value: any, record: any) => {
+                            render: (record: any) => {
                                 const purchase = record as WarehousePurchase;
                                 return (
                                     <div>
@@ -207,7 +207,7 @@ const OffloadPurchase: React.FC = () => {
                         {
                             key: 'orderNumber',
                             title: 'Order/Batch',
-                            render: (value: any, record: any) => {
+                            render: (record: any) => {
                                 const purchase = record as WarehousePurchase;
                                 return (
                                     <div>
@@ -227,7 +227,7 @@ const OffloadPurchase: React.FC = () => {
                         {
                             key: 'quantity',
                             title: 'Quantity',
-                            render: (value: any, record: any) => {
+                            render: (record: any) => {
                                 const purchase = record as WarehousePurchase;
                                 return (
                                     <span>
@@ -239,7 +239,7 @@ const OffloadPurchase: React.FC = () => {
                         {
                             key: 'expiryDate',
                             title: 'Expiry Date',
-                            render: (value: any, record: any) => {
+                            render: (record: any) => {
                                 const purchase = record as WarehousePurchase;
                                 if (!purchase.expiryDate) return <span className="text-gray-400">N/A</span>;
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/transport/TruckManagement.tsx
 import React, { useState } from 'react';
@@ -164,7 +163,7 @@ export const TruckManagement: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (value: any, record: TruckType) => (
+            render: (record: TruckType) => (
                 <div className="flex items-center space-x-2">
                     <Button
                         variant="outline"
@@ -188,7 +187,7 @@ export const TruckManagement: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (value: any, row: TruckType) => (
+            render: (row: TruckType) => (
                 <div className="flex items-center space-x-2">
                     <Button
                         variant="outline"

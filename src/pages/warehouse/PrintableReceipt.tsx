@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect } from 'react';
 
@@ -25,7 +24,6 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({ sale, onClose }) =>
 
     const totalAmount = Number(sale.totalAmount || 0);
     const totalDiscount = Number(sale.totalDiscountAmount || 0);
-    const grossAmount = totalAmount + totalDiscount;
 
     const debtor = sale.debtor || null;
     const paymentStatus = sale.paymentStatus?.toUpperCase() || 'PAID';

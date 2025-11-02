@@ -12,7 +12,6 @@ import {
     ArrowRight,
     AlertCircle,
     Target,
-    Calendar
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -137,7 +136,7 @@ export const DistributionDashboard: React.FC = () => {
         {
             key: 'finalAmount',
             title: 'AMOUNT',
-            render: (value: any, record: any) => {
+            render: (value: any) => {
                 // value contains the finalAmount directly from the key
                 const amount = typeof value === 'number' ? value : parseFloat(value || 0);
                 return `₦${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

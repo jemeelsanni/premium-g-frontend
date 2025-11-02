@@ -183,8 +183,8 @@ export const InventoryList: React.FC = () => {
                 return (
                     <div className="flex items-center">
                         <span className={`font-bold ${stockStatus.status === 'low' ? 'text-red-600' :
-                                stockStatus.status === 'high' ? 'text-orange-600' :
-                                    'text-green-600'
+                            stockStatus.status === 'high' ? 'text-orange-600' :
+                                'text-green-600'
                             }`}>
                             {displayValue}
                         </span>
@@ -208,7 +208,7 @@ export const InventoryList: React.FC = () => {
         {
             key: 'stockStatus',
             title: 'Status',
-            render: (value: any, record: WarehouseInventory) => {
+            render: (record: WarehouseInventory) => {
                 const stockStatus = getStockStatus(record);
                 return (
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full 
@@ -227,7 +227,7 @@ export const InventoryList: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (value: any, record: WarehouseInventory) => (
+            render: (record: WarehouseInventory) => (
                 <Button
                     variant="outline"
                     size="sm"
@@ -534,8 +534,8 @@ export const InventoryList: React.FC = () => {
                                 <div>
                                     <span className="text-gray-500">Status:</span>
                                     <span className={`ml-2 font-medium ${selectedStatus.status === 'low' ? 'text-red-600' :
-                                            selectedStatus.status === 'high' ? 'text-orange-600' :
-                                                'text-green-600'
+                                        selectedStatus.status === 'high' ? 'text-orange-600' :
+                                            'text-green-600'
                                         }`}>
                                         {selectedStatus.text}
                                     </span>

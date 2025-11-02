@@ -134,7 +134,6 @@ export const TransportAnalytics: React.FC = () => {
 
     const summary = analyticsData?.data?.summary;
     const breakdown = analyticsData?.data?.breakdown;
-    const profitSummary = profitData?.data?.summary;
     const monthlyTrend = profitData?.data?.monthlyTrend || [];
     const clients = clientsData || [];
 
@@ -171,9 +170,7 @@ export const TransportAnalytics: React.FC = () => {
         ? ((monthlyTrend[monthlyTrend.length - 1]?.revenue - monthlyTrend[0]?.revenue) / monthlyTrend[0]?.revenue * 100)
         : 0;
 
-    const profitGrowth = monthlyTrend.length > 1
-        ? ((monthlyTrend[monthlyTrend.length - 1]?.profit - monthlyTrend[0]?.profit) / monthlyTrend[0]?.profit * 100)
-        : 0;
+
 
     const expenseSummary = expensesData?.data;
     const pendingExpenses = expenseSummary?.byType?.find((s: any) => s.type === 'PENDING');
@@ -417,7 +414,7 @@ export const TransportAnalytics: React.FC = () => {
                                             fill="#8884d8"
                                             dataKey="value"
                                         >
-                                            {expenseBreakdownData.map((entry, index) => (
+                                            {expenseBreakdownData.map((_, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>

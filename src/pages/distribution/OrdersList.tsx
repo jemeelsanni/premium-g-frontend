@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/distribution/OrdersListEnhanced.tsx
 import React, { useState } from 'react';
@@ -134,8 +133,7 @@ export const OrdersList: React.FC = () => {
         }
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const getStatusBadge = (status: string, type: 'payment' | 'ritefoods' | 'delivery' | 'order' = 'order') => {
+    const getStatusBadge = (status: string) => {
         const configs: Record<string, { class: string; label: string }> = {
             // Payment Status
             PENDING: { class: 'bg-orange-100 text-orange-800', label: 'Pending Payment' },
@@ -217,17 +215,17 @@ export const OrdersList: React.FC = () => {
         {
             key: 'paymentStatus',
             title: 'Payment',
-            render: (value: string) => getStatusBadge(value, 'payment')
+            render: (value: string) => getStatusBadge(value)
         },
         {
             key: 'riteFoodsStatus',
             title: 'Rite Foods',
-            render: (value: string) => getStatusBadge(value, 'ritefoods')
+            render: (value: string) => getStatusBadge(value)
         },
         {
             key: 'deliveryStatus',
             title: 'Delivery',
-            render: (value: string) => getStatusBadge(value, 'delivery')
+            render: (value: string) => getStatusBadge(value)
         },
         {
             key: 'createdAt',
@@ -241,7 +239,7 @@ export const OrdersList: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (value: any, record: any) => (
+            render: (record: any) => (
                 <Link to={`/distribution/orders/${record.id}`}>
                     <Button variant="outline" size="sm">
                         <Eye className="h-4 w-4 mr-1" />

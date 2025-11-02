@@ -127,8 +127,7 @@ export const SalesList: React.FC = () => {
         {
             key: 'paymentStatus',
             title: 'Payment Status',
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            render: (value: string, record: any) => {
+            render: (value: string) => {
                 const status = value || 'PAID';
                 const colors = {
                     'PAID': 'bg-green-100 text-green-800',
