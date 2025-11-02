@@ -46,28 +46,6 @@ export const WarehouseDashboard: React.FC = () => {
         queryFn: () => warehouseService.getDashboardStats(getQueryParams()),
     });
 
-    const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    const yearOptions = Array.from(
-        { length: 6 },
-        (_, i) => currentDate.getFullYear() - 2 + i
-    );
-
-    const resetToCurrentMonth = () => {
-        setFilterMonth(currentDate.getMonth() + 1);
-        setFilterYear(currentDate.getFullYear());
-        setFilterType('month');
-    };
-
-    const getPeriodLabel = () => {
-        if (filterType === 'all') return 'All Time';
-        if (filterType === 'year') return `Year ${filterYear}`;
-        return `${monthNames[filterMonth - 1]} ${filterYear}`;
-    };
-
     const { data: recentSales } = useQuery({
         queryKey: ['warehouse-sales', 1, 5],
         queryFn: () => warehouseService.getSales(1, 5),
@@ -102,6 +80,14 @@ export const WarehouseDashboard: React.FC = () => {
         queryFn: () => warehouseService.getExpenses({ page: 1, limit: 5 }),
     });
 
+    // ✅ Move this query HERE, not after early returns
+    const { data: expiringData } = useQuery({
+        queryKey: ['warehouse-expiring-purchases-dashboard'],
+        queryFn: () => warehouseService.getExpiringPurchases(),
+        refetchInterval: 60000, // Refetch every 1 minute
+    });
+
+
     const parseNumber = (value: unknown, fallback = 0) => {
         if (typeof value === 'number') {
             return Number.isFinite(value) ? value : fallback;
@@ -117,6 +103,30 @@ export const WarehouseDashboard: React.FC = () => {
             </div>
         );
     }
+
+
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    const yearOptions = Array.from(
+        { length: 6 },
+        (_, i) => currentDate.getFullYear() - 2 + i
+    );
+
+    const resetToCurrentMonth = () => {
+        setFilterMonth(currentDate.getMonth() + 1);
+        setFilterYear(currentDate.getFullYear());
+        setFilterType('month');
+    };
+
+    const getPeriodLabel = () => {
+        if (filterType === 'all') return 'All Time';
+        if (filterType === 'year') return `Year ${filterYear}`;
+        return `${monthNames[filterMonth - 1]} ${filterYear}`;
+    };
+
 
     if (error) {
         return (
@@ -166,12 +176,6 @@ export const WarehouseDashboard: React.FC = () => {
         return `${firstName} (+${items.length - 1} more)`;
     };
 
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { data: expiringData } = useQuery({
-        queryKey: ['warehouse-expiring-purchases-dashboard'],
-        queryFn: () => warehouseService.getExpiringPurchases(),
-        refetchInterval: 60000, // Refetch every 1 minute
-    });
 
     const statCards = [
         {
