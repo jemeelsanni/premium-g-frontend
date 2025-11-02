@@ -1,6 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-// src/components/BackendStatusChecker.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
 interface BackendStatusProps {
@@ -11,14 +10,14 @@ export const BackendStatusChecker: React.FC<BackendStatusProps> = ({ onStatusCha
     const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
     const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
-    const checkBackendStatus = async () => {
+    const checkBackendStatus = useCallback(async () => {
         try {
             const response = await fetch('/api/v1/health', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                signal: AbortSignal.timeout(5000), // 5 second timeout
+                signal: AbortSignal.timeout(5000),
             });
 
             if (response.ok) {
@@ -35,17 +34,15 @@ export const BackendStatusChecker: React.FC<BackendStatusProps> = ({ onStatusCha
         } finally {
             setLastChecked(new Date());
         }
-    };
+    }, [onStatusChange]);
 
     useEffect(() => {
-        // Initial check
         checkBackendStatus();
 
-        // Check every 30 seconds
         const interval = setInterval(checkBackendStatus, 30000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [checkBackendStatus]);
 
     if (status === 'checking') {
         return (
@@ -84,7 +81,7 @@ export const BackendStatusChecker: React.FC<BackendStatusProps> = ({ onStatusCha
 export const useBackendStatus = () => {
     const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
-    const checkStatus = async (): Promise<boolean> => {
+    const checkStatus = useCallback(async (): Promise<boolean> => {
         try {
             const response = await fetch('/api/v1/health', {
                 method: 'GET',
@@ -94,11 +91,11 @@ export const useBackendStatus = () => {
         } catch {
             return false;
         }
-    };
+    }, []);
 
     useEffect(() => {
         checkStatus().then(setIsOnline);
-    }, []);
+    }, [checkStatus]);
 
     return { isOnline, checkStatus };
 };
