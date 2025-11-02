@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { warehouseService, Debtor, DebtorAnalytics, RecordPaymentData } from '../../services/warehouseService';
 
 const DebtorsDashboard: React.FC = () => {
@@ -24,11 +24,7 @@ const DebtorsDashboard: React.FC = () => {
     const [paymentNotes, setPaymentNotes] = useState('');
     const [processingPayment, setProcessingPayment] = useState(false);
 
-    useEffect(() => {
-        fetchDebtors();
-    }, [selectedStatus, pagination.page]);
-
-    const fetchDebtors = async () => {
+    const fetchDebtors = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -46,7 +42,11 @@ const DebtorsDashboard: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [pagination.page, pagination.limit, selectedStatus]);
+
+    useEffect(() => {
+        fetchDebtors();
+    }, [selectedStatus, pagination.page, fetchDebtors]);
 
     const openPaymentModal = (debtor: Debtor) => {
         setSelectedDebtor(debtor);

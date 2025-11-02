@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { UserRole } from '../../types';
@@ -52,7 +52,7 @@ export const MainDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [errors, setErrors] = useState<string[]>([]);
 
-    const hasModuleAccess = (module: 'distribution' | 'transport' | 'warehouse') => {
+    const hasModuleAccess = useCallback((module: 'distribution' | 'transport' | 'warehouse') => {
         const role = user?.role as UserRole;
 
         switch (module) {
@@ -78,7 +78,7 @@ export const MainDashboard = () => {
             default:
                 return false;
         }
-    };
+    }, [user?.role]); // Add user.role dependency
 
     useEffect(() => {
         const fetchDashboardStats = async () => {
@@ -221,7 +221,7 @@ export const MainDashboard = () => {
         };
 
         fetchDashboardStats();
-    }, [user]);
+    }, [hasModuleAccess, user?.role]);
 
     const getWelcomeMessage = () => {
         const role = user?.role;
