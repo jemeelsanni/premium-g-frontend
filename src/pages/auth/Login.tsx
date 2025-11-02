@@ -7,7 +7,8 @@ import { z } from 'zod';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Package } from 'lucide-react';
+// import { Package } from 'lucide-react';
+import logo from '../../assets/logo.jpeg';
 
 const loginSchema = z.object({
     username: z.string().min(1, 'Username is required'),
@@ -47,11 +48,12 @@ export const Login = () => {
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-md w-full space-y-8">
                 <div>
-                    <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-                        <Package className="h-8 w-8 text-blue-600" />
+                    <div className="mx-auto flex items-center justify-center">
+
+                        <img src={logo} alt="Logo" className="w-48 h-48" />
                     </div>
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Premium G Enterprise
+                        Premium G Brands
                     </h2>
                     <p className="mt-2 text-center text-sm text-gray-600">
                         Sign in to your account
@@ -91,11 +93,6 @@ export const Login = () => {
                         Sign in
                     </Button>
                 </form>
-
-                <div className="text-center text-xs text-gray-500">
-                    <p>Demo Credentials:</p>
-                    <p>Username: superadmin | Password: password123</p>
-                </div>
             </div>
         </div>
     );

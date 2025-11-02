@@ -3,11 +3,19 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { User, Phone, Receipt, Calendar, Package, Tag, TrendingDown, CheckCircle, AlertCircle, Download, Clock } from 'lucide-react';
+import {
+    User,
+    Phone,
+    Receipt,
+    Calendar,
+    Package,
+    TrendingDown,
+    Download,
+} from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
+import PrintableReceipt from './PrintableReceipt';
 import { Button } from '../../components/ui/Button';
 import { toast } from 'react-hot-toast';
-
 
 export const SaleDetails: React.FC = () => {
     const navigate = useNavigate();
@@ -20,22 +28,23 @@ export const SaleDetails: React.FC = () => {
     });
 
     const [isExportingPDF, setIsExportingPDF] = useState(false);
+    const [printMode, setPrintMode] = useState(false);
 
-    // Add this handler function
+    // Handle Export PDF
     const handleExportPDF = async () => {
         setIsExportingPDF(true);
         try {
             const blob = await warehouseService.exportSaleToPDF(receiptNumber!);
-
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `warehouse-sale-${receiptNumber}-${new Date().toISOString().split('T')[0]}.pdf`;
+            link.download = `warehouse-sale-${receiptNumber}-${new Date()
+                .toISOString()
+                .split('T')[0]}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
-
             toast.success('Sale exported to PDF successfully');
         } catch (error) {
             toast.error('Failed to export sale to PDF');
@@ -43,6 +52,16 @@ export const SaleDetails: React.FC = () => {
         } finally {
             setIsExportingPDF(false);
         }
+    };
+
+    // Handle Inline Thermal Print
+    const handlePrintThermalReceipt = () => {
+        if (!saleData?.data) return;
+        setPrintMode(true);
+        setTimeout(() => {
+            window.print();
+            setTimeout(() => setPrintMode(false), 1000);
+        }, 300);
     };
 
     if (isLoading) {
@@ -73,12 +92,12 @@ export const SaleDetails: React.FC = () => {
     const totalDiscount = Number(sale.totalDiscountAmount || 0);
     const grossAmount = totalAmount + totalDiscount;
     const hasDiscount = sale.discountApplied && totalDiscount > 0;
-    const discountPercentage = grossAmount > 0 && totalDiscount > 0
-        ? ((totalDiscount / grossAmount) * 100)
-        : 0;
 
     const formatCurrency = (amount: number) => {
-        return `₦${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return `₦${amount.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })}`;
     };
 
     const formatQuantityLabel = (item: any) => {
@@ -87,22 +106,24 @@ export const SaleDetails: React.FC = () => {
         return `${qty.toLocaleString()} ${unit}`;
     };
 
-    const getDiscountedItems = () => {
-        return items.filter((item: any) => item.discountApplied && Number(item.totalDiscountAmount || 0) > 0);
-    };
 
-    const discountedItems = getDiscountedItems();
     const createdAt = sale.createdAt ? new Date(sale.createdAt) : null;
+
+    // 🧾 Print Mode View (Thermal Receipt Inline)
+    if (printMode && sale) {
+        return (
+            <div className="p-2 bg-white">
+                <PrintableReceipt sale={sale} />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between space-x-3">
                 <div className="flex justify-end gap-3">
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate('/warehouse/sales')}
-                    >
+                    <Button variant="outline" onClick={() => navigate('/warehouse/sales')}>
                         Back to Sales List
                     </Button>
                     <Button
@@ -113,19 +134,19 @@ export const SaleDetails: React.FC = () => {
                         <Download className="h-4 w-4 mr-2" />
                         {isExportingPDF ? 'Exporting...' : 'Export PDF'}
                     </Button>
-                    <Button
-                        onClick={() => window.print()}
-                    >
-                        Print Receipt
+                    <Button onClick={handlePrintThermalReceipt}>
+                        Print Thermal Receipt
                     </Button>
                 </div>
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Sale Details</h2>
-                    <p className="text-sm text-gray-500 mt-1">Receipt #{receiptNumber}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        Receipt #{receiptNumber}
+                    </p>
                 </div>
             </div>
 
-            {/* Customer & Sale Info Cards */}
+            {/* Customer & Sale Info */}
             <div className="grid gap-6 lg:grid-cols-3">
                 {/* Customer Information */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
@@ -135,16 +156,22 @@ export const SaleDetails: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                         <p className="text-lg font-semibold text-gray-900">
-                            {sale.customerName || sale.warehouseCustomer?.name || 'Walk-in Customer'}
+                            {sale.customerName ||
+                                sale.warehouseCustomer?.name ||
+                                'Walk-in Customer'}
                         </p>
                         {(sale.customerPhone || sale.warehouseCustomer?.phone) && (
                             <p className="flex items-center space-x-2 text-sm text-gray-600">
                                 <Phone className="h-4 w-4" />
-                                <span>{sale.customerPhone || sale.warehouseCustomer?.phone}</span>
+                                <span>
+                                    {sale.customerPhone || sale.warehouseCustomer?.phone}
+                                </span>
                             </p>
                         )}
                         {sale.warehouseCustomer?.email && (
-                            <p className="text-sm text-gray-600">{sale.warehouseCustomer.email}</p>
+                            <p className="text-sm text-gray-600">
+                                {sale.warehouseCustomer.email}
+                            </p>
                         )}
                     </div>
                 </div>
@@ -177,81 +204,36 @@ export const SaleDetails: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Date & Time */}
+                {/* Transaction Date */}
                 <div className="rounded-lg border border-gray-200 bg-white p-6">
                     <div className="flex items-center space-x-3 text-gray-600 mb-4">
                         <Calendar className="h-5 w-5" />
-                        <span className="font-semibold text-gray-900">Transaction Date</span>
+                        <span className="font-semibold text-gray-900">
+                            Transaction Date
+                        </span>
                     </div>
                     <div className="space-y-2">
                         <p className="text-lg font-semibold text-gray-900">
-                            {createdAt ? createdAt.toLocaleDateString('en-US', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                            }) : '—'}
+                            {createdAt
+                                ? createdAt.toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                })
+                                : '—'}
                         </p>
                         <p className="text-sm text-gray-600">
-                            {createdAt ? createdAt.toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            }) : '—'}
+                            {createdAt
+                                ? createdAt.toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })
+                                : '—'}
                         </p>
                     </div>
                 </div>
             </div>
-
-            {/* Discount Alert Banner */}
-            {hasDiscount && (
-                <div className="rounded-lg border-2 border-green-200 bg-green-50 p-6">
-                    <div className="flex items-start space-x-3">
-                        <CheckCircle className="h-6 w-6 text-green-600 mt-0.5" />
-                        <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-green-900 mb-2">
-                                💰 Discount Applied
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                <div>
-                                    <p className="text-green-700 font-medium">Total Saved</p>
-                                    <p className="text-2xl font-bold text-green-900">
-                                        {formatCurrency(totalDiscount)}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-green-700 font-medium">Discount Rate</p>
-                                    <p className="text-2xl font-bold text-green-900">
-                                        {discountPercentage.toFixed(1)}%
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-green-700 font-medium">Items Discounted</p>
-                                    <p className="text-2xl font-bold text-green-900">
-                                        {discountedItems.length} of {items.length}
-                                    </p>
-                                </div>
-                            </div>
-                            {discountedItems.length > 0 && (
-                                <div className="mt-4 pt-4 border-t border-green-200">
-                                    <p className="text-xs font-medium text-green-800 mb-2">Discounted Products:</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {discountedItems.map((item: any) => (
-                                            <span
-                                                key={item.id}
-                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                                            >
-                                                <Tag className="h-3 w-3 mr-1" />
-                                                {item.product?.name || 'Unknown'}
-                                                {item.discountPercentage && ` (-${Number(item.discountPercentage).toFixed(1)}%)`}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Products Table */}
             <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
@@ -287,30 +269,25 @@ export const SaleDetails: React.FC = () => {
                                 const itemTotal = Number(item.totalAmount || 0);
                                 const itemDiscount = Number(item.totalDiscountAmount || 0);
                                 const itemHasDiscount = item.discountApplied && itemDiscount > 0;
-                                const originalUnitPrice = Number(item.originalUnitPrice || item.unitPrice || 0);
+                                const originalUnitPrice = Number(
+                                    item.originalUnitPrice || item.unitPrice || 0
+                                );
                                 const finalUnitPrice = Number(item.unitPrice || 0);
 
                                 return (
-                                    <tr key={item.id} className={itemHasDiscount ? 'bg-green-50' : ''}>
+                                    <tr
+                                        key={item.id}
+                                        className={itemHasDiscount ? 'bg-green-50' : ''}
+                                    >
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center">
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {item.product?.name || 'Unknown Product'}
-                                                    </div>
-                                                    {item.product?.productNo && (
-                                                        <div className="text-xs text-gray-500">
-                                                            SKU: {item.product.productNo}
-                                                        </div>
-                                                    )}
-                                                    {itemHasDiscount && (
-                                                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                                            <Tag className="h-3 w-3 mr-1" />
-                                                            Discounted
-                                                        </span>
-                                                    )}
-                                                </div>
+                                            <div className="text-sm font-medium text-gray-900">
+                                                {item.product?.name || 'Unknown Product'}
                                             </div>
+                                            {item.product?.productNo && (
+                                                <div className="text-xs text-gray-500">
+                                                    SKU: {item.product.productNo}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                             {formatQuantityLabel(item)}
@@ -336,7 +313,11 @@ export const SaleDetails: React.FC = () => {
                                             {itemHasDiscount ? (
                                                 <div>
                                                     <div className="text-sm font-semibold text-green-700">
-                                                        {item.discountPercentage ? `${Number(item.discountPercentage).toFixed(1)}%` : 'Applied'}
+                                                        {item.discountPercentage
+                                                            ? `${Number(
+                                                                item.discountPercentage
+                                                            ).toFixed(1)}%`
+                                                            : 'Applied'}
                                                     </div>
                                                     <div className="text-xs text-green-600">
                                                         -{formatCurrency(itemDiscount)}
@@ -359,7 +340,10 @@ export const SaleDetails: React.FC = () => {
                             {hasDiscount && (
                                 <>
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-3 text-right text-sm font-medium text-gray-600">
+                                        <td
+                                            colSpan={4}
+                                            className="px-6 py-3 text-right text-sm font-medium text-gray-600"
+                                        >
                                             Subtotal (before discount):
                                         </td>
                                         <td className="px-6 py-3 text-right text-sm text-gray-900">
@@ -367,7 +351,10 @@ export const SaleDetails: React.FC = () => {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-3 text-right text-sm font-medium text-green-700">
+                                        <td
+                                            colSpan={4}
+                                            className="px-6 py-3 text-right text-sm font-medium text-green-700"
+                                        >
                                             Total Discount:
                                         </td>
                                         <td className="px-6 py-3 text-right text-sm font-semibold text-green-700">
@@ -377,7 +364,10 @@ export const SaleDetails: React.FC = () => {
                                 </>
                             )}
                             <tr className="bg-gray-100">
-                                <td colSpan={4} className="px-6 py-4 text-right text-lg font-bold text-gray-900">
+                                <td
+                                    colSpan={4}
+                                    className="px-6 py-4 text-right text-lg font-bold text-gray-900"
+                                >
                                     Total Amount Paid:
                                 </td>
                                 <td className="px-6 py-4 text-right text-lg font-bold text-gray-900">
@@ -389,170 +379,53 @@ export const SaleDetails: React.FC = () => {
                 </div>
             </div>
 
-            {/* Additional Information */}
-            <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <span className="text-sm font-medium text-gray-600">Receipt Number:</span>
-                        <p className="mt-1 font-mono text-sm font-semibold text-gray-900">{sale.receiptNumber}</p>
-                    </div>
-                    // In src/pages/warehouse/SaleDetails.tsx, update the payment status section:
-                    <div>
-                        <span className="text-sm font-medium text-gray-600">Payment Status:</span>
-                        <div className="mt-1 flex items-center">
-                            {sale.paymentStatus === 'PAID' && (
-                                <>
-                                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-                                    <span className="text-sm font-medium text-green-700">Paid</span>
-                                </>
-                            )}
-                            {sale.paymentStatus === 'CREDIT' && (
-                                <>
-                                    <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
-                                    <span className="text-sm font-medium text-red-700">Credit Sale</span>
-                                </>
-                            )}
-                            {sale.paymentStatus === 'PARTIAL' && (
-                                <>
-                                    <Clock className="h-4 w-4 text-yellow-600 mr-2" />
-                                    <span className="text-sm font-medium text-yellow-700">Partially Paid</span>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Add debt information for credit/partial sales */}
-                    {(sale.paymentStatus === 'CREDIT' || sale.paymentStatus === 'PARTIAL') && sale.debtor && (
-                        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            {/* Header with Status Badge */}
-                            <div className="flex justify-between items-center mb-3">
-                                <h4 className="text-sm font-semibold text-gray-900">Debt Information</h4>
-                                {/* Payment Status Badge */}
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${sale.debtor.amountDue === 0 ? 'bg-green-100 text-green-800'
-                                    : sale.debtor.amountPaid > 0
-                                        ? 'bg-yellow-100 text-yellow-800'
-                                        : sale.creditDueDate && new Date(sale.creditDueDate) < new Date()
-                                            ? 'bg-red-100 text-red-800'
-                                            : 'bg-blue-100 text-blue-800'
-                                    }`}>
-                                    {sale.debtor.amountDue === 0
-                                        ? 'PAID'
-                                        : sale.debtor.amountPaid > 0
-                                            ? 'PARTIAL'
-                                            : sale.creditDueDate && new Date(sale.creditDueDate) < new Date()
-                                                ? 'OVERDUE'
-                                                : 'PENDING'}
+            {/* Debtor Info */}
+            {(sale.paymentStatus === 'CREDIT' || sale.paymentStatus === 'PARTIAL') &&
+                sale.debtor && (
+                    <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-6">
+                        <h3 className="font-semibold text-gray-800 mb-3">
+                            Outstanding Payment
+                        </h3>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span>Total Amount:</span>
+                                <span className="font-medium">
+                                    {formatCurrency(sale.totalAmount)}
                                 </span>
                             </div>
-
-                            {/* Debt Details */}
-                            <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span>Amount Paid:</span>
+                                <span className="font-medium text-green-600">
+                                    {formatCurrency(sale.debtor.amountPaid)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-t pt-2">
+                                <span>Outstanding Balance:</span>
+                                <span className="font-semibold text-red-600">
+                                    {formatCurrency(sale.debtor.amountDue)}
+                                </span>
+                            </div>
+                            {sale.creditDueDate && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Total Amount:</span>
-                                    <span className="font-medium">{formatCurrency(sale.totalAmount)}</span>
-                                </div>
-
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Amount Paid:</span>
-                                    <span className="font-medium text-green-600">
-                                        {formatCurrency(sale.debtor.amountPaid)}
-                                    </span>
-                                </div>
-
-                                <div className="flex justify-between border-t pt-2">
-                                    <span className="text-gray-900 font-semibold">Outstanding Balance:</span>
-                                    <span className="font-bold text-red-600">
-                                        {formatCurrency(sale.debtor.amountDue)}
-                                    </span>
-                                </div>
-
-                                {sale.creditDueDate && (
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Due Date:</span>
-                                        <span className={`font-medium ${new Date(sale.creditDueDate) < new Date() && sale.debtor.amountDue > 0
+                                    <span>Due Date:</span>
+                                    <span
+                                        className={`${new Date(sale.creditDueDate) < new Date() &&
+                                            sale.debtor.amountDue > 0
                                             ? 'text-red-600 font-semibold'
-                                            : 'text-gray-900'
-                                            }`}>
-                                            {new Date(sale.creditDueDate).toLocaleDateString()}
-                                            {new Date(sale.creditDueDate) < new Date() && sale.debtor.amountDue > 0 && (
-                                                <span className="ml-2 text-xs">(OVERDUE)</span>
-                                            )}
-                                        </span>
-                                    </div>
-                                )}
-
-                                {sale.creditNotes && (
-                                    <div className="mt-3 pt-2 border-t">
-                                        <span className="text-gray-600 block mb-1">Notes:</span>
-                                        <p className="text-xs text-gray-700 italic">{sale.creditNotes}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {sale.totalCost && (
-                        <>
-                            <div>
-                                <span className="text-sm font-medium text-gray-600">Cost of Goods:</span>
-                                <p className="mt-1 text-sm text-gray-900">
-                                    {formatCurrency(Number(sale.totalCost))}
-                                </p>
-                            </div>
-                            <div>
-                                <span className="text-sm font-medium text-gray-600">Gross Profit:</span>
-                                <p className="mt-1 text-sm font-semibold text-green-700">
-                                    {formatCurrency(Number(sale.grossProfit || 0))}
-                                </p>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Discount Details */}
-                {hasDiscount && (
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                            <AlertCircle className="h-4 w-4 mr-2 text-blue-600" />
-                            Discount Details
-                        </h4>
-                        <div className="bg-blue-50 rounded-lg p-4 text-sm text-gray-700">
-                            <p className="mb-2">
-                                <strong>Total Savings:</strong> {formatCurrency(totalDiscount)} ({discountPercentage.toFixed(2)}% off)
-                            </p>
-                            <p className="mb-2">
-                                <strong>Original Amount:</strong> {formatCurrency(grossAmount)}
-                            </p>
-                            <p>
-                                <strong>Final Amount:</strong> {formatCurrency(totalAmount)}
-                            </p>
-                            {sale.discountReason && (
-                                <p className="mt-3 pt-3 border-t border-blue-200 italic">
-                                    Reason: {sale.discountReason}
-                                </p>
+                                            : 'text-gray-800'
+                                            }`}
+                                    >
+                                        {new Date(sale.creditDueDate).toLocaleDateString()}
+                                    </span>
+                                </div>
                             )}
                         </div>
                     </div>
                 )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3">
-                <Button
-                    variant="outline"
-                    onClick={() => navigate('/warehouse/sales')}
-                >
-                    Back to Sales List
-                </Button>
-                <Button
-                    onClick={() => window.print()}
-                >
-                    Print Receipt
-                </Button>
-            </div>
         </div>
     );
 };
 
 export default SaleDetails;
+
+

@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import logo from '../../assets/logo.jpeg';
 import { UserRole } from '../../types';
 import {
     LayoutDashboard,
@@ -168,6 +169,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     {/* Logo */}
                     <div className="flex items-center justify-between h-16 px-4 border-b">
                         <Link to="/dashboard" className="flex items-center">
+                            <img src={logo} alt="Logo" className="h-8 w-8" />
                             <h1 className="text-xl font-bold text-indigo-600">Premium G</h1>
                         </Link>
                         <button

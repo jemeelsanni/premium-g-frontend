@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -13,7 +13,10 @@ import {
     AlertCircle,
     AlertTriangle,
     Receipt,
-    Percent
+    Percent,
+    Filter,
+    Calendar,
+    X
 } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -22,10 +25,48 @@ import { Table } from '../../components/ui/Table';
 import { WarehouseInventory, WarehouseExpense } from '../../types/warehouse';
 
 export const WarehouseDashboard: React.FC = () => {
+    const currentDate = new Date();
+    const [filterMonth, setFilterMonth] = useState(currentDate.getMonth() + 1);
+    const [filterYear, setFilterYear] = useState(currentDate.getFullYear());
+    const [showFilter, setShowFilter] = useState(false);
+    const [filterType, setFilterType] = useState<'month' | 'year' | 'all'>('month');
+
+    const getQueryParams = () => {
+        if (filterType === 'all') {
+            return {};
+        } else if (filterType === 'year') {
+            return { filterYear };
+        } else {
+            return { filterMonth, filterYear };
+        }
+    };
+
     const { data: stats, isLoading, error } = useQuery({
-        queryKey: ['warehouse-dashboard'],
-        queryFn: () => warehouseService.getDashboardStats(),
+        queryKey: ['warehouse-dashboard', filterMonth, filterYear, filterType],
+        queryFn: () => warehouseService.getDashboardStats(getQueryParams()),
     });
+
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    const yearOptions = Array.from(
+        { length: 6 },
+        (_, i) => currentDate.getFullYear() - 2 + i
+    );
+
+    const resetToCurrentMonth = () => {
+        setFilterMonth(currentDate.getMonth() + 1);
+        setFilterYear(currentDate.getFullYear());
+        setFilterType('month');
+    };
+
+    const getPeriodLabel = () => {
+        if (filterType === 'all') return 'All Time';
+        if (filterType === 'year') return `Year ${filterYear}`;
+        return `${monthNames[filterMonth - 1]} ${filterYear}`;
+    };
 
     const { data: recentSales } = useQuery({
         queryKey: ['warehouse-sales', 1, 5],
@@ -91,6 +132,10 @@ export const WarehouseDashboard: React.FC = () => {
     const summary = (stats?.data?.summary ?? stats?.summary ?? {}) as Record<string, unknown>;
     const inventorySummary = (stats?.data?.inventory ?? stats?.inventory ?? {}) as Record<string, unknown>;
     const customerSummary = (stats?.data?.customerSummary ?? stats?.customerSummary ?? {}) as Record<string, unknown>;
+    const activeCustomers = parseNumber(summary.activeCustomers, 0);
+    const totalRevenue = parseNumber(summary.totalRevenue, 0);
+    const totalSales = parseNumber(summary.totalSales, 0);
+    const grossProfit = parseNumber(summary.grossProfit, 0);
 
     const safeSummaryNumber = (key: string, fallback = 0) => parseNumber(summary[key], fallback);
 
@@ -108,7 +153,7 @@ export const WarehouseDashboard: React.FC = () => {
 
     const activeCustomerCount = parseNumber(
         (customerSummary as { activeCustomers?: unknown })?.activeCustomers
-            ?? (summary as { activeCustomers?: unknown })?.activeCustomers,
+        ?? (summary as { activeCustomers?: unknown })?.activeCustomers,
         customersList?.active ?? 0
     );
 
@@ -123,6 +168,13 @@ export const WarehouseDashboard: React.FC = () => {
         }
         return `${firstName} (+${items.length - 1} more)`;
     };
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { data: expiringData } = useQuery({
+        queryKey: ['warehouse-expiring-purchases-dashboard'],
+        queryFn: () => warehouseService.getExpiringPurchases(),
+        refetchInterval: 60000, // Refetch every 1 minute
+    });
 
     const statCards = [
         {
@@ -296,17 +348,25 @@ export const WarehouseDashboard: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
+            {/* Header with Filter */}
             <div className="md:flex md:items-center md:justify-between">
                 <div className="flex-1 min-w-0">
                     <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
                         Warehouse Dashboard
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Manage inventory, sales, and direct customer operations
+                        Showing data for: <span className="font-semibold text-gray-700">{getPeriodLabel()}</span>
                     </p>
                 </div>
                 <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
+                    <Button
+                        onClick={() => setShowFilter(!showFilter)}
+                        variant="outline"
+                        className="inline-flex items-center"
+                    >
+                        <Filter className="h-4 w-4 mr-2" />
+                        {showFilter ? 'Hide Filter' : 'Filter Period'}
+                    </Button>
                     <Link to="/warehouse/sales/create">
                         <Button className="inline-flex items-center">
                             <Plus className="h-4 w-4 mr-2" />
@@ -320,6 +380,90 @@ export const WarehouseDashboard: React.FC = () => {
                     </Link>
                 </div>
             </div>
+
+            {/* Filter Panel */}
+            {showFilter && (
+                <div className="bg-white shadow rounded-lg p-6 border-l-4 border-blue-500">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">Filter by Period</h3>
+                        <button
+                            onClick={() => setShowFilter(false)}
+                            className="text-gray-400 hover:text-gray-500"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Filter Type */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Filter Type
+                            </label>
+                            <select
+                                value={filterType}
+                                onChange={(e) => setFilterType(e.target.value as any)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="month">Specific Month</option>
+                                <option value="year">Entire Year</option>
+                                <option value="all">All Time</option>
+                            </select>
+                        </div>
+
+                        {/* Month Selector */}
+                        {filterType === 'month' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Month
+                                </label>
+                                <select
+                                    value={filterMonth}
+                                    onChange={(e) => setFilterMonth(parseInt(e.target.value))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    {monthNames.map((month, idx) => (
+                                        <option key={idx} value={idx + 1}>
+                                            {month}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Year Selector */}
+                        {(filterType === 'month' || filterType === 'year') && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Year
+                                </label>
+                                <select
+                                    value={filterYear}
+                                    onChange={(e) => setFilterYear(parseInt(e.target.value))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    {yearOptions.map((year) => (
+                                        <option key={year} value={year}>
+                                            {year}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Reset Button */}
+                        <div className="flex items-end">
+                            <Button
+                                onClick={resetToCurrentMonth}
+                                variant="outline"
+                                className="w-full"
+                            >
+                                <Calendar className="h-4 w-4 mr-2" />
+                                Current Month
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Low Stock Alert */}
             {lowStock.length > 0 && (
@@ -336,6 +480,28 @@ export const WarehouseDashboard: React.FC = () => {
                                     View inventory →
                                 </Link>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {expiringData && expiringData.data.count > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-medium text-yellow-900">
+                                Expiry Alert: {expiringData.data.count} product batch(es) expiring soon
+                            </h3>
+                            <p className="text-sm text-yellow-700 mt-1">
+                                Some products are within 30 days of expiry. Please check the affected batches.
+                            </p>
+                            <Link
+                                to="/warehouse/offload-purchases"
+                                className="mt-2 inline-flex items-center text-sm font-medium text-yellow-800 underline"
+                            >
+                                View Expiring Products
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -358,9 +524,6 @@ export const WarehouseDashboard: React.FC = () => {
                                         <dd className="flex items-baseline">
                                             <div className="text-2xl font-semibold text-gray-900">
                                                 {stat.value}
-                                            </div>
-                                            <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
-                                                {stat.change}
                                             </div>
                                         </dd>
                                     </dl>
@@ -503,6 +666,50 @@ export const WarehouseDashboard: React.FC = () => {
                                 </h3>
                                 <p className="mt-2 text-sm text-gray-500">
                                     Review and approve warehouse discounts
+                                </p>
+                            </div>
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+
+                        <Link
+                            to="/warehouse/debtors"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
+                            <div>
+                                <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
+                                    <Percent className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    Warehouse Debtors
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Review and update warehouse debtors
+                                </p>
+                            </div>
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+
+                        <Link
+                            to="/warehouse/offload-purchases"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
+                            <div>
+                                <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
+                                    <Percent className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    Warehouse Purchases
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Record warehouse purchases
                                 </p>
                             </div>
                             <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">

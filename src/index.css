@@ -1,1 +1,48 @@
 @import "tailwindcss";
+
+/* === 🧾 Thermal Receipt Print Styles === */
+@media print {
+  @page {
+    size: 80mm auto; /* Standard thermal roll width */
+    margin: 0;
+  }
+
+  /* Hide everything outside the receipt */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show only the receipt */
+  .receipt-container,
+  .receipt-container * {
+    visibility: visible !important;
+  }
+
+  /* Center the receipt on screen and print */
+  .receipt-container {
+    position: absolute !important;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80mm !important;
+    background: #fff;
+    color: #000;
+    padding: 8px 0;
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Remove all layout spacing/padding */
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Prevent page header/footer */
+  @page {
+    margin: 0;
+  }
+}

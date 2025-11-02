@@ -134,6 +134,7 @@ export interface Product {
   pricePerPack?: number;
   costPerPack?: number;
   isActive: boolean;
+  currentStock: number;
 }
 
 export interface Customer {

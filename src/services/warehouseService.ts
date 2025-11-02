@@ -649,45 +649,74 @@ async getCustomerPurchaseHistory(
   }
 
   // Analytics
-  async getDashboardStats(): Promise<any> {
-    try {
-      const response = await apiClient.get('/warehouse/analytics/summary');
-      return response.data;
-    } catch (error: any) {
-      if (error?.response?.status === 400 || error?.response?.status === 404) {
-        return {
-          success: true,
-          data: {
-            summary: {
-              totalRevenue: 0,
-              totalCOGS: 0,
-              grossProfit: 0,
-              profitMargin: 0,
-              totalSales: 0,
-              totalQuantitySold: 0,
-              averageSaleValue: 0
-            },
-            cashFlow: {
-              totalCashIn: 0,
-              totalCashOut: 0,
-              netCashFlow: 0
-            },
-            inventory: {
-              totalStockValue: 0,
-              totalItems: 0,
-              lowStockItems: 0,
-              outOfStockItems: 0,
-              stockHealthPercentage: 0
-            },
-            topProducts: [],
-            dailyPerformance: [],
-            period: {}
-          }
-        };
-      }
-      throw error;
+ async getDashboardStats(params?: {
+  filterMonth?: number;
+  filterYear?: number;
+  startDate?: string;
+  endDate?: string;
+}): Promise<any> {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.filterMonth) {
+      queryParams.append('filterMonth', params.filterMonth.toString());
     }
+    if (params?.filterYear) {
+      queryParams.append('filterYear', params.filterYear.toString());
+    }
+    if (params?.startDate) {
+      queryParams.append('startDate', params.startDate);
+    }
+    if (params?.endDate) {
+      queryParams.append('endDate', params.endDate);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/warehouse/analytics/summary${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await apiClient.get(url);
+    return response.data;
+  } catch (error: any) {
+    if (error?.response?.status === 400 || error?.response?.status === 404) {
+      return {
+        success: true,
+        data: {
+          summary: {
+            totalRevenue: 0,
+            totalCOGS: 0,
+            grossProfit: 0,
+            profitMargin: 0,
+            totalSales: 0,
+            totalQuantitySold: 0,
+            averageSaleValue: 0,
+            totalCustomers: 0,
+            activeCustomers: 0
+          },
+          cashFlow: {
+            totalCashIn: 0,
+            totalCashOut: 0,
+            netCashFlow: 0
+          },
+          inventory: {
+            totalStockValue: 0,
+            totalItems: 0,
+            lowStockItems: 0,
+            outOfStockItems: 0,
+            stockHealthPercentage: 0
+          },
+          customerSummary: {
+            totalCustomers: 0,
+            activeCustomers: 0
+          },
+          topProducts: [],
+          dailyPerformance: [],
+          period: {}
+        }
+      };
+    }
+    throw error;
   }
+}
 
   // ===== ADDED METHODS FROM SECOND VERSION =====
   async getCustomerDetails(customerId: string): Promise<any> {
