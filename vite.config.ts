@@ -17,7 +17,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:3002', // Updated to match your backend port
+        target: 'https://premium-g-backend-production.up.railway.app', // Updated to match your backend port
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
