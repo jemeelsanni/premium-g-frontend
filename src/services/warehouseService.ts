@@ -120,6 +120,100 @@ export interface CustomerPurchaseHistoryResponse {
   };
 }
 
+// =====================================================
+// OPENING STOCK TYPES
+// =====================================================
+
+export interface OpeningStockItem {
+  productId: string;
+  productNo: string;
+  productName: string;
+  location: string | null;
+  date: string;
+  openingStock: {
+    pallets: number;
+    packs: number;
+    units: number;
+    total: number;
+  };
+  movements: {
+    salesQuantity: number;
+    salesRevenue: number;
+    purchasesQuantity: number;
+    salesCount: number;
+    purchasesCount: number;
+  };
+  closingStock: {
+    pallets: number;
+    packs: number;
+    units: number;
+    total: number;
+  };
+  variance: {
+    pallets: number;
+    packs: number;
+    units: number;
+    total: number;
+  };
+  reorderLevel: number;
+  stockStatus: 'LOW_STOCK' | 'NORMAL';
+}
+
+export interface OpeningStockSummary {
+  date: string;
+  totalProducts: number;
+  totalOpeningStock: number;
+  totalClosingStock: number;
+  totalSalesRevenue: number;
+  totalSalesQuantity: number;
+  totalPurchasesQuantity: number;
+  lowStockItems: number;
+}
+
+export interface OpeningStockResponse {
+  success: boolean;
+  data: {
+    summary: OpeningStockSummary;
+    openingStock: OpeningStockItem[];
+  };
+}
+
+export interface OpeningStockFilters {
+  date?: string; // YYYY-MM-DD format
+  productId?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface OpeningStockHistoryItem {
+  date: string;
+  openingStock: {
+    pallets: number;
+    packs: number;
+    units: number;
+    total: number;
+  };
+}
+
+export interface OpeningStockHistoryResponse {
+  success: boolean;
+  data: {
+    product: {
+      id: string;
+      name: string;
+      productNo: string;
+    };
+    history: OpeningStockHistoryItem[];
+  };
+}
+
+export interface OpeningStockHistoryFilters {
+  startDate: string; // Required
+  endDate: string; // Required
+  productId?: string;
+}
+
 export interface CreateCashFlowData {
   transactionType: 'CASH_IN' | 'CASH_OUT';
   amount: number;
@@ -595,6 +689,51 @@ async getCustomerPurchaseHistory(
     }>(data, '/cash-flow');
     return response;
   }
+
+  // =====================================================
+  // OPENING STOCK METHODS (NEW)
+  // =====================================================
+
+  /**
+   * Get daily opening stock for products
+   * @param filters - Optional filters for date, product, and location
+   * @returns Opening stock data with summary and detailed breakdown
+   */
+  async getOpeningStock(filters?: OpeningStockFilters): Promise<OpeningStockResponse> {
+    const params = new URLSearchParams();
+    
+    if (filters?.date) params.append('date', filters.date);
+    if (filters?.productId) params.append('productId', filters.productId);
+    if (filters?.location) params.append('location', filters.location);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/opening-stock?${queryString}` : '/opening-stock';
+    
+    return this.get<OpeningStockResponse>(endpoint);
+  }
+
+  /**
+   * Get historical opening stock data for a date range
+   * @param filters - Required startDate and endDate, optional productId
+   * @returns Historical opening stock data
+   */
+  async getOpeningStockHistory(
+    filters: OpeningStockHistoryFilters
+  ): Promise<OpeningStockHistoryResponse> {
+    const params = new URLSearchParams({
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+    });
+
+    if (filters.productId) {
+      params.append('productId', filters.productId);
+    }
+
+    return this.get<OpeningStockHistoryResponse>(`/opening-stock/history?${params.toString()}`);
+  }
+
 
   // Discount Requests
   async checkDiscount(data: {

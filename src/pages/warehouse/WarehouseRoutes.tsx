@@ -11,7 +11,7 @@ import { ExpensesList } from './ExpensesList';
 import { CustomerDetail } from './CustomerDetail';
 import DebtorsDashboard from './DebtorsDashboard';
 import OffloadPurchase from './OffloadPurchase';
-import DailyOpeningStock from './Dailyopeningstock';
+import DailyOpeningStock from './DailyOpeningStock';
 
 export const WarehouseRoutes = () => {
     return (

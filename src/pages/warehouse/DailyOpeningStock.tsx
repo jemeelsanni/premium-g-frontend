@@ -10,59 +10,9 @@ import {
     Filter
 } from 'lucide-react';
 import { format } from 'date-fns';
-import api from '../../services/api';
+import { warehouseService } from '../../services/warehouseService';
+import type { OpeningStockResponse } from '../../services/warehouseService';
 
-interface OpeningStockItem {
-    productId: string;
-    productNo: string;
-    productName: string;
-    location: string | null;
-    date: string;
-    openingStock: {
-        pallets: number;
-        packs: number;
-        units: number;
-        total: number;
-    };
-    movements: {
-        salesQuantity: number;
-        salesRevenue: number;
-        purchasesQuantity: number;
-        salesCount: number;
-        purchasesCount: number;
-    };
-    closingStock: {
-        pallets: number;
-        packs: number;
-        units: number;
-        total: number;
-    };
-    variance: {
-        pallets: number;
-        packs: number;
-        units: number;
-        total: number;
-    };
-    reorderLevel: number;
-    stockStatus: 'LOW_STOCK' | 'NORMAL';
-}
-
-interface OpeningStockResponse {
-    success: boolean;
-    data: {
-        summary: {
-            date: string;
-            totalProducts: number;
-            totalOpeningStock: number;
-            totalClosingStock: number;
-            totalSalesRevenue: number;
-            totalSalesQuantity: number;
-            totalPurchasesQuantity: number;
-            lowStockItems: number;
-        };
-        openingStock: OpeningStockItem[];
-    };
-}
 
 const DailyOpeningStock: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState<string>(
@@ -76,12 +26,11 @@ const DailyOpeningStock: React.FC = () => {
     const { data, isLoading, error } = useQuery<OpeningStockResponse>({
         queryKey: ['openingStock', selectedDate, filterProduct, filterLocation],
         queryFn: async () => {
-            const params = new URLSearchParams({ date: selectedDate });
-            if (filterProduct) params.append('productId', filterProduct);
-            if (filterLocation) params.append('location', filterLocation);
-
-            const response = await api.get(`/warehouse/opening-stock?${params.toString()}`);
-            return response.data;
+            return await warehouseService.getOpeningStock({
+                date: selectedDate,
+                productId: filterProduct || undefined,
+                location: filterLocation || undefined,
+            });
         },
     });
 
@@ -89,12 +38,11 @@ const DailyOpeningStock: React.FC = () => {
     const { data: productsData } = useQuery({
         queryKey: ['warehouseProducts'],
         queryFn: async () => {
-            const response = await api.get('/warehouse/products');
-            return response.data;
+            return await warehouseService.getProducts();
         },
     });
 
-    const products = productsData?.data?.products || [];
+    const products = productsData || [];
 
     // Filter data based on UI filters
     const filteredData = React.useMemo(() => {
