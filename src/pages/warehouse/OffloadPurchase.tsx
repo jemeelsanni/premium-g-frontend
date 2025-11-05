@@ -194,16 +194,16 @@ const OffloadPurchase: React.FC = () => {
                         {
                             key: 'product',
                             title: 'Product',
-                            render: (record: any) => {
+                            render: (_value: any, record: any) => {  // ← Changed first parameter name
+                                console.log('🔍 Rendering purchase:', record); // Debug log
                                 const purchase = record as WarehousePurchase;
+                                const productName = purchase?.product?.name ?? 'Unknown Product';
+                                const productNo = purchase?.product?.productNo ?? 'N/A';
+
                                 return (
                                     <div>
-                                        <div className="font-medium">
-                                            {purchase.product?.name || 'Unknown Product'}
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                            {purchase.product?.productNo || 'N/A'}
-                                        </div>
+                                        <div className="font-medium">{productName}</div>
+                                        <div className="text-sm text-gray-500">{productNo}</div>
                                     </div>
                                 );
                             }
