@@ -198,8 +198,12 @@ const OffloadPurchase: React.FC = () => {
                                 const purchase = record as WarehousePurchase;
                                 return (
                                     <div>
-                                        <div className="font-medium">{purchase.product.name}</div>
-                                        <div className="text-sm text-gray-500">{purchase.product.productNo}</div>
+                                        <div className="font-medium">
+                                            {purchase.product?.name || 'Unknown Product'}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                            {purchase.product?.productNo || 'N/A'}
+                                        </div>
                                     </div>
                                 );
                             }
