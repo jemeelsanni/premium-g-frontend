@@ -11,6 +11,7 @@ import { ExpensesList } from './ExpensesList';
 import { CustomerDetail } from './CustomerDetail'; // NEW IMPORT
 import DebtorsDashboard from './DebtorsDashboard';
 import OffloadPurchase from './OffloadPurchase';
+import DailyOpeningStock from './Dailyopeningstock';
 
 export const WarehouseRoutes = () => {
     return (
@@ -28,6 +29,7 @@ export const WarehouseRoutes = () => {
             <Route path="expenses" element={<ExpensesList />} />
             <Route path="debtors" element={<DebtorsDashboard />} />
             <Route path="offload-purchases" element={<OffloadPurchase />} />
+            <Route path="daily-opening-stock" element={<DailyOpeningStock />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
     );
