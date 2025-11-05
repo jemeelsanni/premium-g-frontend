@@ -19,17 +19,15 @@ const DailyOpeningStock: React.FC = () => {
         format(new Date(), 'yyyy-MM-dd')
     );
     const [filterProduct, setFilterProduct] = useState<string>('');
-    const [filterLocation, setFilterLocation] = useState<string>('');
     const [showLowStockOnly, setShowLowStockOnly] = useState(false);
 
     // Fetch opening stock data
     const { data, isLoading, error } = useQuery<OpeningStockResponse>({
-        queryKey: ['openingStock', selectedDate, filterProduct, filterLocation],
+        queryKey: ['openingStock', selectedDate, filterProduct],
         queryFn: async () => {
             return await warehouseService.getOpeningStock({
                 date: selectedDate,
                 productId: filterProduct || undefined,
-                location: filterLocation || undefined,
             });
         },
     });
@@ -192,19 +190,6 @@ const DailyOpeningStock: React.FC = () => {
                         </select>
                     </div>
 
-                    {/* Location Filter */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Location
-                        </label>
-                        <input
-                            type="text"
-                            value={filterLocation}
-                            onChange={(e) => setFilterLocation(e.target.value)}
-                            placeholder="Filter by location"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                    </div>
 
                     {/* Low Stock Toggle */}
                     <div className="flex items-end">
@@ -291,9 +276,7 @@ const DailyOpeningStock: React.FC = () => {
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Product
                                 </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Location
-                                </th>
+
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Opening Stock
                                 </th>
@@ -332,9 +315,6 @@ const DailyOpeningStock: React.FC = () => {
                                                 <p className="text-xs text-gray-500">{item.productNo}</p>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-4 text-sm text-gray-600">
-                                            {item.location || '-'}
-                                        </td>
                                         <td className="px-4 py-4 text-right">
                                             <div className="text-sm font-medium text-gray-900">
                                                 {item.openingStock.total.toLocaleString()}
@@ -364,8 +344,8 @@ const DailyOpeningStock: React.FC = () => {
                                         </td>
                                         <td className="px-4 py-4 text-right">
                                             <div className={`flex items-center justify-end gap-1 text-sm font-medium ${item.variance.total > 0 ? 'text-green-600' :
-                                                    item.variance.total < 0 ? 'text-red-600' :
-                                                        'text-gray-600'
+                                                item.variance.total < 0 ? 'text-red-600' :
+                                                    'text-gray-600'
                                                 }`}>
                                                 {item.variance.total > 0 && <TrendingUp className="h-4 w-4" />}
                                                 {item.variance.total < 0 && <TrendingDown className="h-4 w-4" />}
