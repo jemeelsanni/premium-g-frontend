@@ -211,7 +211,7 @@ const OffloadPurchase: React.FC = () => {
                         {
                             key: 'orderNumber',
                             title: 'Order/Batch',
-                            render: (_value: any, record: any) => {
+                            render: (_value: any, record: any) => {  // ← MUST have _value first!
                                 const purchase = record as WarehousePurchase;
                                 return (
                                     <div>
@@ -231,7 +231,7 @@ const OffloadPurchase: React.FC = () => {
                         {
                             key: 'quantity',
                             title: 'Quantity',
-                            render: (_value: any, record: any) => {
+                            render: (_value: any, record: any) => {  // ← MUST have _value first!
                                 const purchase = record as WarehousePurchase;
                                 return (
                                     <span>
@@ -243,13 +243,15 @@ const OffloadPurchase: React.FC = () => {
                         {
                             key: 'expiryDate',
                             title: 'Expiry Date',
-                            render: (_value: any, record: any) => {
+                            render: (_value: any, record: any) => {  // ← MUST have _value first!
                                 const purchase = record as WarehousePurchase;
                                 if (!purchase.expiryDate) return <span className="text-gray-400">N/A</span>;
 
                                 const expiry = new Date(purchase.expiryDate);
                                 const today = new Date();
-                                const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                                const daysUntilExpiry = Math.ceil(
+                                    (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+                                );
 
                                 return (
                                     <div>
