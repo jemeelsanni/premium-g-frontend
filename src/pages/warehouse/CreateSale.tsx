@@ -319,6 +319,7 @@ export const CreateSale: React.FC = () => {
                     }
                 } else {
                     payload.paymentStatus = 'PAID';
+                    payload.paymentMethod = saleData.paymentMethod;
                 }
 
                 console.log('📤 Sending sale payload:', payload);

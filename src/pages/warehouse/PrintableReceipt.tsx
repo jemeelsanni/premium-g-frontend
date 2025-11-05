@@ -43,8 +43,7 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({ sale, onClose }) =>
             <div style={{ textAlign: 'center', marginBottom: '6px' }}>
                 <h2 style={{ fontSize: '14px', fontWeight: 'bold' }}>PREMIUM G ENTERPRISE</h2>
                 <p>Warehouse Division</p>
-                <p>📞 090 1234 5678</p>
-                <p>Ilorin, Nigeria</p>
+
             </div>
 
             <hr />
