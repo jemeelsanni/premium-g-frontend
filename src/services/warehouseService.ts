@@ -36,10 +36,10 @@ export interface CustomerFilters {
   customerType?: 'INDIVIDUAL' | 'BUSINESS' | 'RETAILER';
   hasOutstandingDebt?: boolean;
   search?: string;
-  startDate?: string;  // ✅ NEW
-  endDate?: string;    // ✅ NEW
-  filterMonth?: number;  // ✅ NEW: 1-12
-  filterYear?: number;   // ✅ NEW: e.g., 2024, 2025
+  startDate?: string;
+  endDate?: string;
+  filterMonth?: number;
+  filterYear?: number;
 }
 
 export interface CustomerPurchaseFilters {
@@ -120,10 +120,6 @@ export interface CustomerPurchaseHistoryResponse {
   };
 }
 
-// =====================================================
-// OPENING STOCK TYPES
-// =====================================================
-
 export interface OpeningStockItem {
   productId: string;
   productNo: string;
@@ -179,7 +175,7 @@ export interface OpeningStockResponse {
 }
 
 export interface OpeningStockFilters {
-  date?: string; // YYYY-MM-DD format
+  date?: string;
   productId?: string;
   location?: string;
   startDate?: string;
@@ -209,9 +205,41 @@ export interface OpeningStockHistoryResponse {
 }
 
 export interface OpeningStockHistoryFilters {
-  startDate: string; // Required
-  endDate: string; // Required
+  startDate: string;
+  endDate: string;
   productId?: string;
+}
+
+export interface ExpiringBatch {
+  id: string;
+  productName: string;
+  productNo: string;
+  batchNumber: string;
+  orderNumber: string;
+  expiryDate: string;
+  originalQuantity: number;
+  quantityRemaining: number;
+  quantitySold: number;
+  unitType: string;
+  valueAtRisk: number;
+  potentialRevenue: number;
+  daysUntilExpiry: number;
+  urgency: 'critical' | 'high' | 'medium';
+  percentageSold: number;
+}
+
+export interface ExpiringProductsSummary {
+  totalBatchesExpiring: number;
+  criticalBatches: number;
+  highPriorityBatches: number;
+  totalValueAtRisk: number;
+  totalPotentialRevenue: number;
+}
+
+export interface ExpiringProductsResponse {
+  expiringPurchases: ExpiringBatch[];
+  count: number;
+  summary: ExpiringProductsSummary;
 }
 
 export interface CreateCashFlowData {
@@ -317,7 +345,6 @@ export interface UpdateInventoryData {
   maxStockLevel?: number;
 }
 
-// ===== NEW INTERFACES ADDED FROM SECOND VERSION =====
 export interface DebtorAnalytics {
   [key: string]: {
     count: number;
@@ -350,11 +377,11 @@ export interface Debtor {
     unitType: string;
   };
   payments?: Array<{
-        id: string;
-        amount: number;
-        paymentMethod: string;
-        paymentDate: string;
-    }>;
+    id: string;
+    amount: number;
+    paymentMethod: string;
+    paymentDate: string;
+  }>;
 }
 
 export interface DebtorPayment {
@@ -448,7 +475,6 @@ export interface RecordPaymentData {
   referenceNumber?: string;
   notes?: string;
 }
-// =====================================================
 
 export class WarehouseService extends BaseApiService {
   constructor() {
@@ -602,10 +628,15 @@ export class WarehouseService extends BaseApiService {
     return response.data.expense;
   }
 
+  // Expiring Products
+  async getExpiringProducts(): Promise<ExpiringProductsResponse> {
+    const response = await apiClient.get('/warehouse/purchases/expiring');
+    return response.data.data;
+  }
+
   // Customers
- async getCustomers(filters: CustomerFilters | number, limit?: number, search?: string): Promise<PaginatedResponse<WarehouseCustomer>> {
+  async getCustomers(filters: CustomerFilters | number, limit?: number, search?: string): Promise<PaginatedResponse<WarehouseCustomer>> {
     if (typeof filters === 'number') {
-      // Handle legacy calls with separate parameters
       const page = filters;
       let url = `/customers?page=${page}&limit=${limit || 10}`;
       if (search?.trim()) {
@@ -614,7 +645,6 @@ export class WarehouseService extends BaseApiService {
       return this.get<PaginatedResponse<WarehouseCustomer>>(url);
     }
 
-    // Handle new calls with filters object
     const params = new URLSearchParams();
     params.append('page', (filters.page || 1).toString());
     params.append('limit', (filters.limit || 10).toString());
@@ -639,24 +669,24 @@ export class WarehouseService extends BaseApiService {
   }
 
   async getCustomerById(id: string): Promise<CustomerDetailResponse> {
-  return this.get<CustomerDetailResponse>(`/customers/${id}`);
-}
+    return this.get<CustomerDetailResponse>(`/customers/${id}`);
+  }
 
-async getCustomerPurchaseHistory(
-  id: string,
-  filters?: CustomerPurchaseFilters
-): Promise<CustomerPurchaseHistoryResponse> {
-  const params = new URLSearchParams();
-  if (filters?.page) params.append('page', filters.page.toString());
-  if (filters?.limit) params.append('limit', filters.limit.toString());
-  if (filters?.startDate) params.append('startDate', filters.startDate);
-  if (filters?.endDate) params.append('endDate', filters.endDate);
-  
-  const queryString = params.toString();
-  const url = `/customers/${id}/purchases${queryString ? `?${queryString}` : ''}`;
-  
-  return this.get<CustomerPurchaseHistoryResponse>(url);
-}
+  async getCustomerPurchaseHistory(
+    id: string,
+    filters?: CustomerPurchaseFilters
+  ): Promise<CustomerPurchaseHistoryResponse> {
+    const params = new URLSearchParams();
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    
+    const queryString = params.toString();
+    const url = `/customers/${id}/purchases${queryString ? `?${queryString}` : ''}`;
+    
+    return this.get<CustomerPurchaseHistoryResponse>(url);
+  }
 
   // Cash Flow
   async getCashFlow(
@@ -690,15 +720,7 @@ async getCustomerPurchaseHistory(
     return response;
   }
 
-  // =====================================================
-  // OPENING STOCK METHODS (NEW)
-  // =====================================================
-
-  /**
-   * Get daily opening stock for products
-   * @param filters - Optional filters for date, product, and location
-   * @returns Opening stock data with summary and detailed breakdown
-   */
+  // Opening Stock
   async getOpeningStock(filters?: OpeningStockFilters): Promise<OpeningStockResponse> {
     const params = new URLSearchParams();
     
@@ -714,11 +736,6 @@ async getCustomerPurchaseHistory(
     return this.get<OpeningStockResponse>(endpoint);
   }
 
-  /**
-   * Get historical opening stock data for a date range
-   * @param filters - Required startDate and endDate, optional productId
-   * @returns Historical opening stock data
-   */
   async getOpeningStockHistory(
     filters: OpeningStockHistoryFilters
   ): Promise<OpeningStockHistoryResponse> {
@@ -733,7 +750,6 @@ async getCustomerPurchaseHistory(
 
     return this.get<OpeningStockHistoryResponse>(`/opening-stock/history?${params.toString()}`);
   }
-
 
   // Discount Requests
   async checkDiscount(data: {
@@ -788,76 +804,75 @@ async getCustomerPurchaseHistory(
   }
 
   // Analytics
- async getDashboardStats(params?: {
-  filterMonth?: number;
-  filterYear?: number;
-  startDate?: string;
-  endDate?: string;
-}): Promise<any> {
-  try {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.filterMonth) {
-      queryParams.append('filterMonth', params.filterMonth.toString());
-    }
-    if (params?.filterYear) {
-      queryParams.append('filterYear', params.filterYear.toString());
-    }
-    if (params?.startDate) {
-      queryParams.append('startDate', params.startDate);
-    }
-    if (params?.endDate) {
-      queryParams.append('endDate', params.endDate);
-    }
+  async getDashboardStats(params?: {
+    filterMonth?: number;
+    filterYear?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      if (params?.filterMonth) {
+        queryParams.append('filterMonth', params.filterMonth.toString());
+      }
+      if (params?.filterYear) {
+        queryParams.append('filterYear', params.filterYear.toString());
+      }
+      if (params?.startDate) {
+        queryParams.append('startDate', params.startDate);
+      }
+      if (params?.endDate) {
+        queryParams.append('endDate', params.endDate);
+      }
 
-    const queryString = queryParams.toString();
-    const url = `/warehouse/analytics/summary${queryString ? `?${queryString}` : ''}`;
-    
-    const response = await apiClient.get(url);
-    return response.data;
-  } catch (error: any) {
-    if (error?.response?.status === 400 || error?.response?.status === 404) {
-      return {
-        success: true,
-        data: {
-          summary: {
-            totalRevenue: 0,
-            totalCOGS: 0,
-            grossProfit: 0,
-            profitMargin: 0,
-            totalSales: 0,
-            totalQuantitySold: 0,
-            averageSaleValue: 0,
-            totalCustomers: 0,
-            activeCustomers: 0
-          },
-          cashFlow: {
-            totalCashIn: 0,
-            totalCashOut: 0,
-            netCashFlow: 0
-          },
-          inventory: {
-            totalStockValue: 0,
-            totalItems: 0,
-            lowStockItems: 0,
-            outOfStockItems: 0,
-            stockHealthPercentage: 0
-          },
-          customerSummary: {
-            totalCustomers: 0,
-            activeCustomers: 0
-          },
-          topProducts: [],
-          dailyPerformance: [],
-          period: {}
-        }
-      };
+      const queryString = queryParams.toString();
+      const url = `/warehouse/analytics/summary${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await apiClient.get(url);
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 400 || error?.response?.status === 404) {
+        return {
+          success: true,
+          data: {
+            summary: {
+              totalRevenue: 0,
+              totalCOGS: 0,
+              grossProfit: 0,
+              profitMargin: 0,
+              totalSales: 0,
+              totalQuantitySold: 0,
+              averageSaleValue: 0,
+              totalCustomers: 0,
+              activeCustomers: 0
+            },
+            cashFlow: {
+              totalCashIn: 0,
+              totalCashOut: 0,
+              netCashFlow: 0
+            },
+            inventory: {
+              totalStockValue: 0,
+              totalItems: 0,
+              lowStockItems: 0,
+              outOfStockItems: 0,
+              stockHealthPercentage: 0
+            },
+            customerSummary: {
+              totalCustomers: 0,
+              activeCustomers: 0
+            },
+            topProducts: [],
+            dailyPerformance: [],
+            period: {}
+          }
+        };
+      }
+      throw error;
     }
-    throw error;
   }
-}
 
-  // ===== ADDED METHODS FROM SECOND VERSION =====
   async getCustomerDetails(customerId: string): Promise<any> {
     return this.get(`/customers/${customerId}`);
   }
@@ -869,6 +884,7 @@ async getCustomerPurchaseHistory(
     return this.get(query ? `/customers/${customerId}/purchases?${query}` : `/customers/${customerId}/purchases`);
   }
 
+  // Debtors
   async getDebtors(filters?: DebtorFilters): Promise<any> {
     const params = new URLSearchParams();
     if (filters) Object.entries(filters).forEach(([k, v]) => v && params.append(k, String(v)));
@@ -880,56 +896,11 @@ async getCustomerPurchaseHistory(
     return this.post(data, `/debtors/${debtorId}/payments`);
   }
 
-  // Get customer debt summary
-async getCustomerDebtSummary(customerId: string): Promise<any> {
-  return this.get(`/debtors/customer/${customerId}/summary`);
-}
-  // ============================================
+  async getCustomerDebtSummary(customerId: string): Promise<any> {
+    return this.get(`/debtors/customer/${customerId}/summary`);
+  }
 
-  // // Export Methods
-  // async exportSalesToCSV(filters?: {
-  //   period?: 'day' | 'week' | 'month' | 'year' | 'custom';
-  //   startDate?: string;
-  //   endDate?: string;
-  //   customerId?: string;
-  //   productId?: string;
-  // }): Promise<Blob> {
-  //   const params = new URLSearchParams();
-  //   if (filters) {
-  //     Object.entries(filters).forEach(([key, value]) => {
-  //       if (value) params.append(key, value);
-  //     });
-  //   }
-
-  //   const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
-  //     responseType: 'blob'
-  //   });
-  //   return response.data;
-  // }
-
-  // async exportSalesToPDF(filters?: {
-  //   period?: 'day' | 'week' | 'month' | 'year' | 'custom';
-  //   startDate?: string;
-  //   endDate?: string;
-  //   customerId?: string;
-  //   productId?: string;
-  //   limit?: number;
-  // }): Promise<Blob> {
-  //   const params = new URLSearchParams();
-  //   if (filters) {
-  //     Object.entries(filters).forEach(([key, value]) => {
-  //       if (value !== undefined && value !== null) {
-  //         params.append(key, String(value));
-  //       }
-  //     });
-  //   }
-
-  //   const response = await apiClient.get(`/warehouse/sales/export/pdf?${params.toString()}`, {
-  //     responseType: 'blob'
-  //   });
-  //   return response.data;
-  // }
-
+  // Export Methods
   async exportSaleToPDF(saleId: string): Promise<Blob> {
     const response = await apiClient.get(`/warehouse/sales/${saleId}/export/pdf`, {
       responseType: 'blob'
@@ -976,48 +947,47 @@ async getCustomerDebtSummary(customerId: string): Promise<any> {
   }
 
   async exportSalesToCSV(filters?: {
-  period?: 'day' | 'week' | 'month' | 'year' | 'custom';
-  startDate?: string;
-  endDate?: string;
-  customerId?: string;
-  productId?: string;
-}): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value);
+    period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+    startDate?: string;
+    endDate?: string;
+    customerId?: string;
+    productId?: string;
+  }): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+    }
+    
+    const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
+      responseType: 'blob'
     });
+    return response.data;
   }
-  
-  const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
-    responseType: 'blob'
-  });
-  return response.data;
-}
 
-// Export Sales to PDF with filters
-async exportSalesToPDF(filters?: {
-  period?: 'day' | 'week' | 'month' | 'year' | 'custom';
-  startDate?: string;
-  endDate?: string;
-  customerId?: string;
-  productId?: string;
-  limit?: number;
-}): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        params.append(key, String(value));
-      }
+  async exportSalesToPDF(filters?: {
+    period?: 'day' | 'week' | 'month' | 'year' | 'custom';
+    startDate?: string;
+    endDate?: string;
+    customerId?: string;
+    productId?: string;
+    limit?: number;
+  }): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+    }
+    
+    const response = await apiClient.get(`/warehouse/sales/export/pdf?${params}`, {
+      responseType: 'blob'
     });
+    return response.data;
   }
-  
-  const response = await apiClient.get(`/warehouse/sales/export/pdf?${params}`, {
-    responseType: 'blob'
-  });
-  return response.data;
-}
 
   // Warehouse Purchases
   async getPurchases(filters?: PurchaseFilters): Promise<PaginatedResponse<WarehousePurchase>> {
@@ -1101,7 +1071,6 @@ async exportSalesToPDF(filters?: {
     const query = params.toString();
     return this.get(query ? `/purchases/analytics?${query}` : '/purchases/analytics');
   }
-
 }
 
 export const warehouseService = new WarehouseService();

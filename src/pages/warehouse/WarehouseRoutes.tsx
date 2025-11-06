@@ -12,6 +12,7 @@ import { CustomerDetail } from './CustomerDetail';
 import DebtorsDashboard from './DebtorsDashboard';
 import OffloadPurchase from './OffloadPurchase';
 import DailyOpeningStock from './DailyOpeningStock';
+import ExpiringProducts from './ExpiringProducts';
 
 export const WarehouseRoutes = () => {
     return (
@@ -30,6 +31,7 @@ export const WarehouseRoutes = () => {
             <Route path="debtors" element={<DebtorsDashboard />} />
             <Route path="offload-purchases" element={<OffloadPurchase />} />
             <Route path="daily-opening-stock" element={<DailyOpeningStock />} />
+            <Route path="expiring-products" element={<ExpiringProducts />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
     );
