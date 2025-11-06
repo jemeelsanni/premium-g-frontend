@@ -199,10 +199,10 @@ const OffloadPurchase: React.FC = () => {
                                 return (
                                     <div>
                                         <div className="font-medium">
-                                            {purchase?.product?.name || 'Unknown Product'}
+                                            {purchase?.product?.name ?? 'Unknown Product'}
                                         </div>
                                         <div className="text-sm text-gray-500">
-                                            {purchase?.product?.productNo || 'N/A'}
+                                            {purchase?.product?.productNo ?? 'N/A'}
                                         </div>
                                     </div>
                                 );
@@ -623,7 +623,7 @@ const OffloadPurchase: React.FC = () => {
                                     </div>
                                     <div className="mt-2 text-sm space-y-1">
                                         <div className="text-gray-700">
-                                            Product No: {purchase.product.productNo}
+                                            Product No: {purchase?.product?.productNo ?? 'N/A'}
                                         </div>
                                         {purchase.batchNumber && (
                                             <div className="text-gray-700">
