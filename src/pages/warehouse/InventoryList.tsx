@@ -88,14 +88,13 @@ export const InventoryList: React.FC = () => {
         }
     };
 
+    // ✅ FIXED: Trust backend stockStatus instead of recalculating
     const getStockStatus = (item: WarehouseInventory) => {
-        const current = parseNumber(item.currentStock ?? item.packs ?? item.units ?? 0);
-        const minimum = parseNumber(item.minimumStock ?? item.reorderLevel ?? 0);
-        const maximum = parseNumber(item.maximumStock ?? item.maxStockLevel, Number.POSITIVE_INFINITY);
+        const backendStatus = item.stockStatus;
 
-        if (current <= minimum) {
+        if (backendStatus === 'LOW_STOCK' || backendStatus === 'OUT_OF_STOCK') {
             return { status: 'low', color: 'red', text: 'Low Stock' };
-        } else if (Number.isFinite(maximum) && maximum > 0 && current >= maximum) {
+        } else if (backendStatus === 'OVERSTOCK') {
             return { status: 'high', color: 'orange', text: 'Overstock' };
         } else {
             return { status: 'normal', color: 'green', text: 'Normal' };
@@ -127,12 +126,13 @@ export const InventoryList: React.FC = () => {
     const pagination = (rawInventoryData as any)?.pagination;
     const searchValue = searchTerm.trim().toLowerCase();
 
+    // ✅ FIXED: Use backend stockStatus for filtering
     const filteredData = normalizedInventory.filter(item => {
         const productName = item.product?.name ?? '';
         const matchesSearch = productName.toLowerCase().includes(searchValue);
-        const current = parseNumber(item.currentStock);
-        const minimum = parseNumber(item.minimumStock);
-        const matchesFilter = showLowStockOnly ? current <= minimum : true;
+        const matchesFilter = showLowStockOnly
+            ? (item.stockStatus === 'LOW_STOCK' || item.stockStatus === 'OUT_OF_STOCK')
+            : true;
         return matchesSearch && matchesFilter;
     });
 
@@ -152,11 +152,11 @@ export const InventoryList: React.FC = () => {
         }
     }, [filteredData.length, pagination, currentPage, pageSize]);
 
+    // ✅ FIXED: Use backend stockStatus for counting
     const lowStockCount = normalizedInventory.filter(item => {
-        const current = parseNumber(item.currentStock);
-        const minimum = parseNumber(item.minimumStock);
-        return current <= minimum;
+        return item.stockStatus === 'LOW_STOCK' || item.stockStatus === 'OUT_OF_STOCK';
     }).length;
+
     const totalStock = normalizedInventory.reduce((sum, item) => sum + parseNumber(item.currentStock), 0);
     const wellStockCount = Math.max(normalizedInventory.length - lowStockCount, 0);
     const totalItems = pagination?.total ?? normalizedInventory.length;

@@ -108,6 +108,7 @@ export interface WarehouseSale {
 }
 
 export interface WarehouseInventory {
+  stockStatus: string;
   id: string;
   productId: string;
   product?: Product;
