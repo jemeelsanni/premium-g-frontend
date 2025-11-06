@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Package, AlertTriangle, Edit, Search, Plus } from 'lucide-react';
+import { Package, AlertTriangle, Search, Plus } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -66,15 +66,7 @@ export const InventoryList: React.FC = () => {
         }
     });
 
-    const handleOpenModal = (item: WarehouseInventory) => {
-        setSelectedItem(item);
-        reset({
-            currentStock: item.currentStock ?? 0,
-            minimumStock: item.minimumStock ?? 0,
-            maximumStock: item.maximumStock ?? 0,
-        });
-        setIsModalOpen(true);
-    };
+
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
@@ -201,11 +193,6 @@ export const InventoryList: React.FC = () => {
             render: (value: number | undefined) => typeof value === 'number' ? value.toLocaleString() : 'N/A'
         },
         {
-            key: 'maximumStock',
-            title: 'Max Stock',
-            render: (value: number | undefined) => typeof value === 'number' ? value.toLocaleString() : 'N/A'
-        },
-        {
             key: 'stockStatus',
             title: 'Status',
             render: (record: WarehouseInventory) => {
@@ -224,21 +211,6 @@ export const InventoryList: React.FC = () => {
             render: (value: string) =>
                 value ? new Date(value).toLocaleDateString() : 'Never'
         },
-        {
-            key: 'actions',
-            title: 'Actions',
-            render: (record: WarehouseInventory) => (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenModal(record)}
-                    className="inline-flex items-center"
-                >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Update
-                </Button>
-            )
-        }
     ];
 
     const Pagination = () => {
