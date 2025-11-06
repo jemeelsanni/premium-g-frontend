@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Package, TrendingDown, DollarSign } from 'lucide-react';
 import { warehouseService, ExpiringProductsResponse } from '../../services/warehouseService';
 
-export function ExpiringProducts() {
+export default function ExpiringProducts() {
     const { data, isLoading } = useQuery<ExpiringProductsResponse>({
         queryKey: ['expiring-products'],
         queryFn: warehouseService.getExpiringProducts
@@ -181,4 +181,3 @@ export function ExpiringProducts() {
     );
 }
 
-export default ExpiringProducts;
