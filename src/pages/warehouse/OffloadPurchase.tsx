@@ -281,10 +281,10 @@ const OffloadPurchase: React.FC = () => {
                             render: (value: any) => (
                                 <span
                                     className={`px-2 py-1 text-xs rounded-full ${value === 'PAID'
-                                            ? 'bg-green-100 text-green-800'
-                                            : value === 'PARTIAL'
-                                                ? 'bg-yellow-100 text-yellow-800'
-                                                : 'bg-red-100 text-red-800'
+                                        ? 'bg-green-100 text-green-800'
+                                        : value === 'PARTIAL'
+                                            ? 'bg-yellow-100 text-yellow-800'
+                                            : 'bg-red-100 text-red-800'
                                         }`}
                                 >
                                     {value}
@@ -618,7 +618,7 @@ const OffloadPurchase: React.FC = () => {
                                                 }`}
                                         />
                                         <h3 className="font-medium text-gray-900">
-                                            {purchase.product.name}
+                                            {purchase?.product?.name ?? 'Unknown Product'}
                                         </h3>
                                     </div>
                                     <div className="mt-2 text-sm space-y-1">
