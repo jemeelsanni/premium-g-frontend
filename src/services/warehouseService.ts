@@ -482,27 +482,51 @@ export class WarehouseService extends BaseApiService {
   }
 
   // Sales
-  async getSales(page = 1, limit = 10): Promise<WarehouseSalesResponse> {
-    try {
-      return await this.get<WarehouseSalesResponse>(`/sales?page=${page}&limit=${limit}`);
-    } catch (error: any) {
-      if (error?.response?.status === 404) {
-        return {
-          success: true,
-          data: {
-            sales: [],
-            pagination: {
-              page,
-              limit,
-              total: 0,
-              totalPages: 0
-            }
-          }
-        };
-      }
-      throw error;
-    }
+  async getSales(
+  page = 1,
+  limit = 10,
+  filters?: {
+    customerId?: string;
+    productId?: string;
+    startDate?: string;
+    endDate?: string;
   }
+): Promise<WarehouseSalesResponse> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+
+  if (filters) {
+    if (filters.customerId) params.append('customerId', filters.customerId);
+    if (filters.productId) params.append('productId', filters.productId);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+  }
+
+  const query = params.toString();
+
+  try {
+    return await this.get<WarehouseSalesResponse>(`/sales?${query}`);
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      return {
+        success: true,
+        data: {
+          sales: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 0,
+          },
+        },
+      };
+    }
+    throw error;
+  }
+}
+
 
   async createSale(data: CreateSaleData): Promise<CreateSaleResponse> {
     return this.post<CreateSaleResponse>(data, '/sales');

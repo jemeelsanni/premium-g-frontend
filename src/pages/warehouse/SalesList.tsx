@@ -8,6 +8,8 @@ import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 import { toast } from 'react-hot-toast';
+import dayjs from 'dayjs';
+
 
 
 export const SalesList: React.FC = () => {
@@ -22,9 +24,14 @@ export const SalesList: React.FC = () => {
     const pageSize = 20;
 
     const { data: salesData, isLoading } = useQuery({
-        queryKey: ['warehouse-sales', currentPage, pageSize],
-        queryFn: () => warehouseService.getSales(currentPage, pageSize),
+        queryKey: ['warehouse-sales', currentPage, pageSize, startDate, endDate],
+        queryFn: () =>
+            warehouseService.getSales(currentPage, pageSize, {
+                startDate: period === 'custom' ? startDate : undefined,
+                endDate: period === 'custom' ? endDate : undefined,
+            }),
     });
+
 
     // ✅ Calculate pagination values
     const totalPages = salesData?.data?.pagination?.totalPages || 1;
@@ -179,6 +186,27 @@ export const SalesList: React.FC = () => {
         }
     ];
 
+    const handlePeriodChange = (value: 'day' | 'week' | 'month' | 'year' | 'custom' | '') => {
+        setPeriod(value);
+
+        if (value === 'day') {
+            setStartDate(dayjs().startOf('day').toISOString());
+            setEndDate(dayjs().endOf('day').toISOString());
+        } else if (value === 'week') {
+            setStartDate(dayjs().startOf('week').toISOString());
+            setEndDate(dayjs().endOf('week').toISOString());
+        } else if (value === 'month') {
+            setStartDate(dayjs().startOf('month').toISOString());
+            setEndDate(dayjs().endOf('month').toISOString());
+        } else if (value === 'year') {
+            setStartDate(dayjs().startOf('year').toISOString());
+            setEndDate(dayjs().endOf('year').toISOString());
+        } else if (value === 'custom' || value === '') {
+            setStartDate('');
+            setEndDate('');
+        }
+    };
+
     const handleExportCSV = async () => {
         setIsExportingCSV(true);
         try {
@@ -292,7 +320,7 @@ export const SalesList: React.FC = () => {
                             </label>
                             <select
                                 value={period}
-                                onChange={(e) => setPeriod(e.target.value as any)}
+                                onChange={(e) => handlePeriodChange(e.target.value as any)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">All Time</option>
