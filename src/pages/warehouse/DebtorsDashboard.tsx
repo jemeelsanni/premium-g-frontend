@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { warehouseService, RecordPaymentData } from '../../services/warehouseService';
+import { ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
+import { warehouseService } from '../../services/warehouseService';
 
 // 🆕 Updated interface to match new backend structure
 interface AggregatedDebtor {
@@ -71,7 +71,6 @@ const DebtorsDashboard: React.FC = () => {
     // Payment Modal State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedDebtor, setSelectedDebtor] = useState<AggregatedDebtor | null>(null);
-    const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'CARD' | 'MOBILE_MONEY'>('CASH');
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -115,46 +114,61 @@ const DebtorsDashboard: React.FC = () => {
         });
     };
 
-    const openPaymentModal = (debtor: AggregatedDebtor, saleId?: string) => {
+    const openPaymentModal = (debtor: AggregatedDebtor) => {
         setSelectedDebtor(debtor);
-        setSelectedSaleId(saleId || null);
-
-        if (saleId) {
-            const sale = debtor.sales.find(s => s.id === saleId);
-            setPaymentAmount(sale?.amountDue.toString() || '0');
-        } else {
-            setPaymentAmount(debtor.amountDue.toString());
-        }
-
+        setPaymentAmount(debtor.amountDue.toString());
         setShowPaymentModal(true);
     };
 
     const closePaymentModal = () => {
         setShowPaymentModal(false);
         setSelectedDebtor(null);
-        setSelectedSaleId(null);
         setPaymentAmount('');
         setPaymentReference('');
         setPaymentNotes('');
     };
 
     const handleRecordPayment = async () => {
-        if (!selectedDebtor || !selectedSaleId) return;
+        if (!selectedDebtor) return;
+
+        // Validate payment amount
+        const amount = parseFloat(paymentAmount);
+        if (isNaN(amount) || amount <= 0) {
+            alert('Please enter a valid payment amount');
+            return;
+        }
+
+        if (amount > selectedDebtor.amountDue) {
+            alert(`Payment amount cannot exceed outstanding balance of ${formatCurrency(selectedDebtor.amountDue)}`);
+            return;
+        }
 
         try {
             setProcessingPayment(true);
 
-            const paymentData: RecordPaymentData = {
-                amount: parseFloat(paymentAmount),
+            const paymentData = {
+                amount: amount,
                 paymentMethod,
                 paymentDate,
                 referenceNumber: paymentReference || undefined,
                 notes: paymentNotes || undefined
             };
 
-            await warehouseService.recordDebtorPayment(selectedSaleId, paymentData);
+            // 🆕 NEW METHOD - Payment for entire customer debt
+            const response = await warehouseService.recordCustomerDebtPayment(
+                selectedDebtor.customerId,
+                paymentData
+            );
 
-            alert('Payment recorded successfully!');
+            console.log('Payment response:', response.data);
+
+            alert(
+                `✅ Payment recorded successfully!\n\n` +
+                `Amount: ${formatCurrency(amount)}\n` +
+                `Debts Updated: ${response.data.data.debtsUpdated}\n` +
+                `Sales Updated: ${response.data.data.salesUpdated}`
+            );
+
             closePaymentModal();
             fetchDebtors();
         } catch (error: any) {
@@ -250,16 +264,18 @@ const DebtorsDashboard: React.FC = () => {
                             return (
                                 <div key={debtor.customerId} className="bg-white rounded-lg shadow">
                                     {/* Customer Header */}
-                                    <div
-                                        className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
-                                        onClick={() => toggleExpanded(debtor.customerId)}
-                                    >
+                                    <div className="p-6">
                                         <div className="flex justify-between items-start">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-3">
                                                     <h3 className="text-lg font-semibold">{debtor.customer.name}</h3>
                                                     {getStatusBadge(debtor.status)}
-                                                    {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                                                    <button
+                                                        onClick={() => toggleExpanded(debtor.customerId)}
+                                                        className="text-gray-500 hover:text-gray-700"
+                                                    >
+                                                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                                                    </button>
                                                 </div>
                                                 <p className="text-sm text-gray-600">📞 {debtor.customer.phone}</p>
                                                 {debtor.customer.email && (
@@ -268,6 +284,11 @@ const DebtorsDashboard: React.FC = () => {
                                                 <p className="text-sm text-gray-500 mt-2">
                                                     {debtor.debtCount} {debtor.debtCount === 1 ? 'debt' : 'debts'}
                                                 </p>
+                                                {debtor.customer.paymentReliabilityScore && (
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        Reliability Score: {debtor.customer.paymentReliabilityScore.toFixed(1)}%
+                                                    </p>
+                                                )}
                                             </div>
 
                                             <div className="text-right">
@@ -275,7 +296,18 @@ const DebtorsDashboard: React.FC = () => {
                                                 <p className="text-xl font-bold">{formatCurrency(debtor.totalAmount)}</p>
 
                                                 <p className="text-sm text-green-600 mt-2">Paid: {formatCurrency(debtor.amountPaid)}</p>
-                                                <p className="text-sm text-red-600">Due: {formatCurrency(debtor.amountDue)}</p>
+                                                <p className="text-sm text-red-600 font-semibold">Due: {formatCurrency(debtor.amountDue)}</p>
+
+                                                {/* 🆕 Single Payment Button for All Debts */}
+                                                {debtor.amountDue > 0 && (
+                                                    <button
+                                                        onClick={() => openPaymentModal(debtor)}
+                                                        className="mt-3 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                                                    >
+                                                        <CreditCard className="h-4 w-4" />
+                                                        Record Payment
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -295,22 +327,12 @@ const DebtorsDashboard: React.FC = () => {
                                                                 {sale.dueDate && (
                                                                     <p className="text-xs text-gray-500">Due: {formatDate(sale.dueDate)}</p>
                                                                 )}
+                                                                <span className="text-xs mt-1 inline-block">{getStatusBadge(sale.status)}</span>
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="text-sm font-semibold">{formatCurrency(sale.totalAmount)}</p>
                                                                 <p className="text-xs text-green-600">Paid: {formatCurrency(sale.amountPaid)}</p>
                                                                 <p className="text-xs text-red-600">Due: {formatCurrency(sale.amountDue)}</p>
-                                                                {sale.amountDue > 0 && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            openPaymentModal(debtor, sale.id);
-                                                                        }}
-                                                                        className="mt-2 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-                                                                    >
-                                                                        Record Payment
-                                                                    </button>
-                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -320,7 +342,7 @@ const DebtorsDashboard: React.FC = () => {
                                             {/* Payment History */}
                                             {debtor.allPayments.length > 0 && (
                                                 <div className="mt-6">
-                                                    <h4 className="font-semibold mb-3">Payment History</h4>
+                                                    <h4 className="font-semibold mb-3">Payment History ({debtor.allPayments.length} payments)</h4>
                                                     <div className="space-y-2">
                                                         {debtor.allPayments.slice(0, 5).map((payment) => (
                                                             <div key={payment.id} className="flex justify-between text-sm bg-white p-3 rounded border">
@@ -334,6 +356,11 @@ const DebtorsDashboard: React.FC = () => {
                                                                 <span className="text-gray-500">{formatDate(payment.paymentDate)}</span>
                                                             </div>
                                                         ))}
+                                                        {debtor.allPayments.length > 5 && (
+                                                            <p className="text-sm text-gray-500 text-center">
+                                                                +{debtor.allPayments.length - 5} more payments
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -368,25 +395,37 @@ const DebtorsDashboard: React.FC = () => {
             {/* Payment Modal */}
             {showPaymentModal && selectedDebtor && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-4">Record Payment</h2>
 
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Customer</label>
-                                <p className="text-gray-700">{selectedDebtor.customer.name}</p>
+                            <div className="bg-blue-50 p-4 rounded-lg">
+                                <p className="text-sm font-medium text-gray-700">Customer</p>
+                                <p className="text-lg font-semibold">{selectedDebtor.customer.name}</p>
+                                <div className="mt-2 text-sm">
+                                    <p className="text-gray-600">Total Outstanding: <span className="font-semibold text-red-600">{formatCurrency(selectedDebtor.amountDue)}</span></p>
+                                    <p className="text-gray-600">Number of Debts: <span className="font-semibold">{selectedDebtor.debtCount}</span></p>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    💡 Payment will be automatically allocated across all outstanding debts (oldest first)
+                                </p>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Amount *</label>
+                                <label className="block text-sm font-medium mb-1">Payment Amount *</label>
                                 <input
                                     type="number"
                                     value={paymentAmount}
                                     onChange={(e) => setPaymentAmount(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded"
+                                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                                     step="0.01"
                                     min="0"
+                                    max={selectedDebtor.amountDue}
+                                    placeholder="Enter amount"
                                 />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Max: {formatCurrency(selectedDebtor.amountDue)}
+                                </p>
                             </div>
 
                             <div>
@@ -394,7 +433,7 @@ const DebtorsDashboard: React.FC = () => {
                                 <select
                                     value={paymentMethod}
                                     onChange={(e) => setPaymentMethod(e.target.value as any)}
-                                    className="w-full px-3 py-2 border rounded"
+                                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                                 >
                                     <option value="CASH">Cash</option>
                                     <option value="BANK_TRANSFER">Bank Transfer</option>
@@ -409,7 +448,7 @@ const DebtorsDashboard: React.FC = () => {
                                     type="date"
                                     value={paymentDate}
                                     onChange={(e) => setPaymentDate(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded"
+                                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
 
@@ -419,7 +458,8 @@ const DebtorsDashboard: React.FC = () => {
                                     type="text"
                                     value={paymentReference}
                                     onChange={(e) => setPaymentReference(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded"
+                                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Optional"
                                 />
                             </div>
 
@@ -428,8 +468,9 @@ const DebtorsDashboard: React.FC = () => {
                                 <textarea
                                     value={paymentNotes}
                                     onChange={(e) => setPaymentNotes(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded"
+                                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                                     rows={3}
+                                    placeholder="Optional payment notes"
                                 />
                             </div>
                         </div>
@@ -437,14 +478,15 @@ const DebtorsDashboard: React.FC = () => {
                         <div className="flex gap-3 mt-6">
                             <button
                                 onClick={handleRecordPayment}
-                                disabled={processingPayment}
-                                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                                disabled={processingPayment || !paymentAmount || parseFloat(paymentAmount) <= 0}
+                                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {processingPayment ? 'Processing...' : 'Record Payment'}
                             </button>
                             <button
                                 onClick={closePaymentModal}
-                                className="flex-1 bg-gray-200 py-2 rounded hover:bg-gray-300"
+                                disabled={processingPayment}
+                                className="flex-1 bg-gray-200 py-2 rounded hover:bg-gray-300 disabled:opacity-50"
                             >
                                 Cancel
                             </button>
