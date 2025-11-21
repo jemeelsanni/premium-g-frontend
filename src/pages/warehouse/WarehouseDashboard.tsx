@@ -183,7 +183,7 @@ export const WarehouseDashboard: React.FC = () => {
             value: safeSummaryNumber('totalSales'),
             icon: ShoppingCart,
             color: 'blue',
-            change: '+18%'
+            change: '+18%',
         },
         {
             title: 'Revenue',
