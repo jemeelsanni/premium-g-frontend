@@ -120,6 +120,13 @@ export interface CustomerPurchaseHistoryResponse {
   };
 }
 
+export interface DebtorSummary {
+  totalDebtors: number;
+  totalOutstanding: number;
+  totalCreditSales: number;
+  totalPaid: number;
+}
+
 export interface OpeningStockItem {
   productId: string;
   productNo: string;
@@ -829,73 +836,80 @@ export class WarehouseService extends BaseApiService {
 
   // Analytics
   async getDashboardStats(params?: {
-    filterMonth?: number;
-    filterYear?: number;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<any> {
-    try {
-      const queryParams = new URLSearchParams();
-      
-      if (params?.filterMonth) {
-        queryParams.append('filterMonth', params.filterMonth.toString());
-      }
-      if (params?.filterYear) {
-        queryParams.append('filterYear', params.filterYear.toString());
-      }
-      if (params?.startDate) {
-        queryParams.append('startDate', params.startDate);
-      }
-      if (params?.endDate) {
-        queryParams.append('endDate', params.endDate);
-      }
-
-      const queryString = queryParams.toString();
-      const url = `/warehouse/analytics/summary${queryString ? `?${queryString}` : ''}`;
-      
-      const response = await apiClient.get(url);
-      return response.data;
-    } catch (error: any) {
-      if (error?.response?.status === 400 || error?.response?.status === 404) {
-        return {
-          success: true,
-          data: {
-            summary: {
-              totalRevenue: 0,
-              totalCOGS: 0,
-              grossProfit: 0,
-              profitMargin: 0,
-              totalSales: 0,
-              totalQuantitySold: 0,
-              averageSaleValue: 0,
-              totalCustomers: 0,
-              activeCustomers: 0
-            },
-            cashFlow: {
-              totalCashIn: 0,
-              totalCashOut: 0,
-              netCashFlow: 0
-            },
-            inventory: {
-              totalStockValue: 0,
-              totalItems: 0,
-              lowStockItems: 0,
-              outOfStockItems: 0,
-              stockHealthPercentage: 0
-            },
-            customerSummary: {
-              totalCustomers: 0,
-              activeCustomers: 0
-            },
-            topProducts: [],
-            dailyPerformance: [],
-            period: {}
-          }
-        };
-      }
-      throw error;
+  filterMonth?: number;
+  filterYear?: number;
+  startDate?: string;
+  endDate?: string;
+}): Promise<any> {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.filterMonth) {
+      queryParams.append('filterMonth', params.filterMonth.toString());
     }
+    if (params?.filterYear) {
+      queryParams.append('filterYear', params.filterYear.toString());
+    }
+    if (params?.startDate) {
+      queryParams.append('startDate', params.startDate);
+    }
+    if (params?.endDate) {
+      queryParams.append('endDate', params.endDate);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/warehouse/analytics/summary${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await apiClient.get(url);
+    return response.data;
+  } catch (error: any) {
+    if (error?.response?.status === 400 || error?.response?.status === 404) {
+      return {
+        success: true,
+        data: {
+          summary: {
+            totalRevenue: 0,
+            totalCOGS: 0,
+            grossProfit: 0,
+            profitMargin: 0,
+            totalSales: 0,
+            totalQuantitySold: 0,
+            averageSaleValue: 0,
+            totalCustomers: 0,
+            activeCustomers: 0
+          },
+          cashFlow: {
+            totalCashIn: 0,
+            totalCashOut: 0,
+            netCashFlow: 0
+          },
+          inventory: {
+            totalStockValue: 0,
+            totalItems: 0,
+            lowStockItems: 0,
+            outOfStockItems: 0,
+            stockHealthPercentage: 0
+          },
+          customerSummary: {
+            totalCustomers: 0,
+            activeCustomers: 0
+          },
+          // 🆕 ADD THIS
+          debtorSummary: {
+            totalDebtors: 0,
+            totalOutstanding: 0,
+            totalCreditSales: 0,
+            totalPaid: 0
+          },
+          topProducts: [],
+          dailyPerformance: [],
+          period: {}
+        }
+      };
+    }
+    throw error;
   }
+}
 
   async getCustomerDetails(customerId: string): Promise<any> {
     return this.get(`/customers/${customerId}`);

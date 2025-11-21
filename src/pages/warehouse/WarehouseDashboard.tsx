@@ -142,6 +142,8 @@ export const WarehouseDashboard: React.FC = () => {
     const summary = (stats?.data?.summary ?? stats?.summary ?? {}) as Record<string, unknown>;
     const inventorySummary = (stats?.data?.inventory ?? stats?.inventory ?? {}) as Record<string, unknown>;
     const customerSummary = (stats?.data?.customerSummary ?? stats?.customerSummary ?? {}) as Record<string, unknown>;
+    const debtorSummary = (stats?.data?.debtorSummary ?? {}) as Record<string, unknown>;
+
 
 
     const safeSummaryNumber = (key: string, fallback = 0) => parseNumber(summary[key], fallback);
@@ -162,6 +164,11 @@ export const WarehouseDashboard: React.FC = () => {
         (customerSummary as { activeCustomers?: unknown })?.activeCustomers
         ?? (summary as { activeCustomers?: unknown })?.activeCustomers,
         customersList?.active ?? 0
+    );
+
+    const totalOutstanding = parseNumber(
+        (debtorSummary as { totalOutstanding?: unknown })?.totalOutstanding,
+        0
     );
 
     const summarizeSaleProducts = (sale: any) => {
@@ -191,6 +198,14 @@ export const WarehouseDashboard: React.FC = () => {
             icon: DollarSign,
             color: 'green',
             change: '+12%'
+        },
+        {
+            title: 'Outstanding Debt',
+            value: `₦${totalOutstanding.toLocaleString()}`,
+            icon: AlertCircle,
+            color: 'red',
+            change: '',
+
         },
         {
             title: 'Inventory Items',
