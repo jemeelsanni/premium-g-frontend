@@ -172,8 +172,21 @@ const DebtorsDashboard: React.FC = () => {
             closePaymentModal();
             fetchDebtors();
         } catch (error: any) {
-            console.error('Failed to record payment:', error);
-            alert(error?.response?.data?.message || 'Failed to record payment');
+            console.error('Failed to record payment - full error:', error);
+            // log server payload if available
+            console.error('error.response?.data:', error?.response?.data);
+
+            // If the server sent validation details, show them
+            const serverData = error?.response?.data;
+            if (serverData && serverData.errors) {
+                // express-validator errors array — show readable info
+                const messages = serverData.errors.map((e: any) => `${e.param}: ${e.msg}`).join('\n');
+                alert(`Server validation failed:\n${messages}`);
+            } else if (serverData && serverData.message) {
+                alert(serverData.message);
+            } else {
+                alert('Failed to record payment — check console for details');
+            }
         } finally {
             setProcessingPayment(false);
         }
