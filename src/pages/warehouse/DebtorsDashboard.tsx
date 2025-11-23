@@ -128,19 +128,12 @@ const DebtorsDashboard: React.FC = () => {
         setPaymentNotes('');
     };
 
-    const ALLOWED_PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CHECK', 'CARD', 'MOBILE_MONEY'];
-
-    const isValidIsoDate = (s: string) => {
-        // Accepts YYYY-MM-DD as ISO8601
-        return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).getTime());
-    };
-
     const handleRecordPayment = async () => {
         if (!selectedDebtor) return;
 
         // Validate payment amount
-        const amount = Number(paymentAmount);
-        if (!Number.isFinite(amount) || amount <= 0) {
+        const amount = parseFloat(paymentAmount);
+        if (isNaN(amount) || amount <= 0) {
             alert('Please enter a valid payment amount');
             return;
         }
@@ -150,53 +143,37 @@ const DebtorsDashboard: React.FC = () => {
             return;
         }
 
-        // Validate payment method
-        if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
-            alert('Invalid payment method selected');
-            return;
-        }
-
-        // Validate date
-        if (!isValidIsoDate(paymentDate)) {
-            alert('Payment date must be a valid date (YYYY-MM-DD)');
-            return;
-        }
-
         try {
             setProcessingPayment(true);
 
-            // ensure amount is a plain number and not a string
             const paymentData = {
-                amount: amount, // number
+                amount: amount,
                 paymentMethod,
-                paymentDate, // 'YYYY-MM-DD'
+                paymentDate,
                 referenceNumber: paymentReference || undefined,
                 notes: paymentNotes || undefined
             };
 
-            // call service
-            const response = await warehouseService.recordCustomerDebtPayment(selectedDebtor.customerId, paymentData);
+            // 🆕 NEW METHOD - Payment for entire customer debt
+            const response = await warehouseService.recordCustomerDebtPayment(
+                selectedDebtor.customerId,
+                paymentData
+            );
 
-            console.log('Payment response:', response?.data);
-            alert(`✅ Payment recorded!\nAmount: ${formatCurrency(amount)}\nUpdated: ${response?.data?.data?.debtsUpdated ?? 'N/A'} debt(s)`);
+            console.log('Payment response:', response.data);
+
+            alert(
+                `✅ Payment recorded successfully!\n\n` +
+                `Amount: ${formatCurrency(amount)}\n` +
+                `Debts Updated: ${response.data.data.debtsUpdated}\n` +
+                `Sales Updated: ${response.data.data.salesUpdated}`
+            );
 
             closePaymentModal();
             fetchDebtors();
-        } catch (err: any) {
-            // show more detail in console
-            console.error('Failed to record payment - full error:', err);
-            console.error('error.response?.data:', err?.response?.data);
-            // show user-friendly message
-            const serverData = err?.response?.data;
-            if (serverData?.errors) {
-                // if backend later returns validator errors, show them
-                const messages = serverData.errors.map((e: any) => `${e.param}: ${e.msg}`).join('\n');
-                alert(`Server validation failed:\n${messages}`);
-            } else if (serverData?.message) {
-                alert(serverData.message);
-            } else {
-                alert('Failed to record payment — see console for details.');
-            }
+        } catch (error: any) {
+            console.error('Failed to record payment:', error);
+            alert(error?.response?.data?.message || 'Failed to record payment');
         } finally {
             setProcessingPayment(false);
         }
