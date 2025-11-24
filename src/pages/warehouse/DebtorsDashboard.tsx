@@ -1,12 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, CreditCard, Receipt, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, CreditCard, Receipt, User, Package } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 
-// ✅ UPDATED: Per-sale debtor structure (no customer grouping)
-interface DebtorPerSale {
-    id: string;
-    saleId: string;
+// ✅ FINAL: Receipt-grouped debtor structure
+interface DebtorReceipt {
     receiptNumber: string;
     customer: {
         id: string;
@@ -16,9 +14,16 @@ interface DebtorPerSale {
         customerType: string;
         paymentReliabilityScore: number;
     };
-    sale: {
-        id: string;
-        receiptNumber: string;
+    totalAmount: number;
+    amountPaid: number;
+    amountDue: number;
+    status: 'OUTSTANDING' | 'PARTIAL' | 'OVERDUE' | 'PAID';
+    dueDate: string | null;
+    createdAt: string;
+    paymentMethod: string;
+    products: Array<{
+        debtorId: string;
+        saleId: string;
         product: {
             id: string;
             name: string;
@@ -28,16 +33,12 @@ interface DebtorPerSale {
         unitType: string;
         unitPrice: number;
         totalAmount: number;
-        createdAt: string;
-    };
-    totalAmount: number;
-    amountPaid: number;
-    amountDue: number;
-    status: 'OUTSTANDING' | 'PARTIAL' | 'OVERDUE' | 'PAID';
-    dueDate: string | null;
-    createdAt: string;
-    updatedAt: string;
-    payments: Array<{
+        amountPaid: number;
+        amountDue: number;
+        status: string;
+    }>;
+    debtorIds: string[];
+    allPayments: Array<{
         id: string;
         amount: number;
         paymentMethod: string;
@@ -47,6 +48,7 @@ interface DebtorPerSale {
     }>;
     paymentCount: number;
     lastPaymentDate: string | null;
+    productCount: number;
 }
 
 interface DebtorAnalytics {
@@ -59,11 +61,11 @@ interface DebtorAnalytics {
 }
 
 const DebtorsDashboard: React.FC = () => {
-    const [debtors, setDebtors] = useState<DebtorPerSale[]>([]);
+    const [debtors, setDebtors] = useState<DebtorReceipt[]>([]);
     const [analytics, setAnalytics] = useState<DebtorAnalytics | null>(null);
     const [selectedStatus, setSelectedStatus] = useState<'all' | 'OUTSTANDING' | 'PARTIAL' | 'OVERDUE' | 'PAID'>('all');
     const [loading, setLoading] = useState(true);
-    const [expandedDebtors, setExpandedDebtors] = useState<Set<string>>(new Set());
+    const [expandedReceipts, setExpandedReceipts] = useState<Set<string>>(new Set());
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 20,
@@ -73,7 +75,7 @@ const DebtorsDashboard: React.FC = () => {
 
     // Payment Modal State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [selectedDebtor, setSelectedDebtor] = useState<DebtorPerSale | null>(null);
+    const [selectedReceipt, setSelectedReceipt] = useState<DebtorReceipt | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY'>('CASH');
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -105,34 +107,34 @@ const DebtorsDashboard: React.FC = () => {
         fetchDebtors();
     }, [selectedStatus, pagination.page, fetchDebtors]);
 
-    const toggleExpanded = (debtorId: string) => {
-        setExpandedDebtors(prev => {
+    const toggleExpanded = (receiptNumber: string) => {
+        setExpandedReceipts(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(debtorId)) {
-                newSet.delete(debtorId);
+            if (newSet.has(receiptNumber)) {
+                newSet.delete(receiptNumber);
             } else {
-                newSet.add(debtorId);
+                newSet.add(receiptNumber);
             }
             return newSet;
         });
     };
 
-    const openPaymentModal = (debtor: DebtorPerSale) => {
-        setSelectedDebtor(debtor);
-        setPaymentAmount(debtor.amountDue.toString());
+    const openPaymentModal = (receipt: DebtorReceipt) => {
+        setSelectedReceipt(receipt);
+        setPaymentAmount(receipt.amountDue.toString());
         setShowPaymentModal(true);
     };
 
     const closePaymentModal = () => {
         setShowPaymentModal(false);
-        setSelectedDebtor(null);
+        setSelectedReceipt(null);
         setPaymentAmount('');
         setPaymentReference('');
         setPaymentNotes('');
     };
 
     const handleRecordPayment = async () => {
-        if (!selectedDebtor) return;
+        if (!selectedReceipt) return;
 
         // Validate payment amount
         const amount = parseFloat(paymentAmount);
@@ -141,8 +143,8 @@ const DebtorsDashboard: React.FC = () => {
             return;
         }
 
-        if (amount > selectedDebtor.amountDue) {
-            alert(`Payment amount cannot exceed outstanding balance of ${formatCurrency(selectedDebtor.amountDue)}`);
+        if (amount > selectedReceipt.amountDue) {
+            alert(`Payment amount cannot exceed outstanding balance of ${formatCurrency(selectedReceipt.amountDue)}`);
             return;
         }
 
@@ -157,9 +159,9 @@ const DebtorsDashboard: React.FC = () => {
                 notes: paymentNotes || undefined
             };
 
-            // ✅ UPDATED: Payment for individual debtor/sale
-            const response = await warehouseService.recordDebtorPayment(
-                selectedDebtor.id,
+            // ✅ NEW: Payment for entire receipt (all products)
+            const response = await warehouseService.recordReceiptPayment(
+                selectedReceipt.receiptNumber,
                 paymentData
             );
 
@@ -167,9 +169,10 @@ const DebtorsDashboard: React.FC = () => {
 
             alert(
                 `✅ Payment recorded successfully!\n\n` +
-                `Receipt: ${selectedDebtor.receiptNumber}\n` +
+                `Receipt: ${selectedReceipt.receiptNumber}\n` +
                 `Amount: ${formatCurrency(amount)}\n` +
-                `New Balance: ${formatCurrency(selectedDebtor.amountDue - amount)}`
+                `Products Updated: ${response.data.debtsUpdated}\n` +
+                `New Balance: ${formatCurrency(selectedReceipt.amountDue - amount)}`
             );
 
             closePaymentModal();
@@ -253,7 +256,7 @@ const DebtorsDashboard: React.FC = () => {
                 </select>
             </div>
 
-            {/* Debtors List - Per Sale/Receipt */}
+            {/* Debtors List - Grouped by Receipt */}
             {loading ? (
                 <div className="text-center py-12">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -266,76 +269,68 @@ const DebtorsDashboard: React.FC = () => {
             ) : (
                 <>
                     <div className="grid gap-4">
-                        {debtors.map((debtor) => {
-                            const isExpanded = expandedDebtors.has(debtor.id);
+                        {debtors.map((receipt) => {
+                            const isExpanded = expandedReceipts.has(receipt.receiptNumber);
 
                             return (
-                                <div key={debtor.id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
-                                    {/* Sale Header */}
+                                <div key={receipt.receiptNumber} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+                                    {/* Receipt Header */}
                                     <div className="p-6">
                                         <div className="flex justify-between items-start">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-3 mb-2">
                                                     <Receipt className="h-5 w-5 text-gray-500" />
                                                     <button
-                                                        onClick={() => handleViewReceipt(debtor.receiptNumber)}
+                                                        onClick={() => handleViewReceipt(receipt.receiptNumber)}
                                                         className="font-mono text-lg font-semibold text-blue-600 hover:text-blue-800 hover:underline"
                                                     >
-                                                        {debtor.receiptNumber}
+                                                        {receipt.receiptNumber}
                                                     </button>
-                                                    {getStatusBadge(debtor.status)}
+                                                    {getStatusBadge(receipt.status)}
+                                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                                                        {receipt.productCount} {receipt.productCount === 1 ? 'product' : 'products'}
+                                                    </span>
                                                     <button
-                                                        onClick={() => toggleExpanded(debtor.id)}
+                                                        onClick={() => toggleExpanded(receipt.receiptNumber)}
                                                         className="text-gray-500 hover:text-gray-700"
                                                     >
                                                         {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                                                     </button>
                                                 </div>
 
-                                                {/* Product Info */}
-                                                <div className="mb-3">
-                                                    <p className="text-lg font-medium text-gray-900">{debtor.sale.product.name}</p>
-                                                    <p className="text-sm text-gray-600">
-                                                        Product #: {debtor.sale.product.productNo}
-                                                    </p>
-                                                    <p className="text-sm text-gray-600">
-                                                        Quantity: {debtor.sale.quantity} {debtor.sale.unitType} @ {formatCurrency(debtor.sale.unitPrice)}
-                                                    </p>
-                                                </div>
-
                                                 {/* Customer Info */}
-                                                <div className="flex items-start gap-2 text-sm text-gray-600">
+                                                <div className="flex items-start gap-2 text-sm text-gray-600 mb-2">
                                                     <User className="h-4 w-4 mt-0.5" />
                                                     <div>
-                                                        <p className="font-medium text-gray-900">{debtor.customer.name}</p>
-                                                        <p>📞 {debtor.customer.phone}</p>
-                                                        {debtor.customer.email && <p>✉️ {debtor.customer.email}</p>}
+                                                        <p className="font-medium text-gray-900">{receipt.customer.name}</p>
+                                                        <p>📞 {receipt.customer.phone}</p>
+                                                        {receipt.customer.email && <p>✉️ {receipt.customer.email}</p>}
                                                     </div>
                                                 </div>
 
-                                                <p className="text-sm text-gray-500 mt-2">
-                                                    Sale Date: {formatDate(debtor.sale.createdAt)}
+                                                <p className="text-sm text-gray-500">
+                                                    Sale Date: {formatDate(receipt.createdAt)}
                                                 </p>
-                                                {debtor.dueDate && (
+                                                {receipt.dueDate && (
                                                     <p className="text-sm text-gray-500">
-                                                        Due Date: {formatDate(debtor.dueDate)}
+                                                        Due Date: {formatDate(receipt.dueDate)}
                                                     </p>
                                                 )}
                                             </div>
 
                                             <div className="text-right">
                                                 <p className="text-sm text-gray-500">Total Amount</p>
-                                                <p className="text-xl font-bold">{formatCurrency(debtor.totalAmount)}</p>
+                                                <p className="text-xl font-bold">{formatCurrency(receipt.totalAmount)}</p>
 
                                                 <div className="mt-2 space-y-1">
-                                                    <p className="text-sm text-green-600">Paid: {formatCurrency(debtor.amountPaid)}</p>
-                                                    <p className="text-sm text-red-600 font-semibold">Due: {formatCurrency(debtor.amountDue)}</p>
+                                                    <p className="text-sm text-green-600">Paid: {formatCurrency(receipt.amountPaid)}</p>
+                                                    <p className="text-sm text-red-600 font-semibold">Due: {formatCurrency(receipt.amountDue)}</p>
                                                 </div>
 
                                                 {/* Payment Button */}
-                                                {debtor.amountDue > 0 && (
+                                                {receipt.amountDue > 0 && (
                                                     <button
-                                                        onClick={() => openPaymentModal(debtor)}
+                                                        onClick={() => openPaymentModal(receipt)}
                                                         className="mt-3 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
                                                     >
                                                         <CreditCard className="h-4 w-4" />
@@ -346,29 +341,61 @@ const DebtorsDashboard: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Expanded Payment History */}
-                                    {isExpanded && debtor.payments.length > 0 && (
+                                    {/* Expanded Products & Payment History */}
+                                    {isExpanded && (
                                         <div className="border-t border-gray-200 p-6 bg-gray-50">
-                                            <h4 className="font-semibold mb-3">
-                                                Payment History ({debtor.paymentCount} payment{debtor.paymentCount !== 1 ? 's' : ''})
+                                            {/* Products List */}
+                                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                                <Package className="h-4 w-4" />
+                                                Products ({receipt.productCount})
                                             </h4>
-                                            <div className="space-y-2">
-                                                {debtor.payments.map((payment) => (
-                                                    <div key={payment.id} className="flex justify-between items-center text-sm bg-white p-3 rounded border">
-                                                        <div>
-                                                            <span className="font-medium">{formatCurrency(payment.amount)}</span>
-                                                            <span className="text-gray-500 ml-2">via {payment.paymentMethod}</span>
-                                                            {payment.referenceNumber && (
-                                                                <span className="text-xs text-gray-400 ml-2 block">Ref: {payment.referenceNumber}</span>
-                                                            )}
-                                                            {payment.notes && (
-                                                                <span className="text-xs text-gray-500 block mt-1">{payment.notes}</span>
-                                                            )}
+                                            <div className="space-y-3 mb-6">
+                                                {receipt.products.map((product) => (
+                                                    <div key={product.debtorId} className="bg-white p-4 rounded border">
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <p className="font-medium text-gray-900">{product.product.name}</p>
+                                                                <p className="text-xs text-gray-500">Product #: {product.product.productNo}</p>
+                                                                <p className="text-sm text-gray-600 mt-1">
+                                                                    {product.quantity} {product.unitType} @ {formatCurrency(product.unitPrice)}
+                                                                </p>
+                                                                <span className="text-xs mt-2 inline-block">{getStatusBadge(product.status)}</span>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-sm font-semibold">{formatCurrency(product.totalAmount)}</p>
+                                                                <p className="text-xs text-green-600">Paid: {formatCurrency(product.amountPaid)}</p>
+                                                                <p className="text-xs text-red-600">Due: {formatCurrency(product.amountDue)}</p>
+                                                            </div>
                                                         </div>
-                                                        <span className="text-gray-500">{formatDate(payment.paymentDate)}</span>
                                                     </div>
                                                 ))}
                                             </div>
+
+                                            {/* Payment History */}
+                                            {receipt.allPayments.length > 0 && (
+                                                <div>
+                                                    <h4 className="font-semibold mb-3">
+                                                        Payment History ({receipt.paymentCount} payment{receipt.paymentCount !== 1 ? 's' : ''})
+                                                    </h4>
+                                                    <div className="space-y-2">
+                                                        {receipt.allPayments.map((payment) => (
+                                                            <div key={payment.id} className="flex justify-between items-center text-sm bg-white p-3 rounded border">
+                                                                <div>
+                                                                    <span className="font-medium">{formatCurrency(payment.amount)}</span>
+                                                                    <span className="text-gray-500 ml-2">via {payment.paymentMethod}</span>
+                                                                    {payment.referenceNumber && (
+                                                                        <span className="text-xs text-gray-400 ml-2 block">Ref: {payment.referenceNumber}</span>
+                                                                    )}
+                                                                    {payment.notes && (
+                                                                        <span className="text-xs text-gray-500 block mt-1">{payment.notes}</span>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-gray-500">{formatDate(payment.paymentDate)}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -386,7 +413,7 @@ const DebtorsDashboard: React.FC = () => {
                             Previous
                         </button>
                         <span className="text-gray-600">
-                            Page {pagination.page} of {pagination.pages} ({pagination.total} total)
+                            Page {pagination.page} of {pagination.pages} ({pagination.total} receipts)
                         </span>
                         <button
                             disabled={pagination.page === pagination.pages}
@@ -400,7 +427,7 @@ const DebtorsDashboard: React.FC = () => {
             )}
 
             {/* Payment Modal */}
-            {showPaymentModal && selectedDebtor && (
+            {showPaymentModal && selectedReceipt && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-4">Record Payment</h2>
@@ -408,26 +435,30 @@ const DebtorsDashboard: React.FC = () => {
                         <div className="space-y-4">
                             <div className="bg-blue-50 p-4 rounded-lg">
                                 <p className="text-sm font-medium text-gray-700">Receipt</p>
-                                <p className="text-lg font-mono font-semibold">{selectedDebtor.receiptNumber}</p>
+                                <p className="text-lg font-mono font-semibold">{selectedReceipt.receiptNumber}</p>
 
                                 <div className="mt-3 border-t pt-3">
-                                    <p className="text-sm font-medium text-gray-700">Product</p>
-                                    <p className="font-semibold">{selectedDebtor.sale.product.name}</p>
-                                    <p className="text-sm text-gray-600">
-                                        {selectedDebtor.sale.quantity} {selectedDebtor.sale.unitType}
-                                    </p>
+                                    <p className="text-sm font-medium text-gray-700">Products</p>
+                                    <div className="mt-2 space-y-2">
+                                        {selectedReceipt.products.map((product) => (
+                                            <div key={product.debtorId} className="text-sm">
+                                                <p className="font-medium">{product.product.name}</p>
+                                                <p className="text-gray-600">{product.quantity} {product.unitType}</p>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div className="mt-3 border-t pt-3">
                                     <p className="text-sm font-medium text-gray-700">Customer</p>
-                                    <p className="font-semibold">{selectedDebtor.customer.name}</p>
-                                    <p className="text-sm text-gray-600">{selectedDebtor.customer.phone}</p>
+                                    <p className="font-semibold">{selectedReceipt.customer.name}</p>
+                                    <p className="text-sm text-gray-600">{selectedReceipt.customer.phone}</p>
                                 </div>
 
                                 <div className="mt-3 border-t pt-3">
-                                    <p className="text-gray-600">Total: <span className="font-semibold">{formatCurrency(selectedDebtor.totalAmount)}</span></p>
-                                    <p className="text-green-600">Paid: <span className="font-semibold">{formatCurrency(selectedDebtor.amountPaid)}</span></p>
-                                    <p className="text-red-600">Outstanding: <span className="font-semibold">{formatCurrency(selectedDebtor.amountDue)}</span></p>
+                                    <p className="text-gray-600">Total: <span className="font-semibold">{formatCurrency(selectedReceipt.totalAmount)}</span></p>
+                                    <p className="text-green-600">Paid: <span className="font-semibold">{formatCurrency(selectedReceipt.amountPaid)}</span></p>
+                                    <p className="text-red-600">Outstanding: <span className="font-semibold">{formatCurrency(selectedReceipt.amountDue)}</span></p>
                                 </div>
                             </div>
 
@@ -440,11 +471,11 @@ const DebtorsDashboard: React.FC = () => {
                                     className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                                     step="0.01"
                                     min="0"
-                                    max={selectedDebtor.amountDue}
+                                    max={selectedReceipt.amountDue}
                                     placeholder="Enter amount"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Max: {formatCurrency(selectedDebtor.amountDue)}
+                                    Max: {formatCurrency(selectedReceipt.amountDue)}
                                 </p>
                             </div>
 
