@@ -942,19 +942,23 @@ export class WarehouseService extends BaseApiService {
  * Record payment for entire receipt (all products)
  */
 async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Promise<any> {
-    // IMPORTANT: Validate data before sending
-    const paymentData = {
-        amount: parseFloat(data.amount.toString()), // Ensure it's a number
+    // Build payload without undefined values
+    const paymentData: any = {
+        amount: parseFloat(data.amount.toString()),
         paymentMethod: data.paymentMethod,
-        paymentDate: data.paymentDate, // Must be ISO8601 format (YYYY-MM-DD or full ISO string)
-        referenceNumber: data.referenceNumber || undefined,
-        notes: data.notes || undefined
+        paymentDate: data.paymentDate
     };
 
-    console.log('Sending receipt payment:', {
-        receiptNumber,
-        paymentData
-    });
+    // Only add optional fields if they have values
+    if (data.referenceNumber && data.referenceNumber.trim()) {
+        paymentData.referenceNumber = data.referenceNumber.trim();
+    }
+
+    if (data.notes && data.notes.trim()) {
+        paymentData.notes = data.notes.trim();
+    }
+
+    console.log('Sending receipt payment:', { receiptNumber, paymentData });
 
     return this.post(paymentData, `/debtors/receipt/${receiptNumber}/payment`);
 }
