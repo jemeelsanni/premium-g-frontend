@@ -932,7 +932,7 @@ export class WarehouseService extends BaseApiService {
 
   async recordDebtorPayment(debtorId: string, data: RecordPaymentData): Promise<any> {
     return this.post(data, `/debtors/${debtorId}/payments`);
-  }
+}
 
   async recordCustomerDebtPayment(customerId: string, data: RecordPaymentData): Promise<any> {
     return this.post(data, `/debtors/customer/${customerId}/payment`);  // ← Changed to singular

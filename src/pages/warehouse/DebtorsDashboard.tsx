@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
+import { ChevronDown, ChevronUp, CreditCard, Receipt, User } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 
-// 🆕 Updated interface to match new backend structure
-interface AggregatedDebtor {
-    customerId: string;
+// ✅ UPDATED: Per-sale debtor structure (no customer grouping)
+interface DebtorPerSale {
+    id: string;
+    saleId: string;
+    receiptNumber: string;
     customer: {
         id: string;
         name: string;
@@ -14,29 +16,28 @@ interface AggregatedDebtor {
         customerType: string;
         paymentReliabilityScore: number;
     };
-    totalAmount: number;
-    amountPaid: number;
-    amountDue: number;
-    debtCount: number;
-    sales: Array<{
+    sale: {
         id: string;
-        saleId: string;
         receiptNumber: string;
         product: {
+            id: string;
             name: string;
             productNo: string;
         };
+        quantity: number;
+        unitType: string;
+        unitPrice: number;
         totalAmount: number;
-        amountPaid: number;
-        amountDue: number;
-        status: string;
-        dueDate: string | null;
         createdAt: string;
-    }>;
-    earliestDueDate: string | null;
-    latestCreatedAt: string;
+    };
+    totalAmount: number;
+    amountPaid: number;
+    amountDue: number;
     status: 'OUTSTANDING' | 'PARTIAL' | 'OVERDUE' | 'PAID';
-    allPayments: Array<{
+    dueDate: string | null;
+    createdAt: string;
+    updatedAt: string;
+    payments: Array<{
         id: string;
         amount: number;
         paymentMethod: string;
@@ -44,6 +45,8 @@ interface AggregatedDebtor {
         referenceNumber?: string;
         notes?: string;
     }>;
+    paymentCount: number;
+    lastPaymentDate: string | null;
 }
 
 interface DebtorAnalytics {
@@ -56,23 +59,23 @@ interface DebtorAnalytics {
 }
 
 const DebtorsDashboard: React.FC = () => {
-    const [debtors, setDebtors] = useState<AggregatedDebtor[]>([]);
+    const [debtors, setDebtors] = useState<DebtorPerSale[]>([]);
     const [analytics, setAnalytics] = useState<DebtorAnalytics | null>(null);
     const [selectedStatus, setSelectedStatus] = useState<'all' | 'OUTSTANDING' | 'PARTIAL' | 'OVERDUE' | 'PAID'>('all');
     const [loading, setLoading] = useState(true);
     const [expandedDebtors, setExpandedDebtors] = useState<Set<string>>(new Set());
     const [pagination, setPagination] = useState({
         page: 1,
-        limit: 10,
+        limit: 20,
         total: 0,
         pages: 0
     });
 
     // Payment Modal State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [selectedDebtor, setSelectedDebtor] = useState<AggregatedDebtor | null>(null);
+    const [selectedDebtor, setSelectedDebtor] = useState<DebtorPerSale | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'CARD' | 'MOBILE_MONEY'>('CASH');
+    const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY'>('CASH');
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
     const [paymentReference, setPaymentReference] = useState('');
     const [paymentNotes, setPaymentNotes] = useState('');
@@ -102,19 +105,19 @@ const DebtorsDashboard: React.FC = () => {
         fetchDebtors();
     }, [selectedStatus, pagination.page, fetchDebtors]);
 
-    const toggleExpanded = (customerId: string) => {
+    const toggleExpanded = (debtorId: string) => {
         setExpandedDebtors(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(customerId)) {
-                newSet.delete(customerId);
+            if (newSet.has(debtorId)) {
+                newSet.delete(debtorId);
             } else {
-                newSet.add(customerId);
+                newSet.add(debtorId);
             }
             return newSet;
         });
     };
 
-    const openPaymentModal = (debtor: AggregatedDebtor) => {
+    const openPaymentModal = (debtor: DebtorPerSale) => {
         setSelectedDebtor(debtor);
         setPaymentAmount(debtor.amountDue.toString());
         setShowPaymentModal(true);
@@ -154,19 +157,19 @@ const DebtorsDashboard: React.FC = () => {
                 notes: paymentNotes || undefined
             };
 
-            // 🆕 NEW METHOD - Payment for entire customer debt
-            const response = await warehouseService.recordCustomerDebtPayment(
-                selectedDebtor.customerId,
+            // ✅ UPDATED: Payment for individual debtor/sale
+            const response = await warehouseService.recordDebtorPayment(
+                selectedDebtor.id,
                 paymentData
             );
 
-            console.log('Payment response:', response.data);
+            console.log('Payment response:', response);
 
             alert(
                 `✅ Payment recorded successfully!\n\n` +
+                `Receipt: ${selectedDebtor.receiptNumber}\n` +
                 `Amount: ${formatCurrency(amount)}\n` +
-                `Debts Updated: ${response.data.data.debtsUpdated}\n` +
-                `Sales Updated: ${response.data.data.salesUpdated}`
+                `New Balance: ${formatCurrency(selectedDebtor.amountDue - amount)}`
             );
 
             closePaymentModal();
@@ -203,6 +206,11 @@ const DebtorsDashboard: React.FC = () => {
                 {status}
             </span>
         );
+    };
+
+    const handleViewReceipt = (receiptNumber: string) => {
+        // Navigate to receipt page
+        window.location.href = `/warehouse/sales/receipt/${receiptNumber}`;
     };
 
     return (
@@ -245,7 +253,7 @@ const DebtorsDashboard: React.FC = () => {
                 </select>
             </div>
 
-            {/* Debtors List */}
+            {/* Debtors List - Per Sale/Receipt */}
             {loading ? (
                 <div className="text-center py-12">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -259,34 +267,58 @@ const DebtorsDashboard: React.FC = () => {
                 <>
                     <div className="grid gap-4">
                         {debtors.map((debtor) => {
-                            const isExpanded = expandedDebtors.has(debtor.customerId);
+                            const isExpanded = expandedDebtors.has(debtor.id);
 
                             return (
-                                <div key={debtor.customerId} className="bg-white rounded-lg shadow">
-                                    {/* Customer Header */}
+                                <div key={debtor.id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+                                    {/* Sale Header */}
                                     <div className="p-6">
                                         <div className="flex justify-between items-start">
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="text-lg font-semibold">{debtor.customer.name}</h3>
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <Receipt className="h-5 w-5 text-gray-500" />
+                                                    <button
+                                                        onClick={() => handleViewReceipt(debtor.receiptNumber)}
+                                                        className="font-mono text-lg font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                                                    >
+                                                        {debtor.receiptNumber}
+                                                    </button>
                                                     {getStatusBadge(debtor.status)}
                                                     <button
-                                                        onClick={() => toggleExpanded(debtor.customerId)}
+                                                        onClick={() => toggleExpanded(debtor.id)}
                                                         className="text-gray-500 hover:text-gray-700"
                                                     >
                                                         {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                                                     </button>
                                                 </div>
-                                                <p className="text-sm text-gray-600">📞 {debtor.customer.phone}</p>
-                                                {debtor.customer.email && (
-                                                    <p className="text-sm text-gray-600">✉️ {debtor.customer.email}</p>
-                                                )}
+
+                                                {/* Product Info */}
+                                                <div className="mb-3">
+                                                    <p className="text-lg font-medium text-gray-900">{debtor.sale.product.name}</p>
+                                                    <p className="text-sm text-gray-600">
+                                                        Product #: {debtor.sale.product.productNo}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        Quantity: {debtor.sale.quantity} {debtor.sale.unitType} @ {formatCurrency(debtor.sale.unitPrice)}
+                                                    </p>
+                                                </div>
+
+                                                {/* Customer Info */}
+                                                <div className="flex items-start gap-2 text-sm text-gray-600">
+                                                    <User className="h-4 w-4 mt-0.5" />
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">{debtor.customer.name}</p>
+                                                        <p>📞 {debtor.customer.phone}</p>
+                                                        {debtor.customer.email && <p>✉️ {debtor.customer.email}</p>}
+                                                    </div>
+                                                </div>
+
                                                 <p className="text-sm text-gray-500 mt-2">
-                                                    {debtor.debtCount} {debtor.debtCount === 1 ? 'debt' : 'debts'}
+                                                    Sale Date: {formatDate(debtor.sale.createdAt)}
                                                 </p>
-                                                {debtor.customer.paymentReliabilityScore && (
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        Reliability Score: {debtor.customer.paymentReliabilityScore.toFixed(1)}%
+                                                {debtor.dueDate && (
+                                                    <p className="text-sm text-gray-500">
+                                                        Due Date: {formatDate(debtor.dueDate)}
                                                     </p>
                                                 )}
                                             </div>
@@ -295,10 +327,12 @@ const DebtorsDashboard: React.FC = () => {
                                                 <p className="text-sm text-gray-500">Total Amount</p>
                                                 <p className="text-xl font-bold">{formatCurrency(debtor.totalAmount)}</p>
 
-                                                <p className="text-sm text-green-600 mt-2">Paid: {formatCurrency(debtor.amountPaid)}</p>
-                                                <p className="text-sm text-red-600 font-semibold">Due: {formatCurrency(debtor.amountDue)}</p>
+                                                <div className="mt-2 space-y-1">
+                                                    <p className="text-sm text-green-600">Paid: {formatCurrency(debtor.amountPaid)}</p>
+                                                    <p className="text-sm text-red-600 font-semibold">Due: {formatCurrency(debtor.amountDue)}</p>
+                                                </div>
 
-                                                {/* 🆕 Single Payment Button for All Debts */}
+                                                {/* Payment Button */}
                                                 {debtor.amountDue > 0 && (
                                                     <button
                                                         onClick={() => openPaymentModal(debtor)}
@@ -312,58 +346,29 @@ const DebtorsDashboard: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Expanded Sales Details */}
-                                    {isExpanded && (
+                                    {/* Expanded Payment History */}
+                                    {isExpanded && debtor.payments.length > 0 && (
                                         <div className="border-t border-gray-200 p-6 bg-gray-50">
-                                            <h4 className="font-semibold mb-4">Individual Sales</h4>
-                                            <div className="space-y-3">
-                                                {debtor.sales.map((sale) => (
-                                                    <div key={sale.id} className="bg-white p-4 rounded border">
-                                                        <div className="flex justify-between items-start">
-                                                            <div>
-                                                                <p className="font-mono text-sm font-medium">{sale.receiptNumber}</p>
-                                                                <p className="text-sm text-gray-600">{sale.product.name}</p>
-                                                                <p className="text-xs text-gray-500">Sale Date: {formatDate(sale.createdAt)}</p>
-                                                                {sale.dueDate && (
-                                                                    <p className="text-xs text-gray-500">Due: {formatDate(sale.dueDate)}</p>
-                                                                )}
-                                                                <span className="text-xs mt-1 inline-block">{getStatusBadge(sale.status)}</span>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <p className="text-sm font-semibold">{formatCurrency(sale.totalAmount)}</p>
-                                                                <p className="text-xs text-green-600">Paid: {formatCurrency(sale.amountPaid)}</p>
-                                                                <p className="text-xs text-red-600">Due: {formatCurrency(sale.amountDue)}</p>
-                                                            </div>
+                                            <h4 className="font-semibold mb-3">
+                                                Payment History ({debtor.paymentCount} payment{debtor.paymentCount !== 1 ? 's' : ''})
+                                            </h4>
+                                            <div className="space-y-2">
+                                                {debtor.payments.map((payment) => (
+                                                    <div key={payment.id} className="flex justify-between items-center text-sm bg-white p-3 rounded border">
+                                                        <div>
+                                                            <span className="font-medium">{formatCurrency(payment.amount)}</span>
+                                                            <span className="text-gray-500 ml-2">via {payment.paymentMethod}</span>
+                                                            {payment.referenceNumber && (
+                                                                <span className="text-xs text-gray-400 ml-2 block">Ref: {payment.referenceNumber}</span>
+                                                            )}
+                                                            {payment.notes && (
+                                                                <span className="text-xs text-gray-500 block mt-1">{payment.notes}</span>
+                                                            )}
                                                         </div>
+                                                        <span className="text-gray-500">{formatDate(payment.paymentDate)}</span>
                                                     </div>
                                                 ))}
                                             </div>
-
-                                            {/* Payment History */}
-                                            {debtor.allPayments.length > 0 && (
-                                                <div className="mt-6">
-                                                    <h4 className="font-semibold mb-3">Payment History ({debtor.allPayments.length} payments)</h4>
-                                                    <div className="space-y-2">
-                                                        {debtor.allPayments.slice(0, 5).map((payment) => (
-                                                            <div key={payment.id} className="flex justify-between text-sm bg-white p-3 rounded border">
-                                                                <div>
-                                                                    <span className="font-medium">{formatCurrency(payment.amount)}</span>
-                                                                    <span className="text-gray-500 ml-2">via {payment.paymentMethod}</span>
-                                                                    {payment.referenceNumber && (
-                                                                        <span className="text-xs text-gray-400 ml-2">Ref: {payment.referenceNumber}</span>
-                                                                    )}
-                                                                </div>
-                                                                <span className="text-gray-500">{formatDate(payment.paymentDate)}</span>
-                                                            </div>
-                                                        ))}
-                                                        {debtor.allPayments.length > 5 && (
-                                                            <p className="text-sm text-gray-500 text-center">
-                                                                +{debtor.allPayments.length - 5} more payments
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -376,15 +381,17 @@ const DebtorsDashboard: React.FC = () => {
                         <button
                             disabled={pagination.page === 1}
                             onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+                            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition-colors"
                         >
                             Previous
                         </button>
-                        <span>Page {pagination.page} of {pagination.pages}</span>
+                        <span className="text-gray-600">
+                            Page {pagination.page} of {pagination.pages} ({pagination.total} total)
+                        </span>
                         <button
                             disabled={pagination.page === pagination.pages}
                             onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+                            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition-colors"
                         >
                             Next
                         </button>
@@ -400,15 +407,28 @@ const DebtorsDashboard: React.FC = () => {
 
                         <div className="space-y-4">
                             <div className="bg-blue-50 p-4 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700">Customer</p>
-                                <p className="text-lg font-semibold">{selectedDebtor.customer.name}</p>
-                                <div className="mt-2 text-sm">
-                                    <p className="text-gray-600">Total Outstanding: <span className="font-semibold text-red-600">{formatCurrency(selectedDebtor.amountDue)}</span></p>
-                                    <p className="text-gray-600">Number of Debts: <span className="font-semibold">{selectedDebtor.debtCount}</span></p>
+                                <p className="text-sm font-medium text-gray-700">Receipt</p>
+                                <p className="text-lg font-mono font-semibold">{selectedDebtor.receiptNumber}</p>
+
+                                <div className="mt-3 border-t pt-3">
+                                    <p className="text-sm font-medium text-gray-700">Product</p>
+                                    <p className="font-semibold">{selectedDebtor.sale.product.name}</p>
+                                    <p className="text-sm text-gray-600">
+                                        {selectedDebtor.sale.quantity} {selectedDebtor.sale.unitType}
+                                    </p>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    💡 Payment will be automatically allocated across all outstanding debts (oldest first)
-                                </p>
+
+                                <div className="mt-3 border-t pt-3">
+                                    <p className="text-sm font-medium text-gray-700">Customer</p>
+                                    <p className="font-semibold">{selectedDebtor.customer.name}</p>
+                                    <p className="text-sm text-gray-600">{selectedDebtor.customer.phone}</p>
+                                </div>
+
+                                <div className="mt-3 border-t pt-3">
+                                    <p className="text-gray-600">Total: <span className="font-semibold">{formatCurrency(selectedDebtor.totalAmount)}</span></p>
+                                    <p className="text-green-600">Paid: <span className="font-semibold">{formatCurrency(selectedDebtor.amountPaid)}</span></p>
+                                    <p className="text-red-600">Outstanding: <span className="font-semibold">{formatCurrency(selectedDebtor.amountDue)}</span></p>
+                                </div>
                             </div>
 
                             <div>
@@ -437,6 +457,7 @@ const DebtorsDashboard: React.FC = () => {
                                 >
                                     <option value="CASH">Cash</option>
                                     <option value="BANK_TRANSFER">Bank Transfer</option>
+                                    <option value="CHECK">Check</option>
                                     <option value="CARD">Card</option>
                                     <option value="MOBILE_MONEY">Mobile Money</option>
                                 </select>
