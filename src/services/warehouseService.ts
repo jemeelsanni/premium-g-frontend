@@ -477,8 +477,8 @@ export interface ExpiringPurchase extends WarehousePurchase {
 
 export interface RecordPaymentData {
   amount: number;
-  paymentMethod: WarehousePaymentMethod;
-  paymentDate: string;
+  paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY';
+  paymentDate: string; // ISO8601 format: "2024-11-24" or "2024-11-24T00:00:00Z"
   referenceNumber?: string;
   notes?: string;
 }
@@ -934,8 +934,29 @@ export class WarehouseService extends BaseApiService {
     return this.post(data, `/debtors/${debtorId}/payments`);
 }
 
+// async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Promise<any> {
+//     return this.post(data, `/debtors/receipt/${receiptNumber}/payment`);
+// }
+
+/**
+ * Record payment for entire receipt (all products)
+ */
 async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Promise<any> {
-    return this.post(data, `/debtors/receipt/${receiptNumber}/payment`);
+    // IMPORTANT: Validate data before sending
+    const paymentData = {
+        amount: parseFloat(data.amount.toString()), // Ensure it's a number
+        paymentMethod: data.paymentMethod,
+        paymentDate: data.paymentDate, // Must be ISO8601 format (YYYY-MM-DD or full ISO string)
+        referenceNumber: data.referenceNumber || undefined,
+        notes: data.notes || undefined
+    };
+
+    console.log('Sending receipt payment:', {
+        receiptNumber,
+        paymentData
+    });
+
+    return this.post(paymentData, `/debtors/receipt/${receiptNumber}/payment`);
 }
 
   async recordCustomerDebtPayment(customerId: string, data: RecordPaymentData): Promise<any> {

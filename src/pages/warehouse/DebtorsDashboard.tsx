@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronUp, CreditCard, Receipt, User, Package } from 'lucide-react';
-import { warehouseService } from '../../services/warehouseService';
+import { RecordPaymentData, warehouseService } from '../../services/warehouseService';
 
 // ✅ FINAL: Receipt-grouped debtor structure
 interface DebtorReceipt {
@@ -136,7 +136,6 @@ const DebtorsDashboard: React.FC = () => {
     const handleRecordPayment = async () => {
         if (!selectedReceipt) return;
 
-        // Validate payment amount
         const amount = parseFloat(paymentAmount);
         if (isNaN(amount) || amount <= 0) {
             alert('Please enter a valid payment amount');
@@ -151,15 +150,20 @@ const DebtorsDashboard: React.FC = () => {
         try {
             setProcessingPayment(true);
 
-            const paymentData = {
-                amount: amount,
-                paymentMethod,
-                paymentDate,
-                referenceNumber: paymentReference || undefined,
-                notes: paymentNotes || undefined
+            // ✅ Ensure correct data format
+            const paymentData: RecordPaymentData = {
+                amount: amount, // Already parsed as float
+                paymentMethod: paymentMethod, // Should be one of the enum values
+                paymentDate: paymentDate, // Should be YYYY-MM-DD format from input[type="date"]
+                referenceNumber: paymentReference.trim() || undefined,
+                notes: paymentNotes.trim() || undefined
             };
 
-            // ✅ NEW: Payment for entire receipt (all products)
+            console.log('Submitting payment:', {
+                receiptNumber: selectedReceipt.receiptNumber,
+                paymentData
+            });
+
             const response = await warehouseService.recordReceiptPayment(
                 selectedReceipt.receiptNumber,
                 paymentData
@@ -171,15 +175,20 @@ const DebtorsDashboard: React.FC = () => {
                 `✅ Payment recorded successfully!\n\n` +
                 `Receipt: ${selectedReceipt.receiptNumber}\n` +
                 `Amount: ${formatCurrency(amount)}\n` +
-                `Products Updated: ${response.data.debtsUpdated}\n` +
-                `New Balance: ${formatCurrency(selectedReceipt.amountDue - amount)}`
+                `Products Updated: ${response.data.debtsUpdated}`
             );
 
             closePaymentModal();
             fetchDebtors();
         } catch (error: any) {
             console.error('Failed to record payment:', error);
-            alert(error?.response?.data?.message || 'Failed to record payment');
+
+            // ✅ Show detailed error message
+            const errorMessage = error?.response?.data?.details
+                ? JSON.stringify(error.response.data.details, null, 2)
+                : error?.response?.data?.message || 'Failed to record payment';
+
+            alert(`Error: ${errorMessage}`);
         } finally {
             setProcessingPayment(false);
         }
