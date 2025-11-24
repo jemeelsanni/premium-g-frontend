@@ -958,10 +958,14 @@ async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Prom
         paymentData.notes = data.notes.trim();
     }
 
-    console.log('Sending receipt payment:', { receiptNumber, paymentData });
+    console.log('Sending receipt payment:', {
+        receiptNumber,
+        paymentData
+    });
 
     return this.post(paymentData, `/debtors/receipt/${receiptNumber}/payment`);
 }
+
 
   async recordCustomerDebtPayment(customerId: string, data: RecordPaymentData): Promise<any> {
     return this.post(data, `/debtors/customer/${customerId}/payment`);  // ← Changed to singular
