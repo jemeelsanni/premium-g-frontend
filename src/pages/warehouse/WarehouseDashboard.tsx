@@ -910,7 +910,7 @@ export const WarehouseDashboard: React.FC = () => {
             </div>
 
             {/* Data Grid with Expense Breakdown and Top Customers */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="flex gap-6 ">
                 {/* Recent Sales */}
                 <div className="bg-white shadow rounded-lg">
                     <div className="px-6 py-4 border-b border-gray-200">
@@ -962,82 +962,7 @@ export const WarehouseDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 🆕 NEW: Expense Breakdown */}
-                {/* <div className="bg-white shadow rounded-lg">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                                <Receipt className="h-5 w-5 text-orange-500 mr-2" />
-                                Expense Breakdown
-                            </h3>
-                            <Link
-                                to="/warehouse/expenses"
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                                View all expenses
-                            </Link>
-                        </div>
-                    </div>
-                    <div className="p-6">
-                        {(() => {
-                            const categories = expenseBreakdown?.byCategory || {};
-                            const totalExpenses = expenseBreakdown?.total || 0;
 
-                            if (totalExpenses === 0) {
-                                return (
-                                    <div className="text-center text-gray-500 py-8">
-                                        No expenses recorded for this period
-                                    </div>
-                                );
-                            }
-
-                            return (
-                                <div className="space-y-3">
-                                    {Object.entries(categories)
-                                        .sort((a, b) => parseNumber(b[1]) - parseNumber(a[1]))
-                                        .map(([category, amount]) => {
-                                            const percentage = totalExpenses > 0
-                                                ? (parseNumber(amount) / totalExpenses) * 100
-                                                : 0;
-
-                                            return (
-                                                <div key={category} className="space-y-1">
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span className="capitalize text-gray-600">
-                                                            {category.replace(/_/g, ' ')}
-                                                        </span>
-                                                        <div className="flex items-center space-x-3">
-                                                            <span className="text-gray-500">
-                                                                {percentage.toFixed(1)}%
-                                                            </span>
-                                                            <span className="font-semibold text-gray-900 w-24 text-right">
-                                                                ₦{parseNumber(amount).toLocaleString()}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-full bg-gray-200 rounded-full h-2">
-                                                        <div
-                                                            className="bg-orange-500 h-2 rounded-full transition-all"
-                                                            style={{ width: `${percentage}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-
-                                    <div className="mt-4 pt-4 border-t border-gray-200">
-                                        <div className="flex justify-between items-center font-bold">
-                                            <span className="text-gray-900">Total Expenses</span>
-                                            <span className="text-red-600 text-lg">
-                                                ₦{parseNumber(totalExpenses).toLocaleString()}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-                    </div>
-                </div> */}
 
                 {/* Recent Expenses */}
                 <div className="bg-white shadow rounded-lg xl:col-span-3">
