@@ -17,8 +17,7 @@ import {
     Filter,
     Calendar,
     X,
-    TrendingUp,
-    TrendingDown
+    TrendingUp
 } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
