@@ -140,7 +140,7 @@ export const WarehouseDashboard: React.FC = () => {
     const inventorySummary = (stats?.data?.inventory ?? {}) as Record<string, unknown>;
     const customerSummary = (stats?.data?.customerSummary ?? {}) as Record<string, unknown>;
     const debtorSummary = (stats?.data?.debtorSummary ?? {}) as Record<string, unknown>;
-    const expenseBreakdown = (stats?.data?.expenseBreakdown ?? { total: 0, byCategory: {} }) as { total: number; byCategory: Record<string, number> };
+    // const expenseBreakdown = (stats?.data?.expenseBreakdown ?? { total: 0, byCategory: {} }) as { total: number; byCategory: Record<string, number> };
 
     const safeSummaryNumber = (key: string, fallback = 0) => parseNumber(summary[key], fallback);
 
