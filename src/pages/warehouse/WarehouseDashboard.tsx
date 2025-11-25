@@ -181,11 +181,11 @@ export const WarehouseDashboard: React.FC = () => {
     // 🆕 UPDATED: Enhanced stat cards with profitability metrics
     const statCards = [
         {
-            title: 'Total Sales',
-            value: safeSummaryNumber('totalSales'),
+            title: 'Total Packs Sold',
+            value: safeSummaryNumber('totalQuantitySold'),
             icon: ShoppingCart,
             color: 'blue',
-            subtitle: `${safeSummaryNumber('totalQuantitySold').toLocaleString()} items sold`
+            // subtitle: `${safeSummaryNumber('totalQuantitySold').toLocaleString()} items sold`
         },
         {
             title: 'Total Revenue',
