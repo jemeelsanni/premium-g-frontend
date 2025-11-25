@@ -909,8 +909,7 @@ export const WarehouseDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Data Grid with Expense Breakdown and Top Customers */}
-            <div className="flex gap-6 ">
+            <div className='flex gap-6'>
                 {/* Recent Sales */}
                 <div className="bg-white shadow rounded-lg">
                     <div className="px-6 py-4 border-b border-gray-200">
@@ -962,7 +961,10 @@ export const WarehouseDashboard: React.FC = () => {
                     </div>
                 </div>
 
+            </div>
 
+            {/* Data Grid with Expense Breakdown and Top Customers */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-2">
 
                 {/* Recent Expenses */}
                 <div className="bg-white shadow rounded-lg xl:col-span-3">
