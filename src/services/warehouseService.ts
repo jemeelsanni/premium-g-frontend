@@ -13,6 +13,116 @@ import { PaginatedResponse } from '../types/common';
 export type WarehouseUnitType = 'PALLETS' | 'PACKS' | 'UNITS';
 export type WarehousePaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY';
 
+// 🆕 NEW: Enhanced profitability types
+export interface WarehouseDashboardSummary {
+  // Revenue & Costs
+  totalRevenue: number;
+  totalCOGS: number;
+  totalExpenses: number;
+
+  // Profitability
+  grossProfit: number;
+  netProfit: number;
+  grossProfitMargin: number;
+  netProfitMargin: number;
+
+  // Cost Ratios
+  cogsRatio: number;
+  expenseRatio: number;
+
+  // Sales Metrics
+  totalSales: number;
+  totalQuantitySold: number;
+  averageSaleValue: number;
+
+  // Efficiency Metrics
+  revenuePerCustomer: number;
+  profitPerSale: number;
+
+  // Customer Metrics
+  totalCustomers: number;
+  activeCustomers: number;
+}
+
+// 🆕 NEW: Expense breakdown interface
+export interface ExpenseBreakdown {
+  total: number;
+  byCategory: {
+    [category: string]: number;
+  };
+}
+
+// 🆕 NEW: Top product with profitability
+export interface TopProfitableProduct {
+  productName: string;
+  sales: number;
+  revenue: number;
+  cogs: number;
+  quantity: number;
+  grossProfit: number;
+  allocatedExpenses: number;
+  netProfit: number;
+  netProfitMargin: number;
+}
+
+// 🆕 NEW: Top customer with profitability
+export interface TopProfitableCustomer {
+  customerId: string;
+  customerName: string;
+  orderCount: number;
+  revenue: number;
+  cogs: number;
+  grossProfit: number;
+  allocatedExpenses: number;
+  netProfit: number;
+  netProfitMargin: number;
+  outstandingDebt: number;
+}
+
+// 🆕 ENHANCED: Dashboard stats response
+export interface WarehouseDashboardStatsResponse {
+  success: boolean;
+  data: {
+    summary: WarehouseDashboardSummary;
+    cashFlow: {
+      totalCashIn: number;
+      totalCashOut: number;
+      netCashFlow: number;
+    };
+    inventory: {
+      totalStockValue: number;
+      totalItems: number;
+      lowStockItems: number;
+      outOfStockItems: number;
+      stockHealthPercentage: number;
+    };
+    expenseBreakdown: ExpenseBreakdown;
+    debtorSummary: {
+      totalDebtors: number;
+      totalOutstanding: number;
+      totalCreditSales: number;
+      totalPaid: number;
+    };
+    customerSummary: {
+      totalCustomers: number;
+      activeCustomers: number;
+    };
+    topProducts: TopProfitableProduct[];
+    topCustomers: TopProfitableCustomer[];
+    dailyPerformance: Array<{
+      date: string;
+      sales: number;
+      revenue: number;
+    }>;
+    period: {
+      startDate?: string;
+      endDate?: string;
+      filterMonth?: number;
+      filterYear?: number;
+    };
+  };
+}
+
 export interface CreateSaleData {
   productId: string;
   quantity: number;
@@ -478,7 +588,7 @@ export interface ExpiringPurchase extends WarehousePurchase {
 export interface RecordPaymentData {
   amount: number;
   paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY';
-  paymentDate: string; // ISO8601 format: "2024-11-24" or "2024-11-24T00:00:00Z"
+  paymentDate: string;
   referenceNumber?: string;
   notes?: string;
 }
@@ -490,50 +600,49 @@ export class WarehouseService extends BaseApiService {
 
   // Sales
   async getSales(
-  page = 1,
-  limit = 10,
-  filters?: {
-    customerId?: string;
-    productId?: string;
-    startDate?: string;
-    endDate?: string;
-  }
-): Promise<WarehouseSalesResponse> {
-  const params = new URLSearchParams({
-    page: page.toString(),
-    limit: limit.toString(),
-  });
-
-  if (filters) {
-    if (filters.customerId) params.append('customerId', filters.customerId);
-    if (filters.productId) params.append('productId', filters.productId);
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
-  }
-
-  const query = params.toString();
-
-  try {
-    return await this.get<WarehouseSalesResponse>(`/sales?${query}`);
-  } catch (error: any) {
-    if (error?.response?.status === 404) {
-      return {
-        success: true,
-        data: {
-          sales: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            totalPages: 0,
-          },
-        },
-      };
+    page = 1,
+    limit = 10,
+    filters?: {
+      customerId?: string;
+      productId?: string;
+      startDate?: string;
+      endDate?: string;
     }
-    throw error;
-  }
-}
+  ): Promise<WarehouseSalesResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
 
+    if (filters) {
+      if (filters.customerId) params.append('customerId', filters.customerId);
+      if (filters.productId) params.append('productId', filters.productId);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+    }
+
+    const query = params.toString();
+
+    try {
+      return await this.get<WarehouseSalesResponse>(`/sales?${query}`);
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return {
+          success: true,
+          data: {
+            sales: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              totalPages: 0,
+            },
+          },
+        };
+      }
+      throw error;
+    }
+  }
 
   async createSale(data: CreateSaleData): Promise<CreateSaleResponse> {
     return this.post<CreateSaleResponse>(data, '/sales');
@@ -712,16 +821,16 @@ export class WarehouseService extends BaseApiService {
     if (filters?.limit) params.append('limit', filters.limit.toString());
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
-    
+
     const queryString = params.toString();
     const url = `/customers/${id}/purchases${queryString ? `?${queryString}` : ''}`;
-    
+
     return this.get<CustomerPurchaseHistoryResponse>(url);
   }
 
   // Cash Flow
   async getCashFlow(
-    page = 1, 
+    page = 1,
     limit = 20,
     transactionType?: string,
     paymentMethod?: string,
@@ -732,21 +841,21 @@ export class WarehouseService extends BaseApiService {
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('limit', limit.toString());
-    
+
     if (transactionType) params.append('transactionType', transactionType);
     if (paymentMethod) params.append('paymentMethod', paymentMethod);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     if (isReconciled !== undefined) params.append('isReconciled', isReconciled.toString());
-    
+
     return this.get(`/cash-flow?${params.toString()}`);
   }
 
   async createCashFlow(data: CreateCashFlowData): Promise<any> {
-    const response = await this.post<{ 
-      success: boolean; 
+    const response = await this.post<{
+      success: boolean;
       message: string;
-      data: { cashFlow: any } 
+      data: { cashFlow: any }
     }>(data, '/cash-flow');
     return response;
   }
@@ -754,7 +863,7 @@ export class WarehouseService extends BaseApiService {
   // Opening Stock
   async getOpeningStock(filters?: OpeningStockFilters): Promise<OpeningStockResponse> {
     const params = new URLSearchParams();
-    
+
     if (filters?.date) params.append('date', filters.date);
     if (filters?.productId) params.append('productId', filters.productId);
     if (filters?.location) params.append('location', filters.location);
@@ -763,7 +872,7 @@ export class WarehouseService extends BaseApiService {
 
     const queryString = params.toString();
     const endpoint = queryString ? `/opening-stock?${queryString}` : '/opening-stock';
-    
+
     return this.get<OpeningStockResponse>(endpoint);
   }
 
@@ -834,82 +943,94 @@ export class WarehouseService extends BaseApiService {
     return this.post(data, '/discounts/request');
   }
 
-  // Analytics
+  // 🆕 ENHANCED: Analytics with profitability
   async getDashboardStats(params?: {
-  filterMonth?: number;
-  filterYear?: number;
-  startDate?: string;
-  endDate?: string;
-}): Promise<any> {
-  try {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.filterMonth) {
-      queryParams.append('filterMonth', params.filterMonth.toString());
-    }
-    if (params?.filterYear) {
-      queryParams.append('filterYear', params.filterYear.toString());
-    }
-    if (params?.startDate) {
-      queryParams.append('startDate', params.startDate);
-    }
-    if (params?.endDate) {
-      queryParams.append('endDate', params.endDate);
-    }
+    filterMonth?: number;
+    filterYear?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<WarehouseDashboardStatsResponse> {
+    try {
+      const queryParams = new URLSearchParams();
 
-    const queryString = queryParams.toString();
-    const url = `/warehouse/analytics/summary${queryString ? `?${queryString}` : ''}`;
-    
-    const response = await apiClient.get(url);
-    return response.data;
-  } catch (error: any) {
-    if (error?.response?.status === 400 || error?.response?.status === 404) {
-      return {
-        success: true,
-        data: {
-          summary: {
-            totalRevenue: 0,
-            totalCOGS: 0,
-            grossProfit: 0,
-            profitMargin: 0,
-            totalSales: 0,
-            totalQuantitySold: 0,
-            averageSaleValue: 0,
-            totalCustomers: 0,
-            activeCustomers: 0
-          },
-          cashFlow: {
-            totalCashIn: 0,
-            totalCashOut: 0,
-            netCashFlow: 0
-          },
-          inventory: {
-            totalStockValue: 0,
-            totalItems: 0,
-            lowStockItems: 0,
-            outOfStockItems: 0,
-            stockHealthPercentage: 0
-          },
-          customerSummary: {
-            totalCustomers: 0,
-            activeCustomers: 0
-          },
-          // 🆕 ADD THIS
-          debtorSummary: {
-            totalDebtors: 0,
-            totalOutstanding: 0,
-            totalCreditSales: 0,
-            totalPaid: 0
-          },
-          topProducts: [],
-          dailyPerformance: [],
-          period: {}
-        }
-      };
+      if (params?.filterMonth) {
+        queryParams.append('filterMonth', params.filterMonth.toString());
+      }
+      if (params?.filterYear) {
+        queryParams.append('filterYear', params.filterYear.toString());
+      }
+      if (params?.startDate) {
+        queryParams.append('startDate', params.startDate);
+      }
+      if (params?.endDate) {
+        queryParams.append('endDate', params.endDate);
+      }
+
+      const queryString = queryParams.toString();
+      const url = `/warehouse/analytics/summary${queryString ? `?${queryString}` : ''}`;
+
+      const response = await apiClient.get(url);
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 400 || error?.response?.status === 404) {
+        // Return empty state matching the new structure
+        return {
+          success: true,
+          data: {
+            summary: {
+              totalRevenue: 0,
+              totalCOGS: 0,
+              totalExpenses: 0,
+              grossProfit: 0,
+              netProfit: 0,
+              grossProfitMargin: 0,
+              netProfitMargin: 0,
+              cogsRatio: 0,
+              expenseRatio: 0,
+              totalSales: 0,
+              totalQuantitySold: 0,
+              averageSaleValue: 0,
+              revenuePerCustomer: 0,
+              profitPerSale: 0,
+              totalCustomers: 0,
+              activeCustomers: 0
+            },
+            cashFlow: {
+              totalCashIn: 0,
+              totalCashOut: 0,
+              netCashFlow: 0
+            },
+            inventory: {
+              totalStockValue: 0,
+              totalItems: 0,
+              lowStockItems: 0,
+              outOfStockItems: 0,
+              stockHealthPercentage: 0
+            },
+            expenseBreakdown: {
+              total: 0,
+              byCategory: {}
+            },
+            debtorSummary: {
+              totalDebtors: 0,
+              totalOutstanding: 0,
+              totalCreditSales: 0,
+              totalPaid: 0
+            },
+            customerSummary: {
+              totalCustomers: 0,
+              activeCustomers: 0
+            },
+            topProducts: [],
+            topCustomers: [],
+            dailyPerformance: [],
+            period: {}
+          }
+        };
+      }
+      throw error;
     }
-    throw error;
   }
-}
 
   async getCustomerDetails(customerId: string): Promise<any> {
     return this.get(`/customers/${customerId}`);
@@ -932,43 +1053,28 @@ export class WarehouseService extends BaseApiService {
 
   async recordDebtorPayment(debtorId: string, data: RecordPaymentData): Promise<any> {
     return this.post(data, `/debtors/${debtorId}/payments`);
-}
+  }
 
-// async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Promise<any> {
-//     return this.post(data, `/debtors/receipt/${receiptNumber}/payment`);
-// }
-
-/**
- * Record payment for entire receipt (all products)
- */
-async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Promise<any> {
-    // Build payload without undefined values
+  async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Promise<any> {
     const paymentData: any = {
-        amount: parseFloat(data.amount.toString()),
-        paymentMethod: data.paymentMethod,
-        paymentDate: data.paymentDate
+      amount: parseFloat(data.amount.toString()),
+      paymentMethod: data.paymentMethod,
+      paymentDate: data.paymentDate
     };
 
-    // Only add optional fields if they have values
     if (data.referenceNumber && data.referenceNumber.trim()) {
-        paymentData.referenceNumber = data.referenceNumber.trim();
+      paymentData.referenceNumber = data.referenceNumber.trim();
     }
 
     if (data.notes && data.notes.trim()) {
-        paymentData.notes = data.notes.trim();
+      paymentData.notes = data.notes.trim();
     }
 
-    console.log('Sending receipt payment:', {
-        receiptNumber,
-        paymentData
-    });
-
     return this.post(paymentData, `/debtors/receipt/${receiptNumber}/payment`);
-}
-
+  }
 
   async recordCustomerDebtPayment(customerId: string, data: RecordPaymentData): Promise<any> {
-    return this.post(data, `/debtors/customer/${customerId}/payment`);  // ← Changed to singular
+    return this.post(data, `/debtors/customer/${customerId}/payment`);
   }
 
   async getCustomerDebtSummary(customerId: string): Promise<any> {
@@ -1034,7 +1140,7 @@ async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Prom
         if (value) params.append(key, value);
       });
     }
-    
+
     const response = await apiClient.get(`/warehouse/sales/export/csv?${params}`, {
       responseType: 'blob'
     });
@@ -1057,7 +1163,7 @@ async recordReceiptPayment(receiptNumber: string, data: RecordPaymentData): Prom
         }
       });
     }
-    
+
     const response = await apiClient.get(`/warehouse/sales/export/pdf?${params}`, {
       responseType: 'blob'
     });

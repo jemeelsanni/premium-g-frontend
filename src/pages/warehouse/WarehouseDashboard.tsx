@@ -16,7 +16,9 @@ import {
     Percent,
     Filter,
     Calendar,
-    X
+    X,
+    TrendingUp,
+    TrendingDown
 } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -80,13 +82,11 @@ export const WarehouseDashboard: React.FC = () => {
         queryFn: () => warehouseService.getExpenses({ page: 1, limit: 5 }),
     });
 
-    // ✅ Move this query HERE, not after early returns
     const { data: expiringData } = useQuery({
         queryKey: ['warehouse-expiring-purchases-dashboard'],
         queryFn: () => warehouseService.getExpiringPurchases(),
-        refetchInterval: 60000, // Refetch every 1 minute
+        refetchInterval: 60000,
     });
-
 
     const parseNumber = (value: unknown, fallback = 0) => {
         if (typeof value === 'number') {
@@ -103,7 +103,6 @@ export const WarehouseDashboard: React.FC = () => {
             </div>
         );
     }
-
 
     const monthNames = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -127,7 +126,6 @@ export const WarehouseDashboard: React.FC = () => {
         return `${monthNames[filterMonth - 1]} ${filterYear}`;
     };
 
-
     if (error) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -143,8 +141,7 @@ export const WarehouseDashboard: React.FC = () => {
     const inventorySummary = (stats?.data?.inventory ?? stats?.inventory ?? {}) as Record<string, unknown>;
     const customerSummary = (stats?.data?.customerSummary ?? stats?.customerSummary ?? {}) as Record<string, unknown>;
     const debtorSummary = (stats?.data?.debtorSummary ?? {}) as Record<string, unknown>;
-
-
+    const expenseBreakdown = (stats?.data?.expenseBreakdown ?? { total: 0, byCategory: {} }) as { total: number; byCategory: Record<string, number> };
 
     const safeSummaryNumber = (key: string, fallback = 0) => parseNumber(summary[key], fallback);
 
@@ -183,43 +180,66 @@ export const WarehouseDashboard: React.FC = () => {
         return `${firstName} (+${items.length - 1} more)`;
     };
 
-
+    // 🆕 UPDATED: Enhanced stat cards with profitability metrics
     const statCards = [
         {
             title: 'Total Sales',
             value: safeSummaryNumber('totalSales'),
             icon: ShoppingCart,
             color: 'blue',
-            change: '+18%',
+            subtitle: `${safeSummaryNumber('totalQuantitySold').toLocaleString()} items sold`
         },
         {
-            title: 'Revenue',
+            title: 'Total Revenue',
             value: `₦${safeSummaryNumber('totalRevenue').toLocaleString()}`,
             icon: DollarSign,
             color: 'green',
-            change: '+12%'
+            subtitle: `Avg: ₦${safeSummaryNumber('averageSaleValue').toLocaleString()}/sale`
+        },
+        // 🆕 NEW
+        {
+            title: 'Net Profit',
+            value: `₦${safeSummaryNumber('netProfit').toLocaleString()}`,
+            icon: TrendingUp,
+            color: 'emerald',
+            subtitle: `${safeSummaryNumber('netProfitMargin').toFixed(1)}% margin`
+        },
+        // 🆕 NEW
+        {
+            title: 'Gross Margin',
+            value: `${safeSummaryNumber('grossProfitMargin').toFixed(1)}%`,
+            icon: Percent,
+            color: 'blue',
+            subtitle: `₦${safeSummaryNumber('grossProfit').toLocaleString()} profit`
+        },
+        // 🆕 NEW
+        {
+            title: 'Total Expenses',
+            value: `₦${safeSummaryNumber('totalExpenses').toLocaleString()}`,
+            icon: Receipt,
+            color: 'red',
+            subtitle: `${safeSummaryNumber('expenseRatio').toFixed(1)}% of revenue`
         },
         {
             title: 'Outstanding Debt',
             value: `₦${totalOutstanding.toLocaleString()}`,
             icon: AlertCircle,
-            color: 'red',
-            change: '',
-
+            color: 'orange',
+            subtitle: `${parseNumber(debtorSummary.totalDebtors)} debtor${parseNumber(debtorSummary.totalDebtors) !== 1 ? 's' : ''}`
         },
         {
             title: 'Inventory Items',
             value: totalInventoryItems,
             icon: Package,
             color: 'purple',
-            change: '+5%'
+            subtitle: `₦${parseNumber(inventorySummary.totalStockValue).toLocaleString()} value`
         },
         {
             title: 'Active Customers',
             value: activeCustomerCount,
             icon: Users,
-            color: 'orange',
-            change: '+8%'
+            color: 'indigo',
+            subtitle: `₦${safeSummaryNumber('revenuePerCustomer').toLocaleString()}/customer`
         }
     ];
 
@@ -410,7 +430,6 @@ export const WarehouseDashboard: React.FC = () => {
                         </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* Filter Type */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Filter Type
@@ -426,7 +445,6 @@ export const WarehouseDashboard: React.FC = () => {
                             </select>
                         </div>
 
-                        {/* Month Selector */}
                         {filterType === 'month' && (
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -446,7 +464,6 @@ export const WarehouseDashboard: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Year Selector */}
                         {(filterType === 'month' || filterType === 'year') && (
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -466,7 +483,6 @@ export const WarehouseDashboard: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Reset Button */}
                         <div className="flex items-end">
                             <Button
                                 onClick={resetToCurrentMonth}
@@ -501,6 +517,7 @@ export const WarehouseDashboard: React.FC = () => {
                 </div>
             )}
 
+            {/* Expiring Products Alert */}
             {expiringData && expiringData.data.count > 0 && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <div className="flex items-start space-x-3">
@@ -542,12 +559,126 @@ export const WarehouseDashboard: React.FC = () => {
                                                 {stat.value}
                                             </div>
                                         </dd>
+                                        {stat.subtitle && (
+                                            <dd className="text-xs text-gray-500 mt-1">
+                                                {stat.subtitle}
+                                            </dd>
+                                        )}
                                     </dl>
                                 </div>
                             </div>
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {/* 🆕 NEW: Profitability Overview */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                        <TrendingUp className="h-6 w-6 mr-2 text-green-600" />
+                        Profitability Analysis
+                    </h3>
+                    <span className="text-sm text-gray-600">{getPeriodLabel()}</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Net Profit Card */}
+                    <div className="bg-white rounded-lg p-4 shadow">
+                        <div className="text-sm text-gray-600 mb-1">Net Profit</div>
+                        <div className="text-2xl font-bold text-green-600">
+                            ₦{safeSummaryNumber('netProfit').toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            {safeSummaryNumber('netProfitMargin').toFixed(2)}% margin
+                        </div>
+                        <div className="text-xs text-gray-400 mt-2">
+                            ₦{safeSummaryNumber('profitPerSale').toLocaleString()} per sale
+                        </div>
+                    </div>
+
+                    {/* Cost Breakdown */}
+                    <div className="bg-white rounded-lg p-4 shadow">
+                        <div className="text-sm text-gray-600 mb-3">Cost Structure</div>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">COGS</span>
+                                <span className="font-semibold text-red-600">
+                                    {safeSummaryNumber('cogsRatio').toFixed(1)}%
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                    className="bg-red-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${safeSummaryNumber('cogsRatio')}%` }}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">Expenses</span>
+                                <span className="font-semibold text-orange-600">
+                                    {safeSummaryNumber('expenseRatio').toFixed(1)}%
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                    className="bg-orange-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${safeSummaryNumber('expenseRatio')}%` }}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">Profit</span>
+                                <span className="font-semibold text-green-600">
+                                    {safeSummaryNumber('netProfitMargin').toFixed(1)}%
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                    className="bg-green-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${safeSummaryNumber('netProfitMargin')}%` }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* P&L Summary */}
+                    <div className="bg-white rounded-lg p-4 shadow">
+                        <div className="text-sm text-gray-600 mb-3">P&L Summary</div>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Revenue</span>
+                                <span className="font-semibold">
+                                    ₦{safeSummaryNumber('totalRevenue').toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">COGS</span>
+                                <span className="text-red-600">
+                                    -₦{safeSummaryNumber('totalCOGS').toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-t border-gray-200 pt-2">
+                                <span className="text-gray-600">Gross Profit</span>
+                                <span className="font-semibold">
+                                    ₦{safeSummaryNumber('grossProfit').toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Expenses</span>
+                                <span className="text-orange-600">
+                                    -₦{safeSummaryNumber('totalExpenses').toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-t-2 border-green-500 pt-2 font-bold">
+                                <span className="text-gray-900">Net Profit</span>
+                                <span className="text-green-600">
+                                    ₦{safeSummaryNumber('netProfit').toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Quick Actions */}
@@ -695,7 +826,7 @@ export const WarehouseDashboard: React.FC = () => {
                         >
                             <div>
                                 <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                                    <Percent className="h-6 w-6" />
+                                    <AlertCircle className="h-6 w-6" />
                                 </span>
                             </div>
                             <div className="mt-4">
@@ -717,7 +848,7 @@ export const WarehouseDashboard: React.FC = () => {
                         >
                             <div>
                                 <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                                    <Percent className="h-6 w-6" />
+                                    <Package className="h-6 w-6" />
                                 </span>
                             </div>
                             <div className="mt-4">
@@ -732,6 +863,7 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+
                         <Link
                             to="/warehouse/daily-opening-stock"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -753,13 +885,14 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+
                         <Link
                             to="/warehouse/expiring-products"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
                         >
                             <div>
                                 <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                                    <DollarSign className="h-6 w-6" />
+                                    <AlertTriangle className="h-6 w-6" />
                                 </span>
                             </div>
                             <div className="mt-4">
@@ -778,7 +911,8 @@ export const WarehouseDashboard: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3" id="recent-expenses">
+            {/* Data Grid with Expense Breakdown and Top Customers */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
                 {/* Recent Sales */}
                 <div className="bg-white shadow rounded-lg">
                     <div className="px-6 py-4 border-b border-gray-200">
@@ -830,8 +964,85 @@ export const WarehouseDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Recent Expenses */}
+                {/* 🆕 NEW: Expense Breakdown */}
                 <div className="bg-white shadow rounded-lg">
+                    <div className="px-6 py-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
+                                <Receipt className="h-5 w-5 text-orange-500 mr-2" />
+                                Expense Breakdown
+                            </h3>
+                            <Link
+                                to="/warehouse/expenses"
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                                View all expenses
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="p-6">
+                        {(() => {
+                            const categories = expenseBreakdown?.byCategory || {};
+                            const totalExpenses = expenseBreakdown?.total || 0;
+
+                            if (totalExpenses === 0) {
+                                return (
+                                    <div className="text-center text-gray-500 py-8">
+                                        No expenses recorded for this period
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="space-y-3">
+                                    {Object.entries(categories)
+                                        .sort((a, b) => parseNumber(b[1]) - parseNumber(a[1]))
+                                        .map(([category, amount]) => {
+                                            const percentage = totalExpenses > 0
+                                                ? (parseNumber(amount) / totalExpenses) * 100
+                                                : 0;
+
+                                            return (
+                                                <div key={category} className="space-y-1">
+                                                    <div className="flex justify-between items-center text-sm">
+                                                        <span className="capitalize text-gray-600">
+                                                            {category.replace(/_/g, ' ')}
+                                                        </span>
+                                                        <div className="flex items-center space-x-3">
+                                                            <span className="text-gray-500">
+                                                                {percentage.toFixed(1)}%
+                                                            </span>
+                                                            <span className="font-semibold text-gray-900 w-24 text-right">
+                                                                ₦{parseNumber(amount).toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                                        <div
+                                                            className="bg-orange-500 h-2 rounded-full transition-all"
+                                                            style={{ width: `${percentage}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                        <div className="flex justify-between items-center font-bold">
+                                            <span className="text-gray-900">Total Expenses</span>
+                                            <span className="text-red-600 text-lg">
+                                                ₦{parseNumber(totalExpenses).toLocaleString()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
+
+                {/* Recent Expenses */}
+                <div className="bg-white shadow rounded-lg xl:col-span-2">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -852,6 +1063,92 @@ export const WarehouseDashboard: React.FC = () => {
                             loading={expensesLoading}
                             emptyMessage="No expenses recorded yet"
                         />
+                    </div>
+                </div>
+
+                {/* 🆕 NEW: Top Profitable Customers */}
+                <div className="bg-white shadow rounded-lg xl:col-span-2">
+                    <div className="px-6 py-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
+                                <Users className="h-5 w-5 text-indigo-500 mr-2" />
+                                Top Profitable Customers
+                            </h3>
+                            <Link
+                                to="/warehouse/customers"
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                                View all customers
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="p-6">
+                        {(() => {
+                            const topCustomers = stats?.data?.topCustomers || [];
+
+                            if (topCustomers.length === 0) {
+                                return (
+                                    <div className="text-center text-gray-500 py-8">
+                                        No customer profitability data available
+                                    </div>
+                                );
+                            }
+
+                            const customerColumns = [
+                                {
+                                    key: 'customerName',
+                                    title: 'Customer',
+                                    render: (value: string, record: any) => (
+                                        <div>
+                                            <div className="font-medium text-gray-900">{value}</div>
+                                            <div className="text-xs text-gray-500">
+                                                {record.orderCount} order{record.orderCount !== 1 ? 's' : ''}
+                                            </div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'revenue',
+                                    title: 'Revenue',
+                                    render: (value: number) => (
+                                        <span className="text-gray-900">
+                                            ₦{parseNumber(value).toLocaleString()}
+                                        </span>
+                                    )
+                                },
+                                {
+                                    key: 'netProfit',
+                                    title: 'Net Profit',
+                                    render: (value: number, record: any) => (
+                                        <div>
+                                            <div className="font-semibold text-green-600">
+                                                ₦{parseNumber(value).toLocaleString()}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {parseNumber(record.netProfitMargin).toFixed(1)}% margin
+                                            </div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'outstandingDebt',
+                                    title: 'Debt',
+                                    render: (value: number) => {
+                                        const debt = parseNumber(value);
+                                        if (debt === 0) {
+                                            return <span className="text-gray-400">None</span>;
+                                        }
+                                        return (
+                                            <span className="text-orange-600 font-medium">
+                                                ₦{debt.toLocaleString()}
+                                            </span>
+                                        );
+                                    }
+                                }
+                            ];
+
+                            return <Table data={topCustomers} columns={customerColumns} />;
+                        })()}
                     </div>
                 </div>
             </div>
