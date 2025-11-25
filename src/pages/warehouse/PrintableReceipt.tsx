@@ -42,6 +42,8 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({ sale, onClose }) =>
             {/* HEADER */}
             <div style={{ textAlign: 'center', marginBottom: '6px' }}>
                 <h2 style={{ fontSize: '14px', fontWeight: 'bold' }}>PREMIUM G ENTERPRISE</h2>
+                <p>234, Asa-dam road, beside NEPA office Lanre shittu Motors, Ilorin Kwara state</p>
+                <p>08060372182 ,08030753970</p>
                 <p>Warehouse Division</p>
 
             </div>
