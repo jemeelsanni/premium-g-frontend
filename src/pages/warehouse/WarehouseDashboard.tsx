@@ -1040,7 +1040,7 @@ export const WarehouseDashboard: React.FC = () => {
                 </div> */}
 
                 {/* Recent Expenses */}
-                <div className="bg-white shadow rounded-lg w-full">
+                <div className="bg-white shadow rounded-lg xl:col-span-3">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -1065,7 +1065,7 @@ export const WarehouseDashboard: React.FC = () => {
                 </div>
 
                 {/* 🆕 NEW: Top Profitable Customers */}
-                <div className="bg-white shadow rounded-lg w-full">
+                <div className="bg-white shadow rounded-lg xl:col-span-3">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
