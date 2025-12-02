@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronUp, CreditCard, Receipt, User, Package } from 'lucide-react';
 import { RecordPaymentData, warehouseService } from '../../services/warehouseService';
+import { canEditDebtors } from '../../utils/warehousePermissions';
 
 // ✅ FINAL: Receipt-grouped debtor structure
 interface DebtorReceipt {
@@ -72,6 +73,9 @@ const DebtorsDashboard: React.FC = () => {
         total: 0,
         pages: 0
     });
+
+    // Check if user can edit debtors (record payments, clear debts, etc.)
+    const canEdit = canEditDebtors();
 
     // Payment Modal State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -227,7 +231,16 @@ const DebtorsDashboard: React.FC = () => {
 
     return (
         <div className="p-6 space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Warehouse Debtors</h1>
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold text-gray-900">Warehouse Debtors</h1>
+                {!canEdit && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                        <p className="text-sm text-blue-800 font-medium">
+                            🔒 View Only - You don't have permission to record payments or edit debtor records
+                        </p>
+                    </div>
+                )}
+            </div>
 
             {/* Analytics Cards */}
             {analytics && (
@@ -336,8 +349,8 @@ const DebtorsDashboard: React.FC = () => {
                                                     <p className="text-sm text-red-600 font-semibold">Due: {formatCurrency(receipt.amountDue)}</p>
                                                 </div>
 
-                                                {/* Payment Button */}
-                                                {receipt.amountDue > 0 && (
+                                                {/* Payment Button - Only visible if user can edit */}
+                                                {canEdit && receipt.amountDue > 0 && (
                                                     <button
                                                         onClick={() => openPaymentModal(receipt)}
                                                         className="mt-3 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"

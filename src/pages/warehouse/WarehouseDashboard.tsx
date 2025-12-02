@@ -24,6 +24,13 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 import { WarehouseInventory, WarehouseExpense } from '../../types/warehouse';
+import {
+    canViewDashboardStat,
+    DashboardStat,
+    hasRestrictedWarehouseAccess,
+    canAccessWarehouseFeature,
+    WarehouseFeature
+} from '../../utils/warehousePermissions';
 
 export const WarehouseDashboard: React.FC = () => {
     const currentDate = new Date();
@@ -179,8 +186,9 @@ export const WarehouseDashboard: React.FC = () => {
     };
 
     // 🆕 UPDATED: Enhanced stat cards with profitability metrics
-    const statCards = [
+    const allStatCards = [
         {
+            statType: DashboardStat.PACKS_SOLD,
             title: 'Total Packs Sold',
             value: safeSummaryNumber('totalQuantitySold'),
             icon: ShoppingCart,
@@ -188,6 +196,7 @@ export const WarehouseDashboard: React.FC = () => {
             // subtitle: `${safeSummaryNumber('totalQuantitySold').toLocaleString()} items sold`
         },
         {
+            statType: DashboardStat.REVENUE,
             title: 'Total Revenue',
             value: `₦${safeSummaryNumber('totalRevenue').toLocaleString()}`,
             icon: DollarSign,
@@ -196,6 +205,7 @@ export const WarehouseDashboard: React.FC = () => {
         },
         // 🆕 NEW
         {
+            statType: DashboardStat.NET_PROFIT,
             title: 'Net Profit',
             value: `₦${safeSummaryNumber('netProfit').toLocaleString()}`,
             icon: TrendingUp,
@@ -204,6 +214,7 @@ export const WarehouseDashboard: React.FC = () => {
         },
         // 🆕 NEW
         {
+            statType: DashboardStat.GROSS_MARGIN,
             title: 'Gross Margin',
             value: `${safeSummaryNumber('grossProfitMargin').toFixed(1)}%`,
             icon: Percent,
@@ -212,6 +223,7 @@ export const WarehouseDashboard: React.FC = () => {
         },
         // 🆕 NEW
         {
+            statType: DashboardStat.EXPENSES,
             title: 'Total Expenses',
             value: `₦${safeSummaryNumber('totalExpenses').toLocaleString()}`,
             icon: Receipt,
@@ -219,6 +231,7 @@ export const WarehouseDashboard: React.FC = () => {
             subtitle: `${safeSummaryNumber('expenseRatio').toFixed(1)}% of revenue`
         },
         {
+            statType: DashboardStat.DEBT,
             title: 'Outstanding Debt',
             value: `₦${totalOutstanding.toLocaleString()}`,
             icon: AlertCircle,
@@ -226,6 +239,7 @@ export const WarehouseDashboard: React.FC = () => {
             subtitle: `${parseNumber(debtorSummary.totalDebtors)} debtor${parseNumber(debtorSummary.totalDebtors) !== 1 ? 's' : ''}`
         },
         {
+            statType: DashboardStat.INVENTORY_ITEMS,
             title: 'Inventory Items',
             value: totalInventoryItems,
             icon: Package,
@@ -233,6 +247,7 @@ export const WarehouseDashboard: React.FC = () => {
             subtitle: `₦${parseNumber(inventorySummary.totalStockValue).toLocaleString()} value`
         },
         {
+            statType: DashboardStat.ACTIVE_CUSTOMERS,
             title: 'Active Customers',
             value: activeCustomerCount,
             icon: Users,
@@ -240,6 +255,9 @@ export const WarehouseDashboard: React.FC = () => {
             subtitle: `₦${safeSummaryNumber('revenuePerCustomer').toLocaleString()}/customer`
         }
     ];
+
+    // Filter stat cards based on user permissions
+    const statCards = allStatCards.filter(card => canViewDashboardStat(card.statType));
 
     const salesColumns = [
         {
@@ -570,7 +588,8 @@ export const WarehouseDashboard: React.FC = () => {
                 ))}
             </div>
 
-            {/* 🆕 NEW: Profitability Overview */}
+            {/* 🆕 NEW: Profitability Overview - Hidden for restricted users */}
+            {!hasRestrictedWarehouseAccess() && (
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-lg p-6 border-l-4 border-green-500">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-bold text-gray-900 flex items-center">
@@ -678,6 +697,7 @@ export const WarehouseDashboard: React.FC = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* Quick Actions */}
             <div className="bg-white shadow rounded-lg">
@@ -686,6 +706,8 @@ export const WarehouseDashboard: React.FC = () => {
                         Quick Actions
                     </h3>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                        {/* Record Sale - Always visible */}
+                        {canAccessWarehouseFeature(WarehouseFeature.RECORD_SALES) && (
                         <Link
                             to="/warehouse/sales/create"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -707,7 +729,10 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Manage Inventory - Only for super admin and sales officer */}
+                        {canAccessWarehouseFeature(WarehouseFeature.MANAGE_INVENTORY) && (
                         <Link
                             to="/warehouse/inventory"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -729,7 +754,10 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Customer Database - Always visible */}
+                        {canAccessWarehouseFeature(WarehouseFeature.CUSTOMER_DATABASE) && (
                         <Link
                             to="/warehouse/customers"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -751,7 +779,10 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Cash Flow - Only for super admin and sales officer */}
+                        {canAccessWarehouseFeature(WarehouseFeature.CASH_FLOW) && (
                         <Link
                             to="/warehouse/cash-flow"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -773,7 +804,10 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Expenses - Only for super admin and sales officer */}
+                        {canAccessWarehouseFeature(WarehouseFeature.EXPENSES) && (
                         <Link
                             to="/warehouse/expenses"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -795,7 +829,10 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Discount Requests - Always visible */}
+                        {canAccessWarehouseFeature(WarehouseFeature.DISCOUNT_REQUEST) && (
                         <Link
                             to="/warehouse/discounts"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -817,7 +854,10 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Debtors - Always visible (read-only for restricted users) */}
+                        {canAccessWarehouseFeature(WarehouseFeature.DEBTORS) && (
                         <Link
                             to="/warehouse/debtors"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -832,14 +872,17 @@ export const WarehouseDashboard: React.FC = () => {
                                     Warehouse Debtors
                                 </h3>
                                 <p className="mt-2 text-sm text-gray-500">
-                                    Review and update warehouse debtors
+                                    {hasRestrictedWarehouseAccess() ? 'View warehouse debtors' : 'Review and update warehouse debtors'}
                                 </p>
                             </div>
                             <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Purchases - Only for super admin and sales officer */}
+                        {canAccessWarehouseFeature(WarehouseFeature.PURCHASES) && (
                         <Link
                             to="/warehouse/offload-purchases"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -861,7 +904,10 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Daily Opening Stock - Always visible */}
+                        {canAccessWarehouseFeature(WarehouseFeature.OPENING_STOCK) && (
                         <Link
                             to="/warehouse/daily-opening-stock"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -883,7 +929,10 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
 
+                        {/* Expired Products - Always visible */}
+                        {canAccessWarehouseFeature(WarehouseFeature.EXPIRED_PRODUCTS) && (
                         <Link
                             to="/warehouse/expiring-products"
                             className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -905,6 +954,7 @@ export const WarehouseDashboard: React.FC = () => {
                                 <ArrowRight className="h-6 w-6" />
                             </span>
                         </Link>
+                        )}
                     </div>
                 </div>
             </div>
@@ -963,7 +1013,8 @@ export const WarehouseDashboard: React.FC = () => {
 
             </div>
 
-            {/* Data Grid with Expense Breakdown and Top Customers */}
+            {/* Data Grid with Expense Breakdown and Top Customers - Hidden for restricted users */}
+            {!hasRestrictedWarehouseAccess() && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-2">
 
                 {/* Recent Expenses */}
@@ -1077,6 +1128,7 @@ export const WarehouseDashboard: React.FC = () => {
                     </div>
                 </div>
             </div>
+            )}
         </div>
     );
 };
