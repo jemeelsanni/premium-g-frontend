@@ -137,7 +137,7 @@ export interface Product {
   minSellingPrice?: number | null;  // ✅ FIXED: was boolean, now number | null
   maxSellingPrice?: number | null;  // ✅ FIXED: was boolean, now number | null
   isActive: boolean;
-  currentStock: number;
+  currentStock?: number;  // Optional to match main Product type
 }
 
 export interface Customer {
