@@ -641,7 +641,7 @@ export const CreateSale: React.FC = () => {
                                     onClick={handleSubmitProduct(handleAddProduct)}
                                     variant="primary"
                                     className="w-full"
-                                    disabled={priceValidation && !priceValidation.isValid}
+                                    disabled={!!(priceValidation && !priceValidation.isValid)}
                                 >
                                     <Plus className="h-4 w-4 mr-1" />
                                     Add to Cart
