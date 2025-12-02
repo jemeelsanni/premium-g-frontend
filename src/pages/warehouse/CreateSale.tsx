@@ -257,13 +257,13 @@ export const CreateSale: React.FC = () => {
         }
 
         // 🚫 Out-of-stock check
-        if (product.currentStock <= 0) {
+        if (product.currentStock !== undefined && product.currentStock <= 0) {
             globalToast.error(`${product.name} is out of stock and cannot be added to cart.`);
             return;
         }
 
         // 🧠 Warn if quantity exceeds stock
-        if (data.quantity > product.currentStock) {
+        if (product.currentStock !== undefined && data.quantity > product.currentStock) {
             globalToast.error(
                 `Only ${product.currentStock} units of ${product.name} available. Adjust quantity before adding.`
             );
@@ -558,10 +558,12 @@ export const CreateSale: React.FC = () => {
                                     <option
                                         key={product.id}
                                         value={product.id}
-                                        disabled={product.currentStock <= 0}
+                                        disabled={product.currentStock !== undefined && product.currentStock <= 0}
                                     >
                                         {product.name} ({product.productNo})
-                                        {product.currentStock <= 0 ? ' - Out of Stock' : ` (${product.currentStock} in stock)`}
+                                        {product.currentStock !== undefined && (
+                                            product.currentStock <= 0 ? ' - Out of Stock' : ` (${product.currentStock} in stock)`
+                                        )}
                                     </option>
                                 ))}
                             </select>
