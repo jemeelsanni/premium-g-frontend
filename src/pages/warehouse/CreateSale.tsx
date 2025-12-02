@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Save, ArrowLeft, ShoppingCart, User, Package, Tag, Plus, Trash2, Edit2, AlertTriangle, CreditCard } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
+import { adminService } from '../../services/adminService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { globalToast } from '../../components/ui/Toast';
@@ -125,10 +126,20 @@ export const CreateSale: React.FC = () => {
         }
     });
 
-    // Fetch products
+    // Fetch products (using admin service to get price range fields)
     const { data: products } = useQuery<Product[]>({
         queryKey: ['warehouse-products'],
-        queryFn: () => warehouseService.getProducts(),
+        queryFn: async () => {
+            const response = await adminService.getProducts({ isActive: true });
+            const products = response.data.products || [];
+            console.log('🔍 Fetched products with price ranges:', products);
+            console.log('🔍 First product price fields:', products[0] ? {
+                minSellingPrice: products[0].minSellingPrice,
+                maxSellingPrice: products[0].maxSellingPrice,
+                pricePerPack: products[0].pricePerPack
+            } : 'No products');
+            return products;
+        },
     });
 
     // Fetch customers

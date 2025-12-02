@@ -96,8 +96,11 @@ export interface Product {
   packsPerPallet: number;
   pricePerPack: number;
   costPerPack?: number;      // Backend: Decimal (auto-converted to/from number in JSON)
+  minSellingPrice?: number | null;  // Price range enforcement
+  maxSellingPrice?: number | null;  // Price range enforcement
   module?: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
   isActive: boolean;
+  currentStock?: number;     // For warehouse inventory
   createdAt: string;
   updatedAt: string;
 }
