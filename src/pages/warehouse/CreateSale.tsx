@@ -1,18 +1,19 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/warehouse/CreateSale.tsx
-// ✅ FIXED VERSION - All TypeScript errors resolved
+// ✅ UPDATED VERSION with Price Range Enforcement & Debt Calculation Fix
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, ShoppingCart, User, Package, Tag, Plus, Trash2, Edit2, CreditCard } from 'lucide-react';
+import { Save, ArrowLeft, ShoppingCart, User, Package, Tag, Plus, Trash2, Edit2, AlertTriangle, CreditCard } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { globalToast } from '../../components/ui/Toast';
-import { formatCurrency } from '../../utils/formatters';
+import type { Product } from '../../types/warehouse';
 
 const productItemSchema = z.object({
     productId: z.string().min(1, 'Product is required'),
@@ -69,6 +70,7 @@ interface DiscountInfo {
     };
 }
 
+// ✅ NEW: Price validation state interface
 interface PriceValidation {
     isValid: boolean;
     message: string;
@@ -83,6 +85,8 @@ export const CreateSale: React.FC = () => {
     const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
     const [currentDiscountInfo, setCurrentDiscountInfo] = useState<DiscountInfo | null>(null);
     const [showPartialPayment, setShowPartialPayment] = useState(false);
+
+    // ✅ NEW: Price validation state
     const [priceValidation, setPriceValidation] = useState<PriceValidation | null>(null);
 
     // Product item form
@@ -108,6 +112,7 @@ export const CreateSale: React.FC = () => {
         register,
         handleSubmit,
         watch,
+        setValue,
         formState: { errors, isSubmitting }
     } = useForm<SaleFormData>({
         resolver: zodResolver(saleSchema),
@@ -121,7 +126,7 @@ export const CreateSale: React.FC = () => {
     });
 
     // Fetch products
-    const { data: products } = useQuery({
+    const { data: products } = useQuery<Product[]>({
         queryKey: ['warehouse-products'],
         queryFn: () => warehouseService.getProducts(),
     });
@@ -139,9 +144,9 @@ export const CreateSale: React.FC = () => {
     const watchedUnitPrice = watchProduct('unitPrice');
     const watchedPaymentMethod = watch('paymentMethod');
 
-    // ✅ FIXED: Real-time price validation
+    // ✅ NEW: Real-time price validation
     useEffect(() => {
-        const product = products?.find((p: any) => p.id === watchedProductId);
+        const product = products?.find((p) => p.id === watchedProductId);
         const price = watchedUnitPrice;
 
         if (!product || !price || price <= 0) {
@@ -149,7 +154,7 @@ export const CreateSale: React.FC = () => {
             return;
         }
 
-        const hasRange = product.minSellingPrice || product.maxSellingPrice;
+        const hasRange = product.minSellingPrice !== null || product.maxSellingPrice !== null;
 
         if (!hasRange) {
             setPriceValidation({
@@ -160,98 +165,92 @@ export const CreateSale: React.FC = () => {
             return;
         }
 
-        // ✅ FIXED: Check minimum (no more boolean comparison error)
-        if (product.minSellingPrice && price < product.minSellingPrice) {
+        // Check minimum
+        if (product.minSellingPrice !== null && price < product.minSellingPrice) {
             setPriceValidation({
                 isValid: false,
-                message: `❌ Price too low! Minimum: ${formatCurrency(product.minSellingPrice)}`,
+                message: `Below minimum (₦${product.minSellingPrice.toLocaleString()})`,
                 color: 'red'
             });
             return;
         }
 
-        // ✅ FIXED: Check maximum (no more boolean comparison error)
-        if (product.maxSellingPrice && price > product.maxSellingPrice) {
+        // Check maximum
+        if (product.maxSellingPrice !== null && price > product.maxSellingPrice) {
             setPriceValidation({
                 isValid: false,
-                message: `❌ Price too high! Maximum: ${formatCurrency(product.maxSellingPrice)}`,
+                message: `Above maximum (₦${product.maxSellingPrice.toLocaleString()})`,
                 color: 'red'
             });
             return;
         }
 
+        // Price is valid
         setPriceValidation({
             isValid: true,
-            message: '✅ Price within allowed range',
+            message: '✓ Price within allowed range',
             color: 'green'
         });
     }, [watchedProductId, watchedUnitPrice, products]);
 
-    // Check for applicable discounts
+    // Check for discount when product, quantity, or price changes
     useEffect(() => {
         const checkDiscount = async () => {
-            if (!watchedCustomerId || !watchedProductId || !watchedQuantity || watchedUnitPrice <= 0) {
-                setCurrentDiscountInfo(null);
-                return;
-            }
-
-            setIsCheckingDiscount(true);
-            try {
-                const response = await warehouseService.checkDiscount({
-                    warehouseCustomerId: watchedCustomerId,
-                    productId: watchedProductId,
-                    quantity: watchedQuantity,
-                    unitPrice: watchedUnitPrice,
-                });
-
-                if (response.hasDiscount) {
-                    setCurrentDiscountInfo(response);
-                } else {
+            if (watchedCustomerId && watchedProductId && watchedQuantity > 0 && watchedUnitPrice > 0) {
+                setIsCheckingDiscount(true);
+                try {
+                    const discountInfo = await warehouseService.checkDiscount({
+                        warehouseCustomerId: watchedCustomerId,
+                        productId: watchedProductId,
+                        quantity: watchedQuantity,
+                        unitPrice: watchedUnitPrice,
+                    });
+                    setCurrentDiscountInfo(discountInfo.data);
+                } catch (error) {
                     setCurrentDiscountInfo(null);
+                } finally {
+                    setIsCheckingDiscount(false);
                 }
-            } catch (error) {
-                console.error('Error checking discount:', error);
+            } else {
                 setCurrentDiscountInfo(null);
-            } finally {
-                setIsCheckingDiscount(false);
             }
         };
 
         checkDiscount();
     }, [watchedCustomerId, watchedProductId, watchedQuantity, watchedUnitPrice]);
 
-    // ✅ FIXED: Add product to cart with price range validation
+    // ✅ UPDATED: Add product to cart with price range validation
     const handleAddProduct = (data: ProductItemFormData) => {
-        const product = products?.find((p: any) => p.id === data.productId);
+        const product = products?.find((p) => p.id === data.productId);
         if (!product) {
             globalToast.error('Product not found');
             return;
         }
 
-        // ✅ FIXED: Price range validation (no more boolean comparison)
+        // ✅ NEW: Price range validation
         const price = data.unitPrice;
 
-        if (product.minSellingPrice && price < product.minSellingPrice) {
+        if (product.minSellingPrice !== null && price < product.minSellingPrice) {
             globalToast.error(
-                `Price ${formatCurrency(price)} is below minimum ${formatCurrency(product.minSellingPrice)} for ${product.name}`
+                `Price ₦${price.toLocaleString()} is below minimum (₦${product.minSellingPrice.toLocaleString()}) for ${product.name}`
             );
             return;
         }
 
-        if (product.maxSellingPrice && price > product.maxSellingPrice) {
+        if (product.maxSellingPrice !== null && price > product.maxSellingPrice) {
             globalToast.error(
-                `Price ${formatCurrency(price)} exceeds maximum ${formatCurrency(product.maxSellingPrice)} for ${product.name}`
+                `Price ₦${price.toLocaleString()} exceeds maximum (₦${product.maxSellingPrice.toLocaleString()}) for ${product.name}`
             );
             return;
         }
 
-        // Out-of-stock check
+        // 🚫 Out-of-stock check
         if (product.currentStock <= 0) {
             globalToast.error(`${product.name} is out of stock and cannot be added to cart.`);
             return;
         }
 
-        // Warn if quantity exceeds stock
+        // 🧠 Warn if quantity exceeds stock
         if (data.quantity > product.currentStock) {
             globalToast.error(
                 `Only ${product.currentStock} units of ${product.name} available. Adjust quantity before adding.`
@@ -259,7 +258,7 @@ export const CreateSale: React.FC = () => {
             return;
         }
 
-        // Proceed with normal add-to-cart logic
+        // ✅ Proceed with normal add-to-cart logic
         const originalPrice = currentDiscountInfo?.originalPrice || data.unitPrice;
         const finalPrice = currentDiscountInfo?.finalPrice || data.unitPrice;
         const discountAmount = originalPrice - finalPrice;
@@ -298,7 +297,7 @@ export const CreateSale: React.FC = () => {
             unitPrice: 0,
         });
         setCurrentDiscountInfo(null);
-        setPriceValidation(null);
+        setPriceValidation(null); // ✅ Reset validation
         globalToast.success(editingItemId ? 'Item updated!' : 'Item added to cart!');
     };
 
@@ -327,7 +326,7 @@ export const CreateSale: React.FC = () => {
             unitPrice: 0,
         });
         setCurrentDiscountInfo(null);
-        setPriceValidation(null);
+        setPriceValidation(null); // ✅ Reset validation
     };
 
     // Calculate cart totals
@@ -340,59 +339,87 @@ export const CreateSale: React.FC = () => {
         { subtotal: 0, discount: 0, total: 0 }
     );
 
-    // Create sale mutation
+    // ✅ FIXED: Create sale mutation with correct debt calculation
     const createSaleMutation = useMutation({
         mutationFn: async (saleData: SaleFormData) => {
             const receiptNumber = await generateReceiptNumber();
             const cartTotal = cartTotals.total;
 
-            // For credit sales, determine payment amount
-            const isCredit = saleData.paymentMethod === 'CREDIT';
+            const totalAmountPaid = showPartialPayment && saleData.amountPaid
+                ? parseFloat(String(saleData.amountPaid).replace(/[₦,\s]/g, ''))
+                : 0;
 
-            // Create sales for each cart item with the same receipt number
+            console.log('💰 FRONTEND PAYMENT CALC:', {
+                showPartialPayment,
+                rawAmountPaid: saleData.amountPaid,
+                cleanedAmountPaid: totalAmountPaid,
+                cartTotal
+            });
+
             const salePromises = cart.map(item => {
-                const salePayload: any = {
-                    receiptNumber,
+                // ✅ FIXED: Use finalTotal instead of recalculating
+                const itemTotal = item.finalTotal;
+
+                // Calculate proportional partial payment
+                let itemAmountPaid = 0;
+                if (totalAmountPaid > 0 && cartTotal > 0) {
+                    itemAmountPaid = (itemTotal / cartTotal) * totalAmountPaid;
+                }
+
+                const selectedCustomer = customersData?.data?.customers?.find(
+                    (c: any) => c.id === saleData.warehouseCustomerId
+                );
+
+                const payload: any = {
                     productId: item.productId,
                     quantity: item.quantity,
                     unitType: item.unitType,
                     unitPrice: item.discountedUnitPrice,
-                    paymentMethod: isCredit
-                        ? (showPartialPayment ? saleData.initialPaymentMethod! : 'CREDIT')
-                        : saleData.paymentMethod,
                     warehouseCustomerId: saleData.warehouseCustomerId,
-                    customerName: customersData?.data?.customers?.find((c: any) => c.id === saleData.warehouseCustomerId)?.name || 'Walk-in Customer',
+                    customerName: selectedCustomer?.name || '',
+                    customerPhone: selectedCustomer?.phone || '',
+                    receiptNumber
                 };
 
-                // Add optional credit fields
-                if (isCredit) {
-                    if (saleData.creditDueDate) salePayload.creditDueDate = saleData.creditDueDate;
-                    if (saleData.creditNotes) salePayload.creditNotes = saleData.creditNotes;
+                // Handle credit sales properly
+                if (saleData.paymentMethod === 'CREDIT') {
+                    payload.paymentStatus = 'CREDIT';
+                    payload.creditDueDate = saleData.creditDueDate;
+                    payload.creditNotes = saleData.creditNotes;
+
+                    if (showPartialPayment && itemAmountPaid > 0) {
+                        payload.amountPaid = itemAmountPaid;
+                        payload.initialPaymentMethod = saleData.initialPaymentMethod;
+                        payload.paymentMethod = saleData.initialPaymentMethod;
+                    } else {
+                        delete payload.paymentMethod;
+                    }
+                } else {
+                    payload.paymentStatus = 'PAID';
+                    payload.paymentMethod = saleData.paymentMethod;
                 }
 
-                // Add partial payment info (split proportionally across items)
-                if (showPartialPayment && saleData.amountPaid) {
-                    const itemProportion = item.finalTotal / cartTotal;
-                    salePayload.amountPaid = saleData.amountPaid * itemProportion;
-                }
-
-                return warehouseService.createSale(salePayload);
+                console.log('📤 Sending sale payload:', payload);
+                return warehouseService.createSale(payload);
             });
 
-            // Execute all sales
             return Promise.all(salePromises);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-sales'] });
             queryClient.invalidateQueries({ queryKey: ['warehouse-inventory'] });
             queryClient.invalidateQueries({ queryKey: ['warehouse-customers'] });
-            globalToast.success('Sale recorded successfully!');
+            queryClient.invalidateQueries({ queryKey: ['warehouse-debtors'] });
+            globalToast.success(`Sale recorded successfully with ${cart.length} item(s)!`);
             navigate('/warehouse/sales');
         },
         onError: (error: any) => {
             const message = error.response?.data?.message || 'Failed to record sale';
-            if (error.response?.status === 400) {
-                globalToast.error(message);
+
+            // ✅ Highlight price range errors
+            if (message.includes('below minimum selling price') ||
+                message.includes('exceeds maximum selling price')) {
+                globalToast.error(`Price Range Error: ${message}`);
             } else {
                 globalToast.error(message);
             }
@@ -442,203 +469,271 @@ export const CreateSale: React.FC = () => {
     // Check if minimum quantity is met for current item
     const minimumQuantityMet = !currentDiscountInfo?.discount?.minimumQuantity ||
         watchedQuantity >= currentDiscountInfo.discount.minimumQuantity;
-
     const daysUntilExpiry = currentDiscountInfo?.discount?.validUntil
-        ? Math.ceil(
-            (new Date(currentDiscountInfo.discount.validUntil).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
-        )
+        ? Math.ceil((new Date(currentDiscountInfo.discount.validUntil).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
         : null;
 
     return (
-        <div className="max-w-7xl mx-auto p-6 space-y-6">
+        <div className="p-6 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate('/warehouse/sales')}
-                        className="flex items-center space-x-2"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        <span>Back</span>
-                    </Button>
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Record New Sale</h1>
+                    <p className="text-sm text-gray-600 mt-1">
+                        Select customer and add products to cart
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    onClick={() => navigate('/warehouse/sales')}
+                    className="flex items-center space-x-2"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back to Sales</span>
+                </Button>
+            </div>
+
+            {/* Customer Selection */}
+            <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex items-center space-x-2 mb-4">
+                    <User className="h-5 w-5 text-gray-600" />
+                    <h3 className="text-lg font-medium text-gray-900">Customer Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Create New Sale</h1>
-                        <p className="text-sm text-gray-600 mt-1">
-                            Add products to cart and complete the sale
-                        </p>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Select Customer *
+                        </label>
+                        <select
+                            {...register('warehouseCustomerId')}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        >
+                            <option value="">Choose customer</option>
+                            {customersData?.data?.customers?.map((customer: any) => (
+                                <option key={customer.id} value={customer.id}>
+                                    {customer.name} {customer.phone ? `(${customer.phone})` : ''}
+                                </option>
+                            ))}
+                        </select>
+                        {errors.warehouseCustomerId && (
+                            <p className="mt-1 text-sm text-red-600">{errors.warehouseCustomerId.message}</p>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Add Product Form */}
-            <div className="bg-white shadow rounded-lg overflow-hidden">
+            {/* Add Product to Cart */}
+            <div className="bg-white shadow rounded-lg">
                 <div className="px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-medium text-gray-900 flex items-center">
                         <Package className="h-5 w-5 mr-2" />
-                        Add Product to Cart
+                        {editingItemId ? 'Edit Product' : 'Add Product to Cart'}
                     </h3>
                 </div>
                 <div className="p-6">
-                    <form onSubmit={handleSubmitProduct(handleAddProduct)}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                            {/* Product Selection */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Product *
-                                </label>
-                                <select
-                                    {...registerProduct('productId')}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                >
-                                    <option value="">Select product</option>
-                                    {products?.map((product: any) => (
-                                        <option
-                                            key={product.id}
-                                            value={product.id}
-                                            disabled={product.currentStock <= 0}
-                                        >
-                                            {product.name} ({product.productNo})
-                                            {product.currentStock <= 0 ? ' - Out of Stock' : ` (${product.currentStock} in stock)`}
-                                        </option>
-                                    ))}
-                                </select>
-                                {productErrors.productId && (
-                                    <p className="mt-1 text-sm text-red-600">{productErrors.productId.message}</p>
-                                )}
-                            </div>
-
-                            {/* Quantity */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Quantity *
-                                </label>
-                                <Input
-                                    type="number"
-                                    {...registerProduct('quantity', { valueAsNumber: true })}
-                                    min="1"
-                                />
-                                {productErrors.quantity && (
-                                    <p className="mt-1 text-sm text-red-600">{productErrors.quantity.message}</p>
-                                )}
-                            </div>
-
-                            {/* Unit Type */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Unit Type *
-                                </label>
-                                <select
-                                    {...registerProduct('unitType')}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                >
-                                    <option value="PACKS">Packs</option>
-                                    <option value="PALLETS">Pallets</option>
-                                    <option value="UNITS">Units</option>
-                                </select>
-                            </div>
-
-                            {/* Unit Price */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Unit Price (₦) *
-                                </label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    {...registerProduct('unitPrice', { valueAsNumber: true })}
-                                    min="0.01"
-                                    className={priceValidation && !priceValidation.isValid ? 'border-red-500' : ''}
-                                />
-                                {priceValidation && (
-                                    <p className={`mt-1 text-xs ${priceValidation.color === 'red' ? 'text-red-600' :
-                                            priceValidation.color === 'green' ? 'text-green-600' :
-                                                'text-yellow-600'
-                                        }`}>
-                                        {priceValidation.message}
-                                    </p>
-                                )}
-                                {productErrors.unitPrice && (
-                                    <p className="mt-1 text-sm text-red-600">{productErrors.unitPrice.message}</p>
-                                )}
-                            </div>
-
-                            {/* Add Button */}
-                            <div className="flex items-end">
-                                {editingItemId ? (
-                                    <div className="flex space-x-2 w-full">
-                                        <Button
-                                            type="submit"
-                                            className="flex-1"
-                                            disabled={priceValidation?.isValid === false}
-                                        >
-                                            <Edit2 className="h-4 w-4 mr-1" />
-                                            Update
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={handleCancelEdit}
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <Button
-                                        type="submit"
-                                        className="w-full"
-                                        disabled={priceValidation?.isValid === false}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        {/* Product Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Product *
+                            </label>
+                            <select
+                                {...registerProduct('productId')}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                                <option value="">Select product</option>
+                                {products?.map((product) => (
+                                    <option
+                                        key={product.id}
+                                        value={product.id}
+                                        disabled={product.currentStock <= 0}
                                     >
-                                        <Plus className="h-4 w-4 mr-1" />
-                                        Add to Cart
-                                    </Button>
-                                )}
-                            </div>
+                                        {product.name} ({product.productNo})
+                                        {product.currentStock <= 0 ? ' - Out of Stock' : ` (${product.currentStock} in stock)`}
+                                    </option>
+                                ))}
+                            </select>
+                            {productErrors.productId && (
+                                <p className="mt-1 text-sm text-red-600">{productErrors.productId.message}</p>
+                            )}
                         </div>
-                    </form>
+
+                        {/* Quantity */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Quantity *
+                            </label>
+                            <Input
+                                type="number"
+                                {...registerProduct('quantity', { valueAsNumber: true })}
+                                min="1"
+                            />
+                            {productErrors.quantity && (
+                                <p className="mt-1 text-sm text-red-600">{productErrors.quantity.message}</p>
+                            )}
+                        </div>
+
+                        {/* Unit Type */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Unit Type *
+                            </label>
+                            <select
+                                {...registerProduct('unitType')}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                                <option value="PACKS">Packs</option>
+                                <option value="PALLETS">Pallets</option>
+                                <option value="UNITS">Units</option>
+                            </select>
+                        </div>
+
+                        {/* Unit Price */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Unit Price (₦) *
+                            </label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                {...registerProduct('unitPrice', { valueAsNumber: true })}
+                                min="0.01"
+                                className={priceValidation && !priceValidation.isValid ? 'border-red-500' : ''}
+                            />
+                            {priceValidation && (
+                                <p className={`mt-1 text-xs ${priceValidation.color === 'red' ? 'text-red-600' :
+                                        priceValidation.color === 'green' ? 'text-green-600' :
+                                            'text-yellow-600'
+                                    }`}>
+                                    {priceValidation.message}
+                                </p>
+                            )}
+                            {productErrors.unitPrice && (
+                                <p className="mt-1 text-sm text-red-600">{productErrors.unitPrice.message}</p>
+                            )}
+                        </div>
+
+                        {/* Add Button */}
+                        <div className="flex items-end">
+                            {editingItemId ? (
+                                <div className="flex space-x-2 w-full">
+                                    <Button
+                                        type="button"
+                                        onClick={handleSubmitProduct(handleAddProduct)}
+                                        variant="primary"
+                                        className="flex-1"
+                                    >
+                                        <Save className="h-4 w-4 mr-1" />
+                                        Update
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        onClick={handleCancelEdit}
+                                        variant="outline"
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    onClick={handleSubmitProduct(handleAddProduct)}
+                                    variant="primary"
+                                    className="w-full"
+                                    disabled={priceValidation && !priceValidation.isValid}
+                                >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Add to Cart
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ✅ NEW: Price Range Display */}
+                    {watchedProductId && products && (() => {
+                        const selectedProduct = products.find((p) => p.id === watchedProductId);
+                        if (!selectedProduct) return null;
+
+                        const hasRange = selectedProduct.minSellingPrice !== null && selectedProduct.maxSellingPrice !== null;
+
+                        return (
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                <div className="space-y-1 text-sm">
+                                    {selectedProduct.pricePerPack && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Standard Price:</span>
+                                            <span className="font-semibold text-gray-900">
+                                                ₦{selectedProduct.pricePerPack.toLocaleString()}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {hasRange ? (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-600">Allowed Range:</span>
+                                            <span className="font-semibold text-green-700">
+                                                ₦{selectedProduct.minSellingPrice!.toLocaleString()}
+                                                {' - '}
+                                                ₦{selectedProduct.maxSellingPrice!.toLocaleString()}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 text-yellow-600">
+                                            <AlertTriangle className="h-4 w-4" />
+                                            <span>No price range set - any price allowed</span>
+                                        </div>
+                                    )}
+
+                                    {selectedProduct.currentStock !== undefined && (
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>In Stock:</span>
+                                            <span>{selectedProduct.currentStock} units</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* Discount Info */}
                     {isCheckingDiscount && (
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                            <p className="text-sm text-blue-700">Checking for applicable discounts...</p>
+                        <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                            <p className="text-sm text-gray-600">Checking for discounts...</p>
                         </div>
                     )}
 
                     {currentDiscountInfo && currentDiscountInfo.hasDiscount && (
-                        <div className="mt-4">
-                            <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-                                <div className="flex items-start">
-                                    <Tag className="h-5 w-5 text-green-600 mr-2 mt-0.5" />
-                                    <div className="flex-1">
-                                        <h4 className="text-sm font-semibold text-green-800">
-                                            Discount Available!
-                                            {!minimumQuantityMet && (
-                                                <span className="ml-2 text-yellow-700">(Minimum quantity not met)</span>
-                                            )}
-                                        </h4>
-                                        <div className="mt-2 text-sm text-green-800 space-y-1">
+                        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                            <div className="flex items-start">
+                                <Tag className="h-5 w-5 text-green-600 mt-0.5 mr-2" />
+                                <div className="flex-1">
+                                    <h4 className="text-sm font-semibold text-green-900">
+                                        Discount Available!
+                                        {!minimumQuantityMet && (
+                                            <span className="ml-2 text-yellow-700">(Minimum quantity not met)</span>
+                                        )}
+                                    </h4>
+                                    <div className="mt-2 text-sm text-green-800 space-y-1">
+                                        <p>
+                                            <strong>Discount:</strong> {currentDiscountInfo.discountPercentage.toFixed(2)}%
+                                            ({currentDiscountInfo.discount?.type})
+                                        </p>
+                                        <p>
+                                            <strong>Original Price:</strong> ₦{currentDiscountInfo.originalPrice.toLocaleString()}
+                                        </p>
+                                        <p>
+                                            <strong>Discounted Price:</strong> ₦{currentDiscountInfo.finalPrice.toLocaleString()}
+                                        </p>
+                                        {currentDiscountInfo.discount?.minimumQuantity && (
                                             <p>
-                                                <strong>Discount:</strong> {currentDiscountInfo.discountPercentage.toFixed(2)}%
-                                                ({currentDiscountInfo.discount?.type})
+                                                <strong>Minimum Quantity:</strong> {currentDiscountInfo.discount.minimumQuantity}
                                             </p>
-                                            <p>
-                                                <strong>Original Price:</strong> {formatCurrency(currentDiscountInfo.originalPrice)}
+                                        )}
+                                        {daysUntilExpiry !== null && (
+                                            <p className={daysUntilExpiry < 7 ? 'text-yellow-700' : ''}>
+                                                <strong>Valid for:</strong> {daysUntilExpiry} more days
                                             </p>
-                                            <p>
-                                                <strong>Discounted Price:</strong> {formatCurrency(currentDiscountInfo.finalPrice)}
-                                            </p>
-                                            {currentDiscountInfo.discount?.minimumQuantity && (
-                                                <p>
-                                                    <strong>Minimum Quantity:</strong> {currentDiscountInfo.discount.minimumQuantity}
-                                                </p>
-                                            )}
-                                            {daysUntilExpiry !== null && (
-                                                <p className={daysUntilExpiry < 7 ? 'text-yellow-700' : ''}>
-                                                    <strong>Valid for:</strong> {daysUntilExpiry} more days
-                                                </p>
-                                            )}
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -684,56 +779,56 @@ export const CreateSale: React.FC = () => {
                                 {cart.map((item) => (
                                     <tr key={item.id}>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div>
-                                                <div className="text-sm font-medium text-gray-900">
-                                                    {item.productName}
-                                                </div>
-                                                <div className="text-sm text-gray-500">
-                                                    {item.productNo}
-                                                </div>
-                                            </div>
+                                            <div className="text-sm font-medium text-gray-900">{item.productName}</div>
+                                            <div className="text-sm text-gray-500">{item.productNo}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {item.quantity} {item.unitType}
+                                            {item.quantity} {item.unitType.toLowerCase()}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div>
-                                                <div className="text-sm text-gray-900">
-                                                    {formatCurrency(item.discountedUnitPrice)}
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {item.hasDiscount && (
+                                                <div className="text-xs text-gray-500 line-through">
+                                                    ₦{item.originalUnitPrice.toLocaleString()}
                                                 </div>
-                                                {item.hasDiscount && (
-                                                    <div className="text-xs text-gray-500 line-through">
-                                                        {formatCurrency(item.originalUnitPrice)}
-                                                    </div>
-                                                )}
+                                            )}
+                                            <div className={item.hasDiscount ? 'text-green-600 font-medium' : ''}>
+                                                ₦{item.discountedUnitPrice.toLocaleString()}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
                                             {item.hasDiscount ? (
-                                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                    {item.discountPercentage.toFixed(1)}% ({formatCurrency(item.discountTotal)})
-                                                </span>
+                                                <div className="text-green-600 font-medium">
+                                                    -{item.discountPercentage.toFixed(1)}%
+                                                    <div className="text-xs">
+                                                        -₦{item.discountTotal.toLocaleString()}
+                                                    </div>
+                                                </div>
                                             ) : (
-                                                <span className="text-sm text-gray-500">—</span>
+                                                <span className="text-gray-500">-</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {formatCurrency(item.finalTotal)}
+                                            ₦{item.finalTotal.toLocaleString()}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex items-center justify-end space-x-2">
-                                                <button
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
                                                     onClick={() => handleEditItem(item)}
-                                                    className="text-blue-600 hover:text-blue-900"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
                                                     onClick={() => handleRemoveItem(item.id)}
-                                                    className="text-red-600 hover:text-red-900"
+                                                    className="text-red-600 hover:text-red-700"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
-                                                </button>
+                                                </Button>
                                             </div>
                                         </td>
                                     </tr>
@@ -744,30 +839,27 @@ export const CreateSale: React.FC = () => {
                                     <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
                                         Subtotal:
                                     </td>
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                        {formatCurrency(cartTotals.subtotal)}
+                                    <td colSpan={2} className="px-6 py-4 text-sm text-gray-900">
+                                        ₦{cartTotals.subtotal.toLocaleString()}
                                     </td>
-                                    <td></td>
                                 </tr>
                                 {cartTotals.discount > 0 && (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-green-600">
-                                            Total Discount:
+                                        <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                                            Discount:
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-green-600">
-                                            -{formatCurrency(cartTotals.discount)}
+                                        <td colSpan={2} className="px-6 py-4 text-sm text-green-700">
+                                            -₦{cartTotals.discount.toLocaleString()}
                                         </td>
-                                        <td></td>
                                     </tr>
                                 )}
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-4 text-right text-lg font-bold text-gray-900">
-                                        Total:
+                                <tr className="bg-gray-100">
+                                    <td colSpan={4} className="px-6 py-4 text-right text-base font-bold text-gray-900">
+                                        Total Amount:
                                     </td>
-                                    <td className="px-6 py-4 text-lg font-bold text-gray-900">
-                                        {formatCurrency(cartTotals.total)}
+                                    <td colSpan={2} className="px-6 py-4 text-base font-bold text-gray-900">
+                                        ₦{cartTotals.total.toLocaleString()}
                                     </td>
-                                    <td></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -775,37 +867,15 @@ export const CreateSale: React.FC = () => {
                 </div>
             )}
 
-            {/* Payment Details Form */}
+            {/* Payment Information */}
             {cart.length > 0 && (
-                <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="bg-white shadow rounded-lg">
                     <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                            <User className="h-5 w-5 mr-2" />
-                            Payment Details
+                        <h3 className="text-lg font-medium text-gray-900">
+                            Payment Information
                         </h3>
                     </div>
                     <div className="p-6 space-y-4">
-                        {/* Customer Selection */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Customer *
-                            </label>
-                            <select
-                                {...register('warehouseCustomerId')}
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                            >
-                                <option value="">Select customer</option>
-                                {customersData?.data?.customers?.map((customer: any) => (
-                                    <option key={customer.id} value={customer.id}>
-                                        {customer.name} {customer.phone && `(${customer.phone})`}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.warehouseCustomerId && (
-                                <p className="mt-1 text-sm text-red-600">{errors.warehouseCustomerId.message}</p>
-                            )}
-                        </div>
-
                         {/* Payment Method */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -829,6 +899,18 @@ export const CreateSale: React.FC = () => {
                         {/* Credit Sale Fields */}
                         {watchedPaymentMethod === 'CREDIT' && (
                             <>
+                                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                                    <div className="flex items-start">
+                                        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" />
+                                        <div className="flex-1">
+                                            <h4 className="text-sm font-semibold text-yellow-900">Credit Sale</h4>
+                                            <p className="text-sm text-yellow-800 mt-1">
+                                                This sale will be recorded as credit. The customer will need to pay later.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Due Date *
@@ -845,49 +927,62 @@ export const CreateSale: React.FC = () => {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Notes
+                                        Credit Notes
                                     </label>
                                     <textarea
                                         {...register('creditNotes')}
                                         rows={3}
                                         className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                        placeholder="Optional notes about this credit sale..."
                                     />
                                 </div>
 
-                                {/* Partial Payment Toggle */}
-                                <div className="flex items-center">
+                                {/* Partial Payment Option */}
+                                <div className="flex items-center space-x-2">
                                     <input
                                         type="checkbox"
                                         id="partialPayment"
                                         checked={showPartialPayment}
-                                        onChange={(e) => setShowPartialPayment(e.target.checked)}
+                                        onChange={(e) => {
+                                            setShowPartialPayment(e.target.checked);
+                                            if (!e.target.checked) {
+                                                setValue('amountPaid', 0);
+                                                setValue('initialPaymentMethod', undefined);
+                                            }
+                                        }}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
-                                    <label htmlFor="partialPayment" className="ml-2 block text-sm text-gray-900">
-                                        Make partial payment now
+                                    <label htmlFor="partialPayment" className="text-sm font-medium text-gray-700">
+                                        Customer making partial payment now
                                     </label>
                                 </div>
 
                                 {/* Partial Payment Fields */}
                                 {showPartialPayment && (
-                                    <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-md">
+                                    <div className="ml-6 space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Amount Paid (₦) *
+                                                Amount Paid Now (₦) *
                                             </label>
                                             <Input
                                                 type="number"
                                                 step="0.01"
                                                 {...register('amountPaid', { valueAsNumber: true })}
+                                                min="0.01"
                                                 max={cartTotals.total}
+                                                placeholder={`Max: ₦${cartTotals.total.toLocaleString()}`}
                                             />
                                             {errors.amountPaid && (
                                                 <p className="mt-1 text-sm text-red-600">{errors.amountPaid.message}</p>
                                             )}
+                                            <p className="mt-1 text-xs text-gray-600">
+                                                Remaining balance: ₦{((cartTotals.total) - (watch('amountPaid') || 0)).toLocaleString()}
+                                            </p>
                                         </div>
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Payment Method *
+                                                Payment Method for Partial Payment *
                                             </label>
                                             <select
                                                 {...register('initialPaymentMethod')}
