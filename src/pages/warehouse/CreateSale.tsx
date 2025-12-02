@@ -279,7 +279,8 @@ export const CreateSale: React.FC = () => {
             });
 
             const salePromises = cart.map(item => {
-                const itemTotal = item.quantity * item.unitPrice;
+                const itemTotal = item.finalTotal;
+
 
                 // Calculate proportional partial payment
                 let itemAmountPaid = 0;
