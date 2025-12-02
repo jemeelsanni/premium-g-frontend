@@ -1,4 +1,4 @@
-// src/types/warehouse.ts - COMPLETE FIXED VERSION
+// src/types/warehouse.ts - FIXED VERSION
 
 export interface WarehouseCustomer {
   id: string;
@@ -14,13 +14,13 @@ export interface WarehouseCustomer {
   totalSpent?: number;
   averageOrderValue?: number;
   lastPurchaseDate?: string | null;
-   paymentReliabilityScore: number;
-    outstandingDebt: number;
+  paymentReliabilityScore: number;
+  outstandingDebt: number;
   isActive?: boolean;
   createdAt: string;
   updatedAt: string;
   isVIP?: boolean;
-    isRecent?: boolean;
+  isRecent?: boolean;
 }
 
 export interface WarehouseSaleRecord {
@@ -70,7 +70,6 @@ export interface WarehouseSaleItem {
   grossProfit?: number | null;
 }
 
-// ✅ FIXED: Added missing discount fields
 export interface WarehouseSale {
   receiptNumber: string;
   saleIds: string[];
@@ -90,20 +89,20 @@ export interface WarehouseSale {
   totalCost: number;
   grossProfit: number;
   discountApplied: boolean;
-  discountPercentage?: number | null;  // ✅ ADDED
-  discountReason?: string | null;      // ✅ ADDED - Fixes TypeScript error
-  originalUnitPrice?: number | null;   // ✅ ADDED
-  approvedBy?: string | null;          // ✅ ADDED
+  discountPercentage?: number | null;
+  discountReason?: string | null;
+  originalUnitPrice?: number | null;
+  approvedBy?: string | null;
   createdAt: string;
   totalQuantity: number;
   itemsCount: number;
   paymentStatus: 'PAID' | 'CREDIT' | 'PARTIAL';
   creditDueDate?: string;
   debtor?: {
-        amountPaid: number;
-        amountDue: number;
-    };
-    creditNotes?: string;
+    amountPaid: number;
+    amountDue: number;
+  };
+  creditNotes?: string;
   items: WarehouseSaleItem[];
 }
 
@@ -127,15 +126,16 @@ export interface WarehouseInventory {
   updatedAt?: string;
 }
 
+// ✅ FIXED: Changed minSellingPrice and maxSellingPrice from boolean to number | null
 export interface Product {
-  minSellingPrice: boolean;
-  maxSellingPrice: boolean;
   id: string;
   name: string;
   productNo: string;
   description?: string;
   pricePerPack?: number;
   costPerPack?: number;
+  minSellingPrice?: number | null;  // ✅ FIXED: was boolean, now number | null
+  maxSellingPrice?: number | null;  // ✅ FIXED: was boolean, now number | null
   isActive: boolean;
   currentStock: number;
 }
@@ -169,4 +169,108 @@ export interface WarehouseExpense {
   approver?: {
     username?: string;
   } | null;
+}
+
+export interface WarehouseDiscount {
+  id: string;
+  productId: string;
+  product?: Product;
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  value: number;
+  reason?: string | null;
+  minimumQuantity?: number | null;
+  maximumDiscountAmount?: number | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+  isActive: boolean;
+  requiresApproval: boolean;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  approvalRequestId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WarehouseDebtor {
+  id: string;
+  saleId: string;
+  warehouseCustomerId: string;
+  warehouseCustomer?: WarehouseCustomer;
+  sale?: WarehouseSale;
+  amountDue: number;
+  amountPaid: number;
+  remainingBalance: number;
+  dueDate?: string | null;
+  status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE';
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  payments?: DebtorPayment[];
+}
+
+export interface DebtorPayment {
+  id: string;
+  debtorId: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  notes?: string | null;
+  recordedBy: string;
+  createdAt: string;
+}
+
+export interface OffloadPurchase {
+  id: string;
+  productId: string;
+  product?: Product;
+  quantity: number;
+  unitType: string;
+  costPerUnit: number;
+  totalCost: number;
+  supplierName: string;
+  supplierContact?: string | null;
+  purchaseDate: string;
+  notes?: string | null;
+  recordedBy: string;
+  recordedByUser?: {
+    id: string;
+    username: string;
+    role: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailyOpeningStock {
+  id: string;
+  date: string;
+  productId: string;
+  product?: Product;
+  openingStock: number;
+  unitType: string;
+  recordedBy: string;
+  recordedByUser?: {
+    id: string;
+    username: string;
+    role: string;
+  };
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface WarehouseCashFlow {
+  id: string;
+  transactionType: 'SALE' | 'EXPENSE' | 'PURCHASE' | 'ADJUSTMENT';
+  amount: number;
+  description: string;
+  referenceId?: string | null;
+  referenceType?: string | null;
+  balanceAfter: number;
+  recordedBy: string;
+  recordedByUser?: {
+    id: string;
+    username: string;
+    role: string;
+  };
+  transactionDate: string;
+  createdAt: string;
 }
