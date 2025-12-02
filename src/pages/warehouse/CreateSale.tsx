@@ -14,7 +14,7 @@ import { adminService } from '../../services/adminService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { globalToast } from '../../components/ui/Toast';
-import type { Product } from '../../types/warehouse';
+import type { Product } from '../../types';
 
 const productItemSchema = z.object({
     productId: z.string().min(1, 'Product is required'),
@@ -157,7 +157,7 @@ export const CreateSale: React.FC = () => {
 
     // ✅ NEW: Real-time price validation
     useEffect(() => {
-        const product = products?.find((p) => p.id === watchedProductId);
+        const product = products?.find((p: { id: string; }) => p.id === watchedProductId);
         const price = watchedUnitPrice;
 
         if (!product || !price || price <= 0) {
@@ -166,7 +166,7 @@ export const CreateSale: React.FC = () => {
         }
 
         const hasRange = (typeof product.minSellingPrice === 'number' && product.minSellingPrice !== null) ||
-                         (typeof product.maxSellingPrice === 'number' && product.maxSellingPrice !== null);
+            (typeof product.maxSellingPrice === 'number' && product.maxSellingPrice !== null);
 
         if (!hasRange) {
             setPriceValidation({
@@ -614,8 +614,8 @@ export const CreateSale: React.FC = () => {
                             />
                             {priceValidation && (
                                 <p className={`mt-1 text-xs ${priceValidation.color === 'red' ? 'text-red-600' :
-                                        priceValidation.color === 'green' ? 'text-green-600' :
-                                            'text-yellow-600'
+                                    priceValidation.color === 'green' ? 'text-green-600' :
+                                        'text-yellow-600'
                                     }`}>
                                     {priceValidation.message}
                                 </p>
