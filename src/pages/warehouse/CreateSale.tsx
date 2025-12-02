@@ -154,7 +154,8 @@ export const CreateSale: React.FC = () => {
             return;
         }
 
-        const hasRange = product.minSellingPrice !== null || product.maxSellingPrice !== null;
+        const hasRange = (typeof product.minSellingPrice === 'number' && product.minSellingPrice !== null) ||
+                         (typeof product.maxSellingPrice === 'number' && product.maxSellingPrice !== null);
 
         if (!hasRange) {
             setPriceValidation({
@@ -166,7 +167,7 @@ export const CreateSale: React.FC = () => {
         }
 
         // Check minimum
-        if (product.minSellingPrice !== null && price < product.minSellingPrice) {
+        if (product.minSellingPrice !== null && typeof product.minSellingPrice === 'number' && price < product.minSellingPrice) {
             setPriceValidation({
                 isValid: false,
                 message: `Below minimum (₦${product.minSellingPrice.toLocaleString()})`,
@@ -176,7 +177,7 @@ export const CreateSale: React.FC = () => {
         }
 
         // Check maximum
-        if (product.maxSellingPrice !== null && price > product.maxSellingPrice) {
+        if (product.maxSellingPrice !== null && typeof product.maxSellingPrice === 'number' && price > product.maxSellingPrice) {
             setPriceValidation({
                 isValid: false,
                 message: `Above maximum (₦${product.maxSellingPrice.toLocaleString()})`,
@@ -230,14 +231,14 @@ export const CreateSale: React.FC = () => {
         // ✅ NEW: Price range validation
         const price = data.unitPrice;
 
-        if (product.minSellingPrice !== null && price < product.minSellingPrice) {
+        if (product.minSellingPrice !== null && typeof product.minSellingPrice === 'number' && price < product.minSellingPrice) {
             globalToast.error(
                 `Price ₦${price.toLocaleString()} is below minimum (₦${product.minSellingPrice.toLocaleString()}) for ${product.name}`
             );
             return;
         }
 
-        if (product.maxSellingPrice !== null && price > product.maxSellingPrice) {
+        if (product.maxSellingPrice !== null && typeof product.maxSellingPrice === 'number' && price > product.maxSellingPrice) {
             globalToast.error(
                 `Price ₦${price.toLocaleString()} exceeds maximum (₦${product.maxSellingPrice.toLocaleString()}) for ${product.name}`
             );
@@ -654,12 +655,15 @@ export const CreateSale: React.FC = () => {
                         const selectedProduct = products.find((p) => p.id === watchedProductId);
                         if (!selectedProduct) return null;
 
-                        const hasRange = selectedProduct.minSellingPrice !== null && selectedProduct.maxSellingPrice !== null;
+                        const hasRange = typeof selectedProduct.minSellingPrice === 'number' &&
+                                        typeof selectedProduct.maxSellingPrice === 'number' &&
+                                        selectedProduct.minSellingPrice !== null &&
+                                        selectedProduct.maxSellingPrice !== null;
 
                         return (
                             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                                 <div className="space-y-1 text-sm">
-                                    {selectedProduct.pricePerPack && (
+                                    {typeof selectedProduct.pricePerPack === 'number' && selectedProduct.pricePerPack && (
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Standard Price:</span>
                                             <span className="font-semibold text-gray-900">
@@ -672,9 +676,9 @@ export const CreateSale: React.FC = () => {
                                         <div className="flex justify-between items-center">
                                             <span className="text-gray-600">Allowed Range:</span>
                                             <span className="font-semibold text-green-700">
-                                                ₦{selectedProduct.minSellingPrice!.toLocaleString()}
+                                                ₦{(selectedProduct.minSellingPrice as number).toLocaleString()}
                                                 {' - '}
-                                                ₦{selectedProduct.maxSellingPrice!.toLocaleString()}
+                                                ₦{(selectedProduct.maxSellingPrice as number).toLocaleString()}
                                             </span>
                                         </div>
                                     ) : (
