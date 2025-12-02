@@ -655,10 +655,9 @@ export const CreateSale: React.FC = () => {
                         const selectedProduct = products.find((p) => p.id === watchedProductId);
                         if (!selectedProduct) return null;
 
-                        const hasRange = typeof selectedProduct.minSellingPrice === 'number' &&
-                                        typeof selectedProduct.maxSellingPrice === 'number' &&
-                                        selectedProduct.minSellingPrice !== null &&
-                                        selectedProduct.maxSellingPrice !== null;
+                        const hasMinPrice = typeof selectedProduct.minSellingPrice === 'number' && selectedProduct.minSellingPrice !== null;
+                        const hasMaxPrice = typeof selectedProduct.maxSellingPrice === 'number' && selectedProduct.maxSellingPrice !== null;
+                        const hasRange = hasMinPrice || hasMaxPrice;
 
                         return (
                             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -676,9 +675,9 @@ export const CreateSale: React.FC = () => {
                                         <div className="flex justify-between items-center">
                                             <span className="text-gray-600">Allowed Range:</span>
                                             <span className="font-semibold text-green-700">
-                                                ₦{(selectedProduct.minSellingPrice as number).toLocaleString()}
-                                                {' - '}
-                                                ₦{(selectedProduct.maxSellingPrice as number).toLocaleString()}
+                                                {hasMinPrice && `₦${(selectedProduct.minSellingPrice as number).toLocaleString()}`}
+                                                {hasMinPrice && hasMaxPrice && ' - '}
+                                                {hasMaxPrice && `₦${(selectedProduct.maxSellingPrice as number).toLocaleString()}`}
                                             </span>
                                         </div>
                                     ) : (
