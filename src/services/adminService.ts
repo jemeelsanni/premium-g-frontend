@@ -49,7 +49,10 @@ export interface UpdateProductData {
   costPerPack?: number;
   module?: 'DISTRIBUTION' | 'WAREHOUSE' | 'BOTH';
   isActive?: boolean;
+  minSellingPrice?: number;    // ✅ ADD THIS
+  maxSellingPrice?: number;     // ✅ ADD THIS
 }
+
 
 export interface CreateCustomerData {
   name: string;

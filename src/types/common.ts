@@ -17,6 +17,8 @@ export interface Location {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  minSellingPrice?: number | null;   // ✅ ADD IF MISSING
+  maxSellingPrice?: number | null;    // ✅ ADD IF MISSING
 }
 
 export interface PaginatedResponse<T> {

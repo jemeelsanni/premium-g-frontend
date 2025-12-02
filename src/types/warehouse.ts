@@ -128,6 +128,8 @@ export interface WarehouseInventory {
 }
 
 export interface Product {
+  minSellingPrice: boolean;
+  maxSellingPrice: boolean;
   id: string;
   name: string;
   productNo: string;

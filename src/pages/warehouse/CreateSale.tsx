@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/warehouse/CreateSale.tsx
+// ✅ UPDATED VERSION with Price Range Enforcement & Debt Calculation Fix
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -68,6 +69,13 @@ interface DiscountInfo {
     };
 }
 
+// ✅ NEW: Price validation state interface
+interface PriceValidation {
+    isValid: boolean;
+    message: string;
+    color: 'red' | 'green' | 'yellow';
+}
+
 export const CreateSale: React.FC = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
@@ -77,6 +85,8 @@ export const CreateSale: React.FC = () => {
     const [currentDiscountInfo, setCurrentDiscountInfo] = useState<DiscountInfo | null>(null);
     const [showPartialPayment, setShowPartialPayment] = useState(false);
 
+    // ✅ NEW: Price validation state
+    const [priceValidation, setPriceValidation] = useState<PriceValidation | null>(null);
     // Product item form
     const {
         register: registerProduct,
@@ -132,6 +142,57 @@ export const CreateSale: React.FC = () => {
     const watchedUnitPrice = watchProduct('unitPrice');
     const watchedPaymentMethod = watch('paymentMethod');
 
+
+
+    // ✅ NEW: Real-time price validation
+    useEffect(() => {
+        const product = products?.find((p: any) => p.id === watchedProductId);
+        const price = watchedUnitPrice;
+
+        if (!product || !price || price <= 0) {
+            setPriceValidation(null);
+            return;
+        }
+
+        const hasRange = product.minSellingPrice || product.maxSellingPrice;
+
+        if (!hasRange) {
+            setPriceValidation({
+                isValid: true,
+                message: '⚠️ No price range set - any price allowed',
+                color: 'yellow'
+            });
+            return;
+        }
+
+        // Check minimum
+        if (product.minSellingPrice && price < product.minSellingPrice) {
+            setPriceValidation({
+                isValid: false,
+                message: `Below minimum (₦${parseFloat(product.minSellingPrice).toLocaleString()})`,
+                color: 'red'
+            });
+            return;
+        }
+
+        // Check maximum
+        if (product.maxSellingPrice && price > product.maxSellingPrice) {
+            setPriceValidation({
+                isValid: false,
+                message: `Above maximum (₦${parseFloat(product.maxSellingPrice).toLocaleString()})`,
+                color: 'red'
+            });
+            return;
+        }
+
+        // Price is valid
+        setPriceValidation({
+            isValid: true,
+            message: '✓ Price within allowed range',
+            color: 'green'
+        });
+    }, [watchedProductId, watchedUnitPrice, products]);
+
     // Check for discount when product, quantity, or price changes
     useEffect(() => {
         const checkDiscount = async () => {
@@ -158,7 +219,7 @@ export const CreateSale: React.FC = () => {
         checkDiscount();
     }, [watchedCustomerId, watchedProductId, watchedQuantity, watchedUnitPrice]);
 
-    // Add product to cart
+    // ✅ UPDATED: Add product to cart with price range validation
     const handleAddProduct = (data: ProductItemFormData) => {
         const product = products?.find((p: any) => p.id === data.productId);
         if (!product) {
@@ -166,13 +227,30 @@ export const CreateSale: React.FC = () => {
             return;
         }
 
+        // ✅ NEW: Price range validation
+        const price = data.unitPrice;
+
+        if (product.minSellingPrice && price < product.minSellingPrice) {
+            globalToast.error(
+                `Price ₦${price.toLocaleString()} is below minimum (₦${parseFloat(product.minSellingPrice).toLocaleString()}) for ${product.name}`
+            );
+            return;
+        }
+
+        if (product.maxSellingPrice && price > product.maxSellingPrice) {
+            globalToast.error(
+                `Price ₦${price.toLocaleString()} exceeds maximum (₦${parseFloat(product.maxSellingPrice).toLocaleString()}) for ${product.name}`
+            );
+            return;
+        }
+
         // 🚫 Out-of-stock check
         if (product.currentStock <= 0) {
             globalToast.error(`${product.name} is out of stock and cannot be added to cart.`);
-            return; // stop here
+            return;
         }
 
-        // 🧠 Optional: Warn if quantity exceeds stock
+        // 🧠 Warn if quantity exceeds stock
         if (data.quantity > product.currentStock) {
             globalToast.error(
                 `Only ${product.currentStock} units of ${product.name} available. Adjust quantity before adding.`
@@ -219,9 +297,9 @@ export const CreateSale: React.FC = () => {
             unitPrice: 0,
         });
         setCurrentDiscountInfo(null);
+        setPriceValidation(null); // ✅ Reset validation
         globalToast.success(editingItemId ? 'Item updated!' : 'Item added to cart!');
     };
-
 
     // Edit cart item
     const handleEditItem = (item: CartItem) => {
@@ -248,6 +326,7 @@ export const CreateSale: React.FC = () => {
             unitPrice: 0,
         });
         setCurrentDiscountInfo(null);
+        setPriceValidation(null); // ✅ Reset validation
     };
 
     // Calculate cart totals
@@ -260,13 +339,11 @@ export const CreateSale: React.FC = () => {
         { subtotal: 0, discount: 0, total: 0 }
     );
 
-    // Create sale mutation
+    // ✅ FIXED: Create sale mutation with correct debt calculation
     const createSaleMutation = useMutation({
         mutationFn: async (saleData: SaleFormData) => {
             const receiptNumber = await generateReceiptNumber();
             const cartTotal = cartTotals.total;
-
-            // 🔥 FIX: Clean the amount paid to prevent multiplication
             const totalAmountPaid = showPartialPayment && saleData.amountPaid
                 ? parseFloat(String(saleData.amountPaid).replace(/[₦,\s]/g, ''))
                 : 0;
@@ -279,8 +356,8 @@ export const CreateSale: React.FC = () => {
             });
 
             const salePromises = cart.map(item => {
+                // ✅ FIXED: Use finalTotal instead of recalculating
                 const itemTotal = item.finalTotal;
-
 
                 // Calculate proportional partial payment
                 let itemAmountPaid = 0;
@@ -300,22 +377,20 @@ export const CreateSale: React.FC = () => {
                     warehouseCustomerId: saleData.warehouseCustomerId,
                     customerName: selectedCustomer?.name || '',
                     customerPhone: selectedCustomer?.phone || '',
-                    // paymentMethod: saleData.paymentMethod,
                     receiptNumber
                 };
 
-                // ✅ FIX: Handle credit sales properly
+                // Handle credit sales properly
                 if (saleData.paymentMethod === 'CREDIT') {
-                    payload.paymentStatus = 'CREDIT';  // ✅ MAKE SURE THIS LINE EXISTS
+                    payload.paymentStatus = 'CREDIT';
                     payload.creditDueDate = saleData.creditDueDate;
                     payload.creditNotes = saleData.creditNotes;
 
                     if (showPartialPayment && itemAmountPaid > 0) {
                         payload.amountPaid = itemAmountPaid;
                         payload.initialPaymentMethod = saleData.initialPaymentMethod;
-                        payload.paymentMethod = saleData.initialPaymentMethod; // ✅ Add actual payment method
+                        payload.paymentMethod = saleData.initialPaymentMethod;
                     } else {
-                        // For credit without partial payment, don't send paymentMethod
                         delete payload.paymentMethod;
                     }
                 } else {
@@ -338,20 +413,25 @@ export const CreateSale: React.FC = () => {
             navigate('/warehouse/sales');
         },
         onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to record sale');
+            const message = error.response?.data?.message || 'Failed to record sale';
+
+            // ✅ Highlight price range errors
+            if (message.includes('below minimum selling price') ||
+                message.includes('exceeds maximum selling price')) {
+                globalToast.error(`Price Range Error: ${message}`);
+            } else {
+                globalToast.error(message);
+            }
         }
     });
-
 
     const onSubmit = (data: SaleFormData) => {
         if (cart.length === 0) {
             globalToast.error('Please add at least one product to the cart');
             return;
         }
-
         // Validate credit sale fields
         if (data.paymentMethod === 'CREDIT') {
-            // ✅ FIX: Ensure customer is selected for credit sales
             if (!data.warehouseCustomerId) {
                 globalToast.error('Please select a customer for credit sales');
                 return;
@@ -361,7 +441,6 @@ export const CreateSale: React.FC = () => {
                 globalToast.error('Please specify a due date for credit sale');
                 return;
             }
-
             // Validate partial payment
             if (showPartialPayment) {
                 if (!data.amountPaid || data.amountPaid <= 0) {
@@ -516,7 +595,16 @@ export const CreateSale: React.FC = () => {
                                 step="0.01"
                                 {...registerProduct('unitPrice', { valueAsNumber: true })}
                                 min="0.01"
+                                className={priceValidation && !priceValidation.isValid ? 'border-red-500' : ''}
                             />
+                            {priceValidation && (
+                                <p className={`mt-1 text-xs ${priceValidation.color === 'red' ? 'text-red-600' :
+                                    priceValidation.color === 'green' ? 'text-green-600' :
+                                        'text-yellow-600'
+                                    }`}>
+                                    {priceValidation.message}
+                                </p>
+                            )}
                             {productErrors.unitPrice && (
                                 <p className="mt-1 text-sm text-red-600">{productErrors.unitPrice.message}</p>
                             )}
@@ -549,6 +637,7 @@ export const CreateSale: React.FC = () => {
                                     onClick={handleSubmitProduct(handleAddProduct)}
                                     variant="primary"
                                     className="w-full"
+                                    disabled={priceValidation && !priceValidation.isValid}
                                 >
                                     <Plus className="h-4 w-4 mr-1" />
                                     Add to Cart
@@ -557,7 +646,53 @@ export const CreateSale: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Discount Info */}
+                    {/* ✅ NEW: Price Range Display */}
+                    {watchedProductId && products && (() => {
+                        const selectedProduct = products.find((p: any) => p.id === watchedProductId)
+                        if (!selectedProduct) return null;
+
+                        const hasRange = selectedProduct.minSellingPrice && selectedProduct.maxSellingPrice;
+
+                        return (
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                <div className="space-y-1 text-sm">
+                                    {selectedProduct.pricePerPack && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Standard Price:</span>
+                                            <span className="font-semibold text-gray-900">
+                                                ₦{parseFloat(selectedProduct.pricePerPack).toLocaleString()}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {hasRange ? (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-600">Allowed Range:</span>
+                                            <span className="font-semibold text-green-700">
+                                                ₦{parseFloat(selectedProduct.minSellingPrice).toLocaleString()}
+                                                {' - '}
+                                                ₦{parseFloat(selectedProduct.maxSellingPrice).toLocaleString()}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 text-yellow-600">
+                                            <AlertTriangle className="h-4 w-4" />
+                                            <span>No price range set - any price allowed</span>
+                                        </div>
+                                    )}
+
+                                    {selectedProduct.currentStock !== undefined && (
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>In Stock:</span>
+                                            <span>{selectedProduct.currentStock} units</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()};
+
+                    {/* Dscount Info */}
                     {isCheckingDiscount && (
                         <div className="mt-4 p-4 bg-gray-50 rounded-md">
                             <p className="text-sm text-gray-600">Checking for discounts...</p>
@@ -605,317 +740,307 @@ export const CreateSale: React.FC = () => {
             </div>
 
             {/* Cart */}
-            {
-                cart.length > 0 && (
-                    <div className="bg-white shadow rounded-lg overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                            <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                                <ShoppingCart className="h-5 w-5 mr-2" />
-                                Shopping Cart ({cart.length} {cart.length === 1 ? 'item' : 'items'})
-                            </h3>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Product
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Quantity
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Unit Price
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Discount
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Total
-                                        </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
+            {cart.length > 0 && (
+                <div className="bg-white shadow rounded-lg overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                            <ShoppingCart className="h-5 w-5 mr-2" />
+                            Shopping Cart ({cart.length} {cart.length === 1 ? 'item' : 'items'})
+                        </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Product
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Quantity
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Unit Price
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Discount
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Total
+                                    </th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {cart.map((item) => (
+                                    <tr key={item.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-gray-900">{item.productName}</div>
+                                            <div className="text-sm text-gray-500">{item.productNo}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {item.quantity} {item.unitType.toLowerCase()}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {item.hasDiscount && (
+                                                <div className="text-xs text-gray-500 line-through">
+                                                    ₦{item.originalUnitPrice.toLocaleString()}
+                                                </div>
+                                            )}
+                                            <div className={item.hasDiscount ? 'text-green-600 font-medium' : ''}>
+                                                ₦{item.discountedUnitPrice.toLocaleString()}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            {item.hasDiscount ? (
+                                                <div className="text-green-600 font-medium">
+                                                    -{item.discountPercentage.toFixed(1)}%
+                                                    <div className="text-xs">
+                                                        -₦{item.discountTotal.toLocaleString()}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-500">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            ₦{item.finalTotal.toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex items-center justify-end space-x-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleEditItem(item)}
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleRemoveItem(item.id)}
+                                                    className="text-red-600 hover:text-red-700"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {cart.map((item) => (
-                                        <tr key={item.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">{item.productName}</div>
-                                                <div className="text-sm text-gray-500">{item.productNo}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {item.quantity} {item.unitType.toLowerCase()}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {item.hasDiscount && (
-                                                    <div className="text-xs text-gray-500 line-through">
-                                                        ₦{item.originalUnitPrice.toLocaleString()}
-                                                    </div>
-                                                )}
-                                                <div className={item.hasDiscount ? 'text-green-600 font-medium' : ''}>
-                                                    ₦{item.discountedUnitPrice.toLocaleString()}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                {item.hasDiscount ? (
-                                                    <div className="text-green-600 font-medium">
-                                                        -{item.discountPercentage.toFixed(1)}%
-                                                        <div className="text-xs">
-                                                            -₦{item.discountTotal.toLocaleString()}
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-gray-500">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                ₦{item.finalTotal.toLocaleString()}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div className="flex items-center justify-end space-x-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleEditItem(item)}
-                                                    >
-                                                        <Edit2 className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleRemoveItem(item.id)}
-                                                        className="text-red-600 hover:text-red-700"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot className="bg-gray-50">
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-gray-50">
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
+                                        Subtotal:
+                                    </td>
+                                    <td colSpan={2} className="px-6 py-4 text-sm text-gray-900">
+                                        ₦{cartTotals.subtotal.toLocaleString()}
+                                    </td>
+                                </tr>
+                                {cartTotals.discount > 0 && (
                                     <tr>
                                         <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                                            Subtotal:
+                                            Discount:
                                         </td>
-                                        <td colSpan={2} className="px-6 py-4 text-sm text-gray-900">
-                                            ₦{cartTotals.subtotal.toLocaleString()}
-                                        </td>
-                                    </tr>
-                                    {cartTotals.discount > 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                                                Discount:
-                                            </td>
-                                            <td colSpan={2} className="px-6 py-4 text-sm text-green-700">
-                                                -₦{cartTotals.discount.toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    )}
-                                    <tr className="bg-gray-100">
-                                        <td colSpan={4} className="px-6 py-4 text-right text-base font-bold text-gray-900">
-                                            Total Amount:
-                                        </td>
-                                        <td colSpan={2} className="px-6 py-4 text-base font-bold text-gray-900">
-                                            ₦{cartTotals.total.toLocaleString()}
+                                        <td colSpan={2} className="px-6 py-4 text-sm text-green-700">
+                                            -₦{cartTotals.discount.toLocaleString()}
                                         </td>
                                     </tr>
-                                </tfoot>
-                            </table>
-                        </div>
+                                )}
+                                <tr className="bg-gray-100">
+                                    <td colSpan={4} className="px-6 py-4 text-right text-base font-bold text-gray-900">
+                                        Total Amount:
+                                    </td>
+                                    <td colSpan={2} className="px-6 py-4 text-base font-bold text-gray-900">
+                                        ₦{cartTotals.total.toLocaleString()}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
-                )
-            }
+                </div>
+            )}
 
             {/* Payment Information */}
-            {
-                cart.length > 0 && (
-                    <div className="bg-white shadow rounded-lg">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">
-                                Payment Information
-                            </h3>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            {/* Payment Method */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Payment Method *
-                                </label>
-                                <select
-                                    {...register('paymentMethod')}
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                >
-                                    <option value="CASH">Cash</option>
-                                    <option value="BANK_TRANSFER">Bank Transfer</option>
-                                    <option value="CARD">Card</option>
-                                    <option value="MOBILE_MONEY">Mobile Money</option>
-                                    <option value="CREDIT">Credit (Pay Later)</option>
-                                </select>
-                                {errors.paymentMethod && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.paymentMethod.message}</p>
-                                )}
-                            </div>
-
-                            {/* Credit Sale Fields */}
-                            {watchedPaymentMethod === 'CREDIT' && (
-                                <>
-                                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                                        <div className="flex items-start">
-                                            <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" />
-                                            <div className="flex-1">
-                                                <h4 className="text-sm font-semibold text-yellow-900">Credit Sale</h4>
-                                                <p className="text-sm text-yellow-800 mt-1">
-                                                    This sale will be recorded as credit. The customer will need to pay later.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Due Date *
-                                        </label>
-                                        <Input
-                                            type="date"
-                                            {...register('creditDueDate')}
-                                            min={new Date().toISOString().split('T')[0]}
-                                        />
-                                        {errors.creditDueDate && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.creditDueDate.message}</p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Credit Notes
-                                        </label>
-                                        <textarea
-                                            {...register('creditNotes')}
-                                            rows={3}
-                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            placeholder="Optional notes about this credit sale..."
-                                        />
-                                    </div>
-
-                                    {/* Partial Payment Option */}
-                                    <div className="flex items-center space-x-2">
-                                        <input
-                                            type="checkbox"
-                                            id="partialPayment"
-                                            checked={showPartialPayment}
-                                            onChange={(e) => {
-                                                setShowPartialPayment(e.target.checked);
-                                                if (!e.target.checked) {
-                                                    setValue('amountPaid', 0);
-                                                    setValue('initialPaymentMethod', undefined);
-                                                }
-                                            }}
-                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                        />
-                                        <label htmlFor="partialPayment" className="text-sm font-medium text-gray-700">
-                                            Customer making partial payment now
-                                        </label>
-                                    </div>
-
-                                    {/* Partial Payment Fields */}
-                                    {showPartialPayment && (
-                                        <div className="ml-6 space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Amount Paid Now (₦) *
-                                                </label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    {...register('amountPaid', { valueAsNumber: true })}
-                                                    min="0.01"
-                                                    max={cartTotals.total}
-                                                    placeholder={`Max: ₦${cartTotals.total.toLocaleString()}`}
-                                                />
-                                                {errors.amountPaid && (
-                                                    <p className="mt-1 text-sm text-red-600">{errors.amountPaid.message}</p>
-                                                )}
-                                                <p className="mt-1 text-xs text-gray-600">
-                                                    Remaining balance: ₦{((cartTotals.total) - (watch('amountPaid') || 0)).toLocaleString()}
-                                                </p>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Payment Method for Partial Payment *
-                                                </label>
-                                                <select
-                                                    {...register('initialPaymentMethod')}
-                                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                                >
-                                                    <option value="">Select method</option>
-                                                    <option value="CASH">Cash</option>
-                                                    <option value="BANK_TRANSFER">Bank Transfer</option>
-                                                    <option value="CARD">Card</option>
-                                                    <option value="MOBILE_MONEY">Mobile Money</option>
-                                                </select>
-                                                {errors.initialPaymentMethod && (
-                                                    <p className="mt-1 text-sm text-red-600">{errors.initialPaymentMethod.message}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </>
+            {cart.length > 0 && (
+                <div className="bg-white shadow rounded-lg">
+                    <div className="px-6 py-4 border-b border-gray-200">
+                        <h3 className="text-lg font-medium text-gray-900">
+                            Payment Information
+                        </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        {/* Payment Method */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Payment Method *
+                            </label>
+                            <select
+                                {...register('paymentMethod')}
+                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                                <option value="CASH">Cash</option>
+                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                <option value="CARD">Card</option>
+                                <option value="MOBILE_MONEY">Mobile Money</option>
+                                <option value="CREDIT">Credit (Pay Later)</option>
+                            </select>
+                            {errors.paymentMethod && (
+                                <p className="mt-1 text-sm text-red-600">{errors.paymentMethod.message}</p>
                             )}
+                        </div>
 
-                            {/* Submit Button */}
-                            <div className="flex justify-end space-x-3 pt-4 border-t">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => navigate('/warehouse/sales')}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="button"
-                                    onClick={handleSubmit(onSubmit)}
-                                    disabled={createSaleMutation.isPending || isSubmitting}
-                                    className="flex items-center space-x-2"
-                                >
-                                    {createSaleMutation.isPending ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                                            <span>Recording Sale...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CreditCard className="h-4 w-4" />
-                                            <span>Record Sale</span>
-                                        </>
+                        {/* Credit Sale Fields */}
+                        {watchedPaymentMethod === 'CREDIT' && (
+                            <>
+                                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                                    <div className="flex items-start">
+                                        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" />
+                                        <div className="flex-1">
+                                            <h4 className="text-sm font-semibold text-yellow-900">Credit Sale</h4>
+                                            <p className="text-sm text-yellow-800 mt-1">
+                                                This sale will be recorded as credit. The customer will need to pay later.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Due Date *
+                                    </label>
+                                    <Input
+                                        type="date"
+                                        {...register('creditDueDate')}
+                                        min={new Date().toISOString().split('T')[0]}
+                                    />
+                                    {errors.creditDueDate && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.creditDueDate.message}</p>
                                     )}
-                                </Button>
-                            </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Credit Notes
+                                    </label>
+                                    <textarea
+                                        {...register('creditNotes')}
+                                        rows={3}
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:brder-blue-500 sm:text-sm"
+                                        placeholder="Optional notes about this credit sale..."
+                                    />
+                                </div>
+
+                                {/* Partial Payment Option */}
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="partialPayment"
+                                        checked={showPartialPayment}
+                                        onChange={(e) => {
+                                            setShowPartialPayment(e.target.checked);
+                                            if (!e.target.checked) {
+                                                setValue('amountPaid', 0);
+                                                setValue('initialPaymentMethod', undefined);
+                                            }
+                                        }}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <label htmlFor="partialPayment" className="text-sm font-medium text-gray-700">
+                                        Customer making partial payment now
+                                    </label>
+                                </div>
+
+                                {/* Partial Payment Fields */}
+                                {showPartialPayment && (
+                                    <div className="ml-6 space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Amount Paid Now (₦) *
+                                            </label>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                {...register('amountPaid', { valueAsNumber: true })}
+                                                min="0.01"
+                                                max={cartTotals.total}
+                                                placeholder={`Max: ₦${cartTotals.total.toLocaleString()}`}
+                                            />
+                                            {errors.amountPaid && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.amountPaid.message}</p>
+                                            )}
+                                            <p className="mt-1 text-xs text-gray-600">
+                                                Remaining balance: ₦{((cartTotals.total) - (watch('amountPaid') || 0)).toLocaleString()}
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Payment Method for Partial Payment *
+                                            </label>
+                                            <select
+                                                {...register('initialPaymentMethod')}
+                                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            >
+                                                <option value="">Select method</option>
+                                                <option value="CASH">Cash</option>
+                                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                                <option value="CARD">Card</option>
+                                                <option value="MOBILE_MONEY">Mobile Money</option>
+                                            </select>
+                                            {errors.initialPaymentMethod && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.initialPaymentMethod.message}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Submit Button */}
+                        <div className="flex justify-end space-x-3 pt-4 border-t">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => navigate('/warehouse/sales')}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={handleSubmit(onSubmit)}
+                                disabled={createSaleMutation.isPending || isSubmitting}
+                                className="flex items-center space-x-2"
+                            >
+                                {createSaleMutation.isPending ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                                        <span>Recording Sale...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CreditCard className="h-4 w-4" />
+                                        <span>Record Sale</span>
+                                    </>
+                                )}
+                            </Button>
                         </div>
                     </div>
-                )
-            }
-        </div >
+                </div>
+            )}
+        </div>
     );
 };
+
 async function generateReceiptNumber() {
-    // Generate a timestamp-based prefix (YYYYMMDD)
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const datePrefix = `${year}${month}${day}`;
-
-    // Generate a random 4-digit number
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-
-    // Combine to create receipt number: YYYYMMDD-XXXX
     const receiptNumber = `${datePrefix}-${randomSuffix}`;
-
     return receiptNumber;
 }
