@@ -14,6 +14,7 @@ import OffloadPurchase from './OffloadPurchase';
 import DailyOpeningStock from './DailyOpeningStock';
 import ExpiringProducts from './ExpiringProducts';
 import { canAccessWarehouseFeature, WarehouseFeature } from '../../utils/warehousePermissions';
+import { JSX } from 'react';
 
 // Protected route wrapper component
 const ProtectedWarehouseRoute = ({
