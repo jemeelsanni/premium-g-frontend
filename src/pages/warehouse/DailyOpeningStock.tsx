@@ -7,7 +7,9 @@ import {
     TrendingDown,
     AlertTriangle,
     Download,
-    Filter
+    Filter,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { warehouseService } from '../../services/warehouseService';
@@ -20,14 +22,19 @@ const DailyOpeningStock: React.FC = () => {
     );
     const [filterProduct, setFilterProduct] = useState<string>('');
     const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
 
-    // Fetch opening stock data
+    // Fetch opening stock data with pagination
     const { data, isLoading, error } = useQuery<OpeningStockResponse>({
-        queryKey: ['openingStock', selectedDate, filterProduct],
+        queryKey: ['openingStock', selectedDate, filterProduct, showLowStockOnly, currentPage, pageSize],
         queryFn: async () => {
             return await warehouseService.getOpeningStock({
                 date: selectedDate,
                 productId: filterProduct || undefined,
+                lowStockOnly: showLowStockOnly,
+                page: currentPage,
+                limit: pageSize,
             });
         },
     });
@@ -41,74 +48,116 @@ const DailyOpeningStock: React.FC = () => {
     });
 
     const products = productsData || [];
+    const openingStockData = data?.data?.openingStock || [];
+    const summary = data?.data?.summary;
+    const pagination = data?.data?.pagination;
 
-    // Filter data based on UI filters
-    const filteredData = React.useMemo(() => {
-        if (!data?.data?.openingStock) return [];
+    // Calculate page numbers for pagination UI
+    const totalPages = pagination?.totalPages || 1;
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
 
-        let filtered = data.data.openingStock;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
-        if (showLowStockOnly) {
-            filtered = filtered.filter(item => item.stockStatus === 'LOW_STOCK');
+    if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+    }
+
+    // Export to CSV function - exports all data, not just current page
+    const handleExportCSV = async () => {
+        try {
+            // Fetch all data without pagination
+            const allData = await warehouseService.getOpeningStock({
+                date: selectedDate,
+                productId: filterProduct || undefined,
+                lowStockOnly: showLowStockOnly,
+                page: 1,
+                limit: 10000, // Large number to get all records
+            });
+
+            const dataToExport = allData.data.openingStock;
+
+            if (!dataToExport.length) return;
+
+            const headers = [
+                'Product No',
+                'Product Name',
+                'Location',
+                'Opening Stock (Total)',
+                'Opening Pallets',
+                'Opening Packs',
+                'Opening Units',
+                'Sales Qty',
+                'Sales Revenue',
+                'Purchases Qty',
+                'Closing Stock (Total)',
+                'Closing Pallets',
+                'Closing Packs',
+                'Closing Units',
+                'Variance',
+                'Status'
+            ];
+
+            const rows = dataToExport.map(item => [
+                item.productNo,
+                item.productName,
+                item.location || 'N/A',
+                item.openingStock.total,
+                item.openingStock.pallets,
+                item.openingStock.packs,
+                item.openingStock.units,
+                item.movements.salesQuantity,
+                item.movements.salesRevenue.toFixed(2),
+                item.movements.purchasesQuantity,
+                item.closingStock.total,
+                item.closingStock.pallets,
+                item.closingStock.packs,
+                item.closingStock.units,
+                item.variance.total,
+                item.stockStatus
+            ]);
+
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `opening-stock-${selectedDate}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to export CSV:', error);
         }
+    };
 
-        return filtered;
-    }, [data, showLowStockOnly]);
+    // Reset to page 1 when filters change
+    const handleDateChange = (date: string) => {
+        setSelectedDate(date);
+        setCurrentPage(1);
+    };
 
-    // Export to CSV function
-    const handleExportCSV = () => {
-        if (!filteredData.length) return;
+    const handleProductChange = (productId: string) => {
+        setFilterProduct(productId);
+        setCurrentPage(1);
+    };
 
-        const headers = [
-            'Product No',
-            'Product Name',
-            'Location',
-            'Opening Stock (Total)',
-            'Opening Pallets',
-            'Opening Packs',
-            'Opening Units',
-            'Sales Qty',
-            'Sales Revenue',
-            'Purchases Qty',
-            'Closing Stock (Total)',
-            'Closing Pallets',
-            'Closing Packs',
-            'Closing Units',
-            'Variance',
-            'Status'
-        ];
+    const handleLowStockToggle = (checked: boolean) => {
+        setShowLowStockOnly(checked);
+        setCurrentPage(1);
+    };
 
-        const rows = filteredData.map(item => [
-            item.productNo,
-            item.productName,
-            item.location || 'N/A',
-            item.openingStock.total,
-            item.openingStock.pallets,
-            item.openingStock.packs,
-            item.openingStock.units,
-            item.movements.salesQuantity,
-            item.movements.salesRevenue.toFixed(2),
-            item.movements.purchasesQuantity,
-            item.closingStock.total,
-            item.closingStock.pallets,
-            item.closingStock.packs,
-            item.closingStock.units,
-            item.variance.total,
-            item.stockStatus
-        ]);
-
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `opening-stock-${selectedDate}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+    const handlePageSizeChange = (size: number) => {
+        setPageSize(size);
+        setCurrentPage(1);
     };
 
     if (isLoading) {
@@ -127,8 +176,6 @@ const DailyOpeningStock: React.FC = () => {
         );
     }
 
-    const summary = data?.data?.summary;
-
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -141,7 +188,7 @@ const DailyOpeningStock: React.FC = () => {
                 </div>
                 <button
                     onClick={handleExportCSV}
-                    disabled={!filteredData.length}
+                    disabled={!openingStockData.length}
                     className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <Download className="h-4 w-4" />
@@ -165,7 +212,7 @@ const DailyOpeningStock: React.FC = () => {
                         <input
                             type="date"
                             value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
+                            onChange={(e) => handleDateChange(e.target.value)}
                             max={format(new Date(), 'yyyy-MM-dd')}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
@@ -178,7 +225,7 @@ const DailyOpeningStock: React.FC = () => {
                         </label>
                         <select
                             value={filterProduct}
-                            onChange={(e) => setFilterProduct(e.target.value)}
+                            onChange={(e) => handleProductChange(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                         >
                             <option value="">All Products</option>
@@ -190,6 +237,22 @@ const DailyOpeningStock: React.FC = () => {
                         </select>
                     </div>
 
+                    {/* Page Size */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Items per page
+                        </label>
+                        <select
+                            value={pageSize}
+                            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                    </div>
 
                     {/* Low Stock Toggle */}
                     <div className="flex items-end">
@@ -197,7 +260,7 @@ const DailyOpeningStock: React.FC = () => {
                             <input
                                 type="checkbox"
                                 checked={showLowStockOnly}
-                                onChange={(e) => setShowLowStockOnly(e.target.checked)}
+                                onChange={(e) => handleLowStockToggle(e.target.checked)}
                                 className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                             />
                             <span className="text-sm font-medium text-gray-700">
@@ -276,7 +339,6 @@ const DailyOpeningStock: React.FC = () => {
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Product
                                 </th>
-
                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Opening Stock
                                 </th>
@@ -298,14 +360,14 @@ const DailyOpeningStock: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredData.length === 0 ? (
+                            {openingStockData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                                         No data available for the selected date and filters
                                     </td>
                                 </tr>
                             ) : (
-                                filteredData.map((item) => (
+                                openingStockData.map((item) => (
                                     <tr key={item.productId} className="hover:bg-gray-50">
                                         <td className="px-4 py-4">
                                             <div>
@@ -370,6 +432,105 @@ const DailyOpeningStock: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination */}
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                        <div className="flex-1 flex justify-between sm:hidden">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1}
+                                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={currentPage === totalPages}
+                                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Next
+                            </button>
+                        </div>
+                        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-sm text-gray-700">
+                                    Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to{' '}
+                                    <span className="font-medium">
+                                        {Math.min(currentPage * pageSize, pagination.total)}
+                                    </span> of{' '}
+                                    <span className="font-medium">{pagination.total}</span> results
+                                </p>
+                            </div>
+                            <div>
+                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <span className="sr-only">Previous</span>
+                                        <ChevronLeft className="h-5 w-5" />
+                                    </button>
+
+                                    {startPage > 1 && (
+                                        <>
+                                            <button
+                                                onClick={() => setCurrentPage(1)}
+                                                className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                            >
+                                                1
+                                            </button>
+                                            {startPage > 2 && (
+                                                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                                    ...
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {pageNumbers.map((pageNum) => (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${pageNum === currentPage
+                                                    ? 'z-10 bg-purple-50 border-purple-500 text-purple-600'
+                                                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    ))}
+
+                                    {endPage < totalPages && (
+                                        <>
+                                            {endPage < totalPages - 1 && (
+                                                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                                    ...
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={() => setCurrentPage(totalPages)}
+                                                className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                            >
+                                                {totalPages}
+                                            </button>
+                                        </>
+                                    )}
+
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <span className="sr-only">Next</span>
+                                        <ChevronRight className="h-5 w-5" />
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

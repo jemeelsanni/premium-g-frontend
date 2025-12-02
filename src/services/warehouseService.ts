@@ -288,6 +288,12 @@ export interface OpeningStockResponse {
   data: {
     summary: OpeningStockSummary;
     openingStock: OpeningStockItem[];
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   };
 }
 
@@ -325,6 +331,31 @@ export interface OpeningStockHistoryFilters {
   startDate: string;
   endDate: string;
   productId?: string;
+}
+
+export interface OpeningStockFilters {
+  date?: string;
+  productId?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  lowStockOnly?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export interface OpeningStockResponse {
+  success: boolean;
+  data: {
+    summary: OpeningStockSummary;
+    openingStock: OpeningStockItem[];
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
 }
 
 export interface ExpiringBatch {
@@ -869,12 +900,15 @@ export class WarehouseService extends BaseApiService {
     if (filters?.location) params.append('location', filters.location);
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.lowStockOnly !== undefined) params.append('lowStockOnly', filters.lowStockOnly.toString());
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
 
     const queryString = params.toString();
     const endpoint = queryString ? `/opening-stock?${queryString}` : '/opening-stock';
 
     return this.get<OpeningStockResponse>(endpoint);
-  }
+}
 
   async getOpeningStockHistory(
     filters: OpeningStockHistoryFilters
