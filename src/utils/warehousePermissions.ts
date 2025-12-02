@@ -72,19 +72,19 @@ const warehousePermissions: Record<WarehouseFeature, UserRole[]> = {
   // Restricted features - only super admin and sales officer
   [WarehouseFeature.MANAGE_INVENTORY]: [
     UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.WAREHOUSE_ADMIN,
   ],
   [WarehouseFeature.CASH_FLOW]: [
     UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.WAREHOUSE_ADMIN,
   ],
   [WarehouseFeature.EXPENSES]: [
     UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.WAREHOUSE_ADMIN,
   ],
   [WarehouseFeature.PURCHASES]: [
     UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.WAREHOUSE_ADMIN,
   ],
 };
 
@@ -103,7 +103,7 @@ export const canEditDebtors = (): boolean => {
   if (!user) return false;
 
   // Only super admin and warehouse sales officer can edit/clear debtors
-  return [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_SALES_OFFICER].includes(user.role);
+  return [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role);
 };
 
 // Check if user has restricted warehouse access (warehouse admin or cashier)
@@ -111,7 +111,7 @@ export const hasRestrictedWarehouseAccess = (): boolean => {
   const { user } = useAuthStore.getState();
   if (!user) return false;
 
-  return [UserRole.WAREHOUSE_ADMIN, UserRole.CASHIER].includes(user.role);
+  return [UserRole.WAREHOUSE_SALES_OFFICER, UserRole.CASHIER].includes(user.role);
 };
 
 // Dashboard stats that should be visible
@@ -140,7 +140,7 @@ export const canViewDashboardStat = (stat: DashboardStat): boolean => {
   if (!user) return false;
 
   // Super admin and sales officer can see all stats
-  if ([UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_SALES_OFFICER].includes(user.role)) {
+  if ([UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role)) {
     return true;
   }
 
