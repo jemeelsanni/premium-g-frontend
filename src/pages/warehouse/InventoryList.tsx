@@ -211,6 +211,12 @@ export const InventoryList: React.FC = () => {
             render: (value: string) =>
                 value ? new Date(value).toLocaleDateString() : 'Never'
         },
+        {
+            key: 'stockValue',
+            title: 'Stock Value (Cost)',
+            render: (value: number | undefined) =>
+                value ? `₦${value.toLocaleString('en-NG', { minimumFractionDigits: 2 })}` : 'N/A'
+        },
     ];
 
     const Pagination = () => {
