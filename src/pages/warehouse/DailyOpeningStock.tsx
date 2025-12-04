@@ -58,7 +58,7 @@ const DailyOpeningStock: React.FC = () => {
     const maxVisiblePages = 5;
 
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
     if (endPage - startPage + 1 < maxVisiblePages) {
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
@@ -494,8 +494,8 @@ const DailyOpeningStock: React.FC = () => {
                                             key={pageNum}
                                             onClick={() => setCurrentPage(pageNum)}
                                             className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${pageNum === currentPage
-                                                    ? 'z-10 bg-purple-50 border-purple-500 text-purple-600'
-                                                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                                ? 'z-10 bg-purple-50 border-purple-500 text-purple-600'
+                                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                                                 }`}
                                         >
                                             {pageNum}

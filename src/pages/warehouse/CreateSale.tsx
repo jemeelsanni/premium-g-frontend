@@ -130,7 +130,10 @@ export const CreateSale: React.FC = () => {
     const { data: products } = useQuery<Product[]>({
         queryKey: ['warehouse-products'],
         queryFn: async () => {
-            const response = await adminService.getProducts({ isActive: true });
+            const response = await adminService.getProducts({
+                isActive: true,
+                limit: 10000
+            });
             const products = response.data.products || [];
             console.log('🔍 Fetched products with price ranges:', products);
             console.log('🔍 First product price fields:', products[0] ? {
