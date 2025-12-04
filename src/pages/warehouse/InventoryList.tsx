@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Package, AlertTriangle, Search, Plus } from 'lucide-react';
+import { Package, AlertTriangle, Search, Plus, DollarSign } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -65,8 +65,6 @@ export const InventoryList: React.FC = () => {
             globalToast.error(error.response?.data?.message || 'Failed to update inventory');
         }
     });
-
-
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
@@ -150,6 +148,13 @@ export const InventoryList: React.FC = () => {
     }).length;
 
     const totalStock = normalizedInventory.reduce((sum, item) => sum + parseNumber(item.currentStock), 0);
+
+    // ✅ NEW: Calculate total stock value (cost basis)
+    const totalStockValue = normalizedInventory.reduce((sum, item) => {
+        const stockValue = parseNumber((item as any).stockValue ?? 0);
+        return sum + stockValue;
+    }, 0);
+
     const wellStockCount = Math.max(normalizedInventory.length - lowStockCount, 0);
     const totalItems = pagination?.total ?? normalizedInventory.length;
     const selectedStatus = selectedItem ? getStockStatus(selectedItem) : null;
@@ -327,7 +332,7 @@ export const InventoryList: React.FC = () => {
             )}
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-5">
                 <div className="bg-white overflow-hidden shadow rounded-lg">
                     <div className="p-5">
                         <div className="flex items-center">
@@ -405,6 +410,30 @@ export const InventoryList: React.FC = () => {
                                     </dt>
                                     <dd className="text-2xl font-semibold text-gray-900">
                                         {totalStock.toLocaleString()}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ✅ NEW: Total Stock Value Card */}
+                <div className="bg-white overflow-hidden shadow rounded-lg">
+                    <div className="p-5">
+                        <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                                <DollarSign className="h-8 w-8 text-emerald-600" />
+                            </div>
+                            <div className="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt className="text-sm font-medium text-gray-500 truncate">
+                                        Stock Value
+                                    </dt>
+                                    <dd className="text-xl font-semibold text-emerald-600">
+                                        ₦{totalStockValue.toLocaleString('en-NG', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        })}
                                     </dd>
                                 </dl>
                             </div>
