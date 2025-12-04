@@ -150,6 +150,8 @@ export interface Customer {
 }
 
 export interface WarehouseExpense {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any;
   id: string;
   expenseType: string;
   category: string;
@@ -167,6 +169,7 @@ export interface WarehouseExpense {
     username?: string;
   };
   approver?: {
+    fullName: string | undefined;
     username?: string;
   } | null;
 }

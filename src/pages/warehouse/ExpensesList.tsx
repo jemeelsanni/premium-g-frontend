@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { CheckCircle2, XCircle, Clock, AlertCircle, Plus } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertCircle, Plus, Check, X, Eye } from 'lucide-react';
 
 import { warehouseService } from '../../services/warehouseService';
 import { WarehouseExpense } from '../../types/warehouse';
@@ -32,6 +32,7 @@ const expenseTypeOptions: Array<{ value: string; label: string }> = [
     { value: 'SECURITY', label: 'Security' },
     { value: 'CLEANING_SERVICES', label: 'Cleaning Services' },
     { value: 'INSURANCE', label: 'Insurance' },
+    { value: 'OFFLOAD', label: 'Truck Offload' },
     { value: 'OTHER', label: 'Other' }
 ];
 
@@ -41,10 +42,14 @@ export const ExpensesList: React.FC = () => {
     const queryClient = useQueryClient();
     const { user } = useAuthStore();
     const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
+    const isWarehouseAdmin = user?.role === UserRole.WAREHOUSE_ADMIN;
+    const canApprove = isSuperAdmin || isWarehouseAdmin;
 
     const [statusFilter, setStatusFilter] = useState<'' | WarehouseExpense['status']>('');
     const [currentPage, setCurrentPage] = useState(1);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [selectedExpense, setSelectedExpense] = useState<WarehouseExpense | null>(null);
     const [createForm, setCreateForm] = useState({
         expenseType: '',
         category: '',
@@ -101,9 +106,15 @@ export const ExpensesList: React.FC = () => {
             };
             return warehouseService.createExpense(payload);
         },
-        onSuccess: () => {
-            globalToast.success('Expense recorded and pending approval.');
+        onSuccess: (response) => {
+            const message = response?.data?.message || (
+                isWarehouseAdmin
+                    ? 'Expense recorded and automatically approved. Cash flow entry created.'
+                    : 'Expense recorded and pending approval.'
+            );
+            globalToast.success(message);
             queryClient.invalidateQueries({ queryKey: ['warehouse-expenses'] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse-cash-flow'] });
             setShowCreateModal(false);
             setCreateForm({ expenseType: '', category: '', amount: '', description: '' });
             setFormErrors({});
@@ -174,16 +185,16 @@ export const ExpensesList: React.FC = () => {
     };
 
     const handleApprove = (expense: WarehouseExpense) => {
-        if (!isSuperAdmin) {
-            globalToast.error('Only Super Admins can approve expenses.');
+        if (!canApprove) {
+            globalToast.error('Only Warehouse Admins or Super Admins can approve expenses.');
             return;
         }
         updateStatusMutation.mutate({ id: expense.id, status: 'APPROVED' });
     };
 
     const handleReject = (expense: WarehouseExpense) => {
-        if (!isSuperAdmin) {
-            globalToast.error('Only Super Admins can reject expenses.');
+        if (!canApprove) {
+            globalToast.error('Only Warehouse Admins or Super Admins can reject expenses.');
             return;
         }
         const reason = window.prompt('Provide a reason for rejection:')?.trim();
@@ -238,36 +249,45 @@ export const ExpensesList: React.FC = () => {
         {
             key: 'id',
             title: 'Actions',
-            render: (_value: string, record: WarehouseExpense) => {
-                if (!isSuperAdmin) {
-                    return (
+            render: (_value: string, record: WarehouseExpense) => (
+                <div className="flex items-center gap-2">
+                    {record.status === 'PENDING' && canApprove && (
+                        <>
+                            <button
+                                onClick={() => handleApprove(record)}
+                                className="text-green-600 hover:text-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Approve"
+                                disabled={updateStatusMutation.isPending}
+                            >
+                                <Check className="h-5 w-5" />
+                            </button>
+                            <button
+                                onClick={() => handleReject(record)}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Reject"
+                                disabled={updateStatusMutation.isPending}
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </>
+                    )}
+                    {record.status === 'PENDING' && !canApprove && (
                         <span className="text-xs text-gray-500">
-                            Awaiting super admin approval
+                            Awaiting approval
                         </span>
-                    );
-                }
-
-                return (
-                    <div className="flex items-center gap-2">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleApprove(record)}
-                            disabled={updateStatusMutation.isPending || record.status === 'APPROVED'}
-                        >
-                            Approve
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleReject(record)}
-                            disabled={updateStatusMutation.isPending || record.status === 'REJECTED'}
-                        >
-                            Reject
-                        </Button>
-                    </div>
-                );
-            }
+                    )}
+                    <button
+                        onClick={() => {
+                            setSelectedExpense(record);
+                            setShowDetailsModal(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="View Details"
+                    >
+                        <Eye className="h-5 w-5" />
+                    </button>
+                </div>
+            )
         }
     ];
 
@@ -338,7 +358,12 @@ export const ExpensesList: React.FC = () => {
                         Warehouse Expenses
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Track expenses and submit for Super Admin approval.
+                        {isWarehouseAdmin
+                            ? 'Create and manage warehouse expenses with automatic approval.'
+                            : isSuperAdmin
+                                ? 'Review and approve warehouse expenses.'
+                                : 'Track expenses and submit for approval.'
+                        }
                     </p>
                 </div>
                 <div className="mt-4 md:mt-0 flex items-center space-x-3">
@@ -355,8 +380,19 @@ export const ExpensesList: React.FC = () => {
             </div>
 
             <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-                Only Super Admins can approve or reject warehouse expenses. Submit your expenses and
-                they will remain pending until a Super Admin reviews them.
+                {isWarehouseAdmin ? (
+                    <>
+                        <strong>Warehouse Admin:</strong> Your expenses are automatically approved upon creation and immediately recorded in cash flow. No additional approval needed.
+                    </>
+                ) : isSuperAdmin ? (
+                    <>
+                        <strong>Super Admin:</strong> You can approve or reject all warehouse expenses. Approved expenses are automatically recorded in cash flow.
+                    </>
+                ) : (
+                    <>
+                        Submit your expenses for approval by Warehouse Admin or Super Admin. They will remain pending until reviewed.
+                    </>
+                )}
             </div>
 
             <div className="bg-white shadow rounded-lg p-4">
@@ -394,6 +430,7 @@ export const ExpensesList: React.FC = () => {
                 <Pagination />
             </div>
 
+            {/* Create Expense Modal */}
             <Modal
                 isOpen={showCreateModal}
                 onClose={() => {
@@ -447,6 +484,14 @@ export const ExpensesList: React.FC = () => {
                         />
                     </div>
 
+                    {isWarehouseAdmin && (
+                        <div className="rounded-md bg-green-50 border border-green-200 p-3">
+                            <p className="text-sm text-green-800">
+                                <strong>Auto-Approval:</strong> This expense will be automatically approved and recorded in cash flow upon submission.
+                            </p>
+                        </div>
+                    )}
+
                     <div className="flex justify-end space-x-3 pt-2">
                         <Button
                             type="button"
@@ -464,10 +509,97 @@ export const ExpensesList: React.FC = () => {
                             type="submit"
                             loading={createExpenseMutation.isPending}
                         >
-                            Submit for Approval
+                            {isWarehouseAdmin ? 'Create & Auto-Approve' : 'Submit for Approval'}
                         </Button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Expense Details Modal */}
+            <Modal
+                isOpen={showDetailsModal}
+                onClose={() => {
+                    setShowDetailsModal(false);
+                    setSelectedExpense(null);
+                }}
+                title="Expense Details"
+                maxWidth="lg"
+            >
+                {selectedExpense && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500">Expense Type</label>
+                                <p className="mt-1 text-sm text-gray-900 font-medium">
+                                    {selectedExpense.expenseType.replace(/_/g, ' ')}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500">Category</label>
+                                <p className="mt-1 text-sm text-gray-900">{selectedExpense.category}</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500">Amount</label>
+                                <p className="mt-1 text-sm text-gray-900 font-semibold">
+                                    {formatAmount(selectedExpense.amount)}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500">Status</label>
+                                <div className="mt-1">{statusBadge(selectedExpense.status)}</div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500">Created On</label>
+                                <p className="mt-1 text-sm text-gray-900">
+                                    {new Date(selectedExpense.createdAt).toLocaleString()}
+                                </p>
+                            </div>
+                            {selectedExpense.approver && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">
+                                        {selectedExpense.status === 'APPROVED' ? 'Approved By' : 'Reviewed By'}
+                                    </label>
+                                    <p className="mt-1 text-sm text-gray-900">
+                                        {selectedExpense.approver.username || selectedExpense.approver.fullName || 'Admin'}
+                                    </p>
+                                </div>
+                            )}
+                            {(selectedExpense as any).approvedAt && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500">
+                                        {selectedExpense.status === 'APPROVED' ? 'Approved On' : 'Reviewed On'}
+                                    </label>
+                                    <p className="mt-1 text-sm text-gray-900">
+                                        {new Date((selectedExpense as any).approvedAt).toLocaleString()}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        {selectedExpense.description && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500">Description</label>
+                                <p className="mt-1 text-sm text-gray-900">{selectedExpense.description}</p>
+                            </div>
+                        )}
+                        {selectedExpense.rejectionReason && (
+                            <div className="rounded-md bg-red-50 border border-red-200 p-3">
+                                <label className="block text-sm font-medium text-red-800">Rejection Reason</label>
+                                <p className="mt-1 text-sm text-red-700">{selectedExpense.rejectionReason}</p>
+                            </div>
+                        )}
+                        <div className="flex justify-end pt-4">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowDetailsModal(false);
+                                    setSelectedExpense(null);
+                                }}
+                            >
+                                Close
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );

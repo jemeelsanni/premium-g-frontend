@@ -306,7 +306,7 @@ const DailyOpeningStock: React.FC = () => {
                                     ₦{summary.totalSalesRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    {summary.totalSalesQuantity} units sold
+                                    {summary.totalSalesQuantity} packs sold
                                 </p>
                             </div>
                             <TrendingUp className="h-8 w-8 text-purple-500" />
