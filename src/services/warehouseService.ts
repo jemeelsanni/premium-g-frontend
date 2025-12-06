@@ -142,7 +142,7 @@ export interface CreateSaleData {
 export interface CustomerFilters {
   page?: number;
   limit?: number;
-  sortBy?: 'name' | 'recent' | 'topSpender' | 'topPurchases' | 'creditScore';
+  sortBy?: 'name' | 'recent' | 'topSpender' | 'topPurchases' | 'topProfit' | 'creditScore';
   customerType?: 'INDIVIDUAL' | 'BUSINESS' | 'RETAILER';
   hasOutstandingDebt?: boolean;
   search?: string;

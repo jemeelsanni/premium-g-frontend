@@ -212,18 +212,6 @@ export const CustomersList: React.FC = () => {
             ),
         },
         {
-            key: 'totalProfit',
-            title: 'Customer Profit',
-            render: (value: number) => {
-                const profit = parseFloat(value?.toString() || '0');
-                return (
-                    <span className={profit > 0 ? 'font-semibold text-green-600' : profit < 0 ? 'font-semibold text-red-600' : 'text-gray-500'}>
-                        {formatCurrency(profit)}
-                    </span>
-                );
-            },
-        },
-        {
             key: 'customerType',
             title: 'Type',
         },
@@ -249,6 +237,18 @@ export const CustomersList: React.FC = () => {
                 return (
                     <span className={debt > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'}>
                         {formatCurrency(debt)}
+                    </span>
+                );
+            },
+        },
+        {
+            key: 'totalProfit',
+            title: 'Profit',
+            render: (value: number) => {
+                const profit = parseFloat(value?.toString() || '0');
+                return (
+                    <span className={profit > 0 ? 'font-semibold text-green-600' : profit < 0 ? 'font-semibold text-red-600' : 'text-gray-500'}>
+                        {formatCurrency(profit)}
                     </span>
                 );
             },
@@ -338,6 +338,7 @@ export const CustomersList: React.FC = () => {
                     >
                         <option value="topPurchases">Most Purchases</option>
                         <option value="topSpender">Top Spenders</option>
+                        <option value="topProfit">Most Profitable</option>
                         <option value="recent">Recent Activity</option>
                         <option value="name">Name (A-Z)</option>
                         <option value="creditScore">Credit Score</option>
