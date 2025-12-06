@@ -81,8 +81,10 @@ export const SaleDetails: React.FC = () => {
         if (!confirmed) return;
 
         try {
-            // Use the first sale ID from the grouped sales
-            await warehouseService.deleteSale(saleData.data.saleIds[0]);
+            // Delete all sales in this receipt
+            for (const saleId of saleData.data.saleIds) {
+                await warehouseService.deleteSale(saleId);
+            }
             toast.success('Sale deleted successfully');
             navigate('/warehouse/sales');
         } catch (error) {
