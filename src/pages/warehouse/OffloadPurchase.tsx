@@ -175,6 +175,14 @@ const OffloadPurchase: React.FC = () => {
 
     const handleEditPurchase = (purchase: WarehousePurchase) => {
         setEditingPurchase(purchase);
+
+        // Format dates for HTML date inputs (YYYY-MM-DD)
+        const formatDateForInput = (dateString?: string) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+        };
+
         setFormData({
             productId: purchase.productId,
             vendorName: purchase.vendorName,
@@ -182,14 +190,14 @@ const OffloadPurchase: React.FC = () => {
             vendorEmail: purchase.vendorEmail || '',
             orderNumber: purchase.orderNumber || '',
             batchNumber: purchase.batchNumber || '',
-            expiryDate: purchase.expiryDate || '',
+            expiryDate: formatDateForInput(purchase.expiryDate),
             quantity: purchase.quantity,
             unitType: purchase.unitType,
             costPerUnit: purchase.costPerUnit,
             paymentMethod: purchase.paymentMethod,
             paymentStatus: purchase.paymentStatus,
             amountPaid: purchase.amountPaid,
-            purchaseDate: purchase.purchaseDate,
+            purchaseDate: formatDateForInput(purchase.purchaseDate),
             invoiceNumber: purchase.invoiceNumber || '',
             notes: purchase.notes || ''
         });

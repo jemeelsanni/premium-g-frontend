@@ -687,6 +687,12 @@ export class WarehouseService extends BaseApiService {
     customerName?: string;
     customerPhone?: string;
     notes?: string;
+    warehouseCustomerId?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    creditDueDate?: string;
+    creditNotes?: string;
+    amountPaid?: number;
   }): Promise<{
     success: boolean;
     message: string;

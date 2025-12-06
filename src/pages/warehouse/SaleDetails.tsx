@@ -2,7 +2,7 @@
 // src/pages/warehouse/SaleDetails.tsx
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     User,
     Phone,
@@ -19,9 +19,11 @@ import PrintableReceipt from './PrintableReceipt';
 import { Button } from '../../components/ui/Button';
 import { toast } from 'react-hot-toast';
 import { canAccessWarehouseFeature, WarehouseFeature } from '@/utils/warehousePermissions';
+import { EditSaleModal } from './EditSaleModal';
 
 export const SaleDetails: React.FC = () => {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const { id: receiptNumber } = useParams<{ id: string }>();
 
     const { data: saleData, isLoading } = useQuery({
@@ -32,6 +34,7 @@ export const SaleDetails: React.FC = () => {
 
     const [isExportingPDF, setIsExportingPDF] = useState(false);
     const [printMode, setPrintMode] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     // Handle Export PDF
     const handleExportPDF = async () => {
@@ -163,7 +166,7 @@ export const SaleDetails: React.FC = () => {
                     {canAccessWarehouseFeature(WarehouseFeature.EDIT_SALES) && (
                         <Button
                             variant="secondary"
-                            onClick={() => navigate(`/warehouse/sales/${sale.saleIds[0]}/edit`)}
+                            onClick={() => setIsEditModalOpen(true)}
                         >
                             <Edit className="h-4 w-4 mr-2" />
                             Edit Sale
@@ -465,6 +468,17 @@ export const SaleDetails: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+            {/* Edit Sale Modal */}
+            <EditSaleModal
+                sale={sale}
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                onSuccess={() => {
+                    // Refresh the sale data
+                    queryClient.invalidateQueries({ queryKey: ['warehouse-sale', receiptNumber] });
+                }}
+            />
         </div>
     );
 };
