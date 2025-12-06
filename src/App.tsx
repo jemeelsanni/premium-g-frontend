@@ -54,11 +54,13 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-          {/* Protected Main Dashboard */}
+          {/* Protected Main Dashboard - Super Admin Only */}
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute
+                allowedRoles={[UserRole.SUPER_ADMIN]}
+              >
                 <DashboardLayout>
                   <MainDashboard />
                 </DashboardLayout>
