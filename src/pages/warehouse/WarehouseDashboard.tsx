@@ -94,6 +94,13 @@ export const WarehouseDashboard: React.FC = () => {
         refetchInterval: 60000,
     });
 
+    // Fetch all-time debtor summary (not affected by period filters)
+    const { data: allTimeDebtorStats } = useQuery({
+        queryKey: ['warehouse-dashboard-debtors-alltime'],
+        queryFn: () => warehouseService.getDashboardStats({}),
+        select: (data) => data?.data?.debtorSummary
+    });
+
     const parseNumber = (value: unknown, fallback = 0) => {
         if (typeof value === 'number') {
             return Number.isFinite(value) ? value : fallback;
@@ -146,7 +153,6 @@ export const WarehouseDashboard: React.FC = () => {
     const summary = (stats?.data?.summary ?? {}) as Record<string, unknown>;
     const inventorySummary = (stats?.data?.inventory ?? {}) as Record<string, unknown>;
     const customerSummary = (stats?.data?.customerSummary ?? {}) as Record<string, unknown>;
-    const debtorSummary = (stats?.data?.debtorSummary ?? {}) as Record<string, unknown>;
     // const expenseBreakdown = (stats?.data?.expenseBreakdown ?? { total: 0, byCategory: {} }) as { total: number; byCategory: Record<string, number> };
 
     const safeSummaryNumber = (key: string, fallback = 0) => parseNumber(summary[key], fallback);
@@ -168,8 +174,14 @@ export const WarehouseDashboard: React.FC = () => {
         customersList?.active ?? 0
     );
 
+    // Use all-time debtor stats instead of period-filtered stats
+    const allTimeDebtorSummary = (allTimeDebtorStats ?? {}) as Record<string, unknown>;
     const totalOutstanding = parseNumber(
-        (debtorSummary as { totalOutstanding?: unknown })?.totalOutstanding,
+        (allTimeDebtorSummary as { totalOutstanding?: unknown })?.totalOutstanding,
+        0
+    );
+    const totalDebtors = parseNumber(
+        (allTimeDebtorSummary as { totalDebtors?: unknown })?.totalDebtors,
         0
     );
 
@@ -236,7 +248,7 @@ export const WarehouseDashboard: React.FC = () => {
             value: `₦${totalOutstanding.toLocaleString()}`,
             icon: AlertCircle,
             color: 'orange',
-            subtitle: `${parseNumber(debtorSummary.totalDebtors)} debtor${parseNumber(debtorSummary.totalDebtors) !== 1 ? 's' : ''}`
+            subtitle: `${totalDebtors} debtor${totalDebtors !== 1 ? 's' : ''}`
         },
         {
             statType: DashboardStat.INVENTORY_ITEMS,
