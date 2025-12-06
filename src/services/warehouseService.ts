@@ -559,6 +559,7 @@ export interface WarehousePurchase {
   batchNumber?: string;
   expiryDate?: string;
   quantity: number;
+  quantitySold: number;
   unitType: WarehouseUnitType;
   costPerUnit: number;
   totalCost: number;
@@ -677,6 +678,29 @@ export class WarehouseService extends BaseApiService {
 
   async createSale(data: CreateSaleData): Promise<CreateSaleResponse> {
     return this.post<CreateSaleResponse>(data, '/sales');
+  }
+
+  // Update Sale
+  async updateSale(id: string, data: {
+    quantity?: number;
+    unitPrice?: number;
+    customerName?: string;
+    customerPhone?: string;
+    notes?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: { sale: WarehouseSaleRecord };
+  }> {
+    return this.put(data, `/sales/${id}`);
+  }
+
+  // Delete Sale
+  async deleteSale(id: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.delete(`/sales/${id}`);
   }
 
   async getProducts(): Promise<Product[]> {
@@ -1231,6 +1255,23 @@ export class WarehouseService extends BaseApiService {
     data: WarehousePurchase;
   }> {
     return this.post<any>(data, '/purchases');
+  }
+
+  // Update Purchase
+  async updatePurchase(id: string, data: Partial<CreatePurchaseData>): Promise<{
+    success: boolean;
+    message: string;
+    data: { purchase: WarehousePurchase };
+  }> {
+    return this.put(data, `/purchases/${id}`);
+  }
+
+  // Delete Purchase
+  async deletePurchase(id: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.delete(`/purchases/${id}`);
   }
 
   async getPurchaseById(id: string): Promise<{ success: boolean; data: { purchase: WarehousePurchase } }> {

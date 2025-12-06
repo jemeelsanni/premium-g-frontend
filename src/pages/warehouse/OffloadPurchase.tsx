@@ -25,11 +25,14 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { globalToast } from '../../components/ui/Toast';
 import { Table } from '../../components/ui/Table';
+import { canAccessWarehouseFeature, WarehouseFeature } from '@/utils/warehousePermissions';
 
 const OffloadPurchase: React.FC = () => {
     const queryClient = useQueryClient();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showExpiringModal, setShowExpiringModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingPurchase, setEditingPurchase] = useState<WarehousePurchase | null>(null);
 
     const [formData, setFormData] = useState<Partial<CreatePurchaseData>>({
         vendorName: '',
@@ -97,6 +100,36 @@ const OffloadPurchase: React.FC = () => {
         }
     });
 
+    const updatePurchaseMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<CreatePurchaseData> }) =>
+            warehouseService.updatePurchase(id, data),
+        onSuccess: () => {
+            globalToast.success('Purchase updated successfully');
+            queryClient.invalidateQueries({ queryKey: ['warehouse-purchases'] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse-inventory'] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse-expiring-purchases'] });
+            setShowEditModal(false);
+            setEditingPurchase(null);
+            resetForm();
+        },
+        onError: (error: any) => {
+            globalToast.error(error.response?.data?.message || 'Failed to update purchase');
+        }
+    });
+
+    const deletePurchaseMutation = useMutation({
+        mutationFn: (id: string) => warehouseService.deletePurchase(id),
+        onSuccess: () => {
+            globalToast.success('Purchase deleted successfully');
+            queryClient.invalidateQueries({ queryKey: ['warehouse-purchases'] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse-inventory'] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse-expiring-purchases'] });
+        },
+        onError: (error: any) => {
+            globalToast.error(error.response?.data?.message || 'Failed to delete purchase');
+        }
+    });
+
     const resetForm = () => {
         setFormData({
             vendorName: '',
@@ -138,6 +171,45 @@ const OffloadPurchase: React.FC = () => {
         }
 
         createPurchaseMutation.mutate(formData as CreatePurchaseData);
+    };
+
+    const handleEditPurchase = (purchase: WarehousePurchase) => {
+        setEditingPurchase(purchase);
+        setFormData({
+            productId: purchase.productId,
+            vendorName: purchase.vendorName,
+            vendorPhone: purchase.vendorPhone || '',
+            vendorEmail: purchase.vendorEmail || '',
+            orderNumber: purchase.orderNumber || '',
+            batchNumber: purchase.batchNumber || '',
+            expiryDate: purchase.expiryDate || '',
+            quantity: purchase.quantity,
+            unitType: purchase.unitType,
+            costPerUnit: purchase.costPerUnit,
+            paymentMethod: purchase.paymentMethod,
+            paymentStatus: purchase.paymentStatus,
+            amountPaid: purchase.amountPaid,
+            purchaseDate: purchase.purchaseDate,
+            invoiceNumber: purchase.invoiceNumber || '',
+            notes: purchase.notes || ''
+        });
+        setShowEditModal(true);
+    };
+
+    const handleEditSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingPurchase) return;
+
+        updatePurchaseMutation.mutate({
+            id: editingPurchase.id,
+            data: formData as Partial<CreatePurchaseData>
+        });
+    };
+
+    const handleDeletePurchase = (purchaseId: string) => {
+        if (window.confirm('Are you sure you want to delete this purchase? This will affect inventory levels.')) {
+            deletePurchaseMutation.mutate(purchaseId);
+        }
     };
 
     const totalCost = (formData.quantity || 0) * (formData.costPerUnit || 0);
@@ -290,6 +362,36 @@ const OffloadPurchase: React.FC = () => {
                                     {value}
                                 </span>
                             )
+                        },
+                        {
+                            key: 'actions',
+                            title: 'Actions',
+                            render: (_value: any, record: any) => {
+                                const purchase = record as WarehousePurchase;
+                                return (
+                                    <div className="flex gap-2">
+                                        {canAccessWarehouseFeature(WarehouseFeature.EDIT_PURCHASES) && (
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={() => handleEditPurchase(purchase)}
+                                            >
+                                                Edit
+                                            </Button>
+                                        )}
+                                        {canAccessWarehouseFeature(WarehouseFeature.DELETE_PURCHASES) && (
+                                            <Button
+                                                size="sm"
+                                                variant="danger"
+                                                onClick={() => handleDeletePurchase(purchase.id)}
+                                                disabled={purchase.quantitySold > 0}
+                                            >
+                                                Delete
+                                            </Button>
+                                        )}
+                                    </div>
+                                );
+                            }
                         },
                         {
                             key: 'purchaseDate',
@@ -584,6 +686,236 @@ const OffloadPurchase: React.FC = () => {
                             loading={createPurchaseMutation.isPending}
                         >
                             Record Purchase
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Edit Purchase Modal */}
+            <Modal
+                isOpen={showEditModal}
+                onClose={() => {
+                    setShowEditModal(false);
+                    setEditingPurchase(null);
+                    resetForm();
+                }}
+                title="Edit Purchase"
+            >
+                <form onSubmit={handleEditSubmit} className="space-y-6">
+                    {/* Product Selection */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Product *
+                        </label>
+                        <select
+                            name="productId"
+                            value={formData.productId || ''}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            required
+                            disabled
+                        >
+                            <option value="">Select Product</option>
+                            {products.map((product: any) => (
+                                <option key={product.id} value={product.id}>
+                                    {product.name} ({product.productNo})
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Product cannot be changed after creation</p>
+                    </div>
+
+                    {/* Vendor Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <User className="w-4 h-4 inline mr-1" />
+                                Vendor Name *
+                            </label>
+                            <Input
+                                name="vendorName"
+                                value={formData.vendorName}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Phone className="w-4 h-4 inline mr-1" />
+                                Vendor Phone
+                            </label>
+                            <Input
+                                name="vendorPhone"
+                                value={formData.vendorPhone}
+                                onChange={handleInputChange}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Mail className="w-4 h-4 inline mr-1" />
+                                Vendor Email
+                            </label>
+                            <Input
+                                name="vendorEmail"
+                                type="email"
+                                value={formData.vendorEmail}
+                                onChange={handleInputChange}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Order/Batch Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Hash className="w-4 h-4 inline mr-1" />
+                                Order Number
+                            </label>
+                            <Input
+                                name="orderNumber"
+                                value={formData.orderNumber}
+                                onChange={handleInputChange}
+                                placeholder="e.g., ORD-2024-001"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <FileText className="w-4 h-4 inline mr-1" />
+                                Batch Number
+                            </label>
+                            <Input
+                                name="batchNumber"
+                                value={formData.batchNumber}
+                                onChange={handleInputChange}
+                                placeholder="e.g., BATCH-A123"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Clock className="w-4 h-4 inline mr-1" />
+                                Expiry Date
+                            </label>
+                            <Input
+                                name="expiryDate"
+                                type="date"
+                                value={formData.expiryDate}
+                                onChange={handleInputChange}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Payment Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Payment Method *
+                            </label>
+                            <select
+                                name="paymentMethod"
+                                value={formData.paymentMethod}
+                                onChange={handleInputChange}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                                <option value="CASH">Cash</option>
+                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                <option value="CHECK">Check</option>
+                                <option value="CARD">Card</option>
+                                <option value="MOBILE_MONEY">Mobile Money</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Payment Status *
+                            </label>
+                            <select
+                                name="paymentStatus"
+                                value={formData.paymentStatus}
+                                onChange={handleInputChange}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                                <option value="PAID">Paid</option>
+                                <option value="PARTIAL">Partial</option>
+                                <option value="PENDING">Pending</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <DollarSign className="w-4 h-4 inline mr-1" />
+                                Amount Paid
+                            </label>
+                            <Input
+                                name="amountPaid"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={formData.amountPaid}
+                                onChange={handleInputChange}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Additional Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Calendar className="w-4 h-4 inline mr-1" />
+                                Purchase Date *
+                            </label>
+                            <Input
+                                name="purchaseDate"
+                                type="date"
+                                value={formData.purchaseDate}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <FileText className="w-4 h-4 inline mr-1" />
+                                Invoice Number
+                            </label>
+                            <Input
+                                name="invoiceNumber"
+                                value={formData.invoiceNumber}
+                                onChange={handleInputChange}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Notes
+                        </label>
+                        <textarea
+                            name="notes"
+                            value={formData.notes}
+                            onChange={handleInputChange}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            placeholder="Additional notes about this purchase..."
+                        />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex justify-end space-x-3 pt-4 border-t">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                                setShowEditModal(false);
+                                setEditingPurchase(null);
+                                resetForm();
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            loading={updatePurchaseMutation.isPending}
+                        >
+                            Update Purchase
                         </Button>
                     </div>
                 </form>

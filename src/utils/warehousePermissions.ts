@@ -16,6 +16,12 @@ export enum WarehouseFeature {
   CASH_FLOW = 'CASH_FLOW',
   EXPENSES = 'EXPENSES',
   PURCHASES = 'PURCHASES',
+
+  // NEW: Edit permissions
+  EDIT_SALES = 'EDIT_SALES',
+  DELETE_SALES = 'DELETE_SALES',
+  EDIT_PURCHASES = 'EDIT_PURCHASES',
+  DELETE_PURCHASES = 'DELETE_PURCHASES',
 }
 
 // Define which roles can access which features
@@ -83,6 +89,24 @@ const warehousePermissions: Record<WarehouseFeature, UserRole[]> = {
     UserRole.WAREHOUSE_ADMIN,
   ],
   [WarehouseFeature.PURCHASES]: [
+    UserRole.SUPER_ADMIN,
+    UserRole.WAREHOUSE_ADMIN,
+  ],
+
+  // NEW: Edit permissions - only admin roles
+  [WarehouseFeature.EDIT_SALES]: [
+    UserRole.SUPER_ADMIN,
+    UserRole.WAREHOUSE_ADMIN,
+  ],
+  [WarehouseFeature.DELETE_SALES]: [
+    UserRole.SUPER_ADMIN,
+    UserRole.WAREHOUSE_ADMIN,
+  ],
+  [WarehouseFeature.EDIT_PURCHASES]: [
+    UserRole.SUPER_ADMIN,
+    UserRole.WAREHOUSE_ADMIN,
+  ],
+  [WarehouseFeature.DELETE_PURCHASES]: [
     UserRole.SUPER_ADMIN,
     UserRole.WAREHOUSE_ADMIN,
   ],

@@ -11,11 +11,14 @@ import {
     Package,
     TrendingDown,
     Download,
+    Edit,
+    Trash,
 } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import PrintableReceipt from './PrintableReceipt';
 import { Button } from '../../components/ui/Button';
 import { toast } from 'react-hot-toast';
+import { canAccessWarehouseFeature, WarehouseFeature } from '@/utils/warehousePermissions';
 
 export const SaleDetails: React.FC = () => {
     const navigate = useNavigate();
@@ -62,6 +65,26 @@ export const SaleDetails: React.FC = () => {
             window.print();
             setTimeout(() => setPrintMode(false), 1000);
         }, 300);
+    };
+
+    // Handle Delete Sale
+    const handleDeleteSale = async () => {
+        if (!receiptNumber) return;
+
+        const confirmed = window.confirm(
+            'Are you sure you want to delete this sale? This action cannot be undone.'
+        );
+
+        if (!confirmed) return;
+
+        try {
+            await warehouseService.deleteSale(receiptNumber);
+            toast.success('Sale deleted successfully');
+            navigate('/warehouse/sales');
+        } catch (error) {
+            toast.error('Failed to delete sale');
+            console.error('Delete error:', error);
+        }
     };
 
     if (isLoading) {
@@ -137,6 +160,26 @@ export const SaleDetails: React.FC = () => {
                     <Button onClick={handlePrintThermalReceipt}>
                         Print Thermal Receipt
                     </Button>
+                    {canAccessWarehouseFeature(WarehouseFeature.EDIT_SALES) && (
+                        <Button
+                            variant="secondary"
+                            onClick={() => navigate(`/warehouse/sales/${sale.saleIds[0]}/edit`)}
+                        >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Sale
+                        </Button>
+                    )}
+
+                    {canAccessWarehouseFeature(WarehouseFeature.DELETE_SALES) && (
+                        <Button
+                            variant="danger"
+                            onClick={handleDeleteSale}
+                            disabled={(sale.debtor?.amountDue ?? 0) > 0}
+                        >
+                            <Trash className="h-4 w-4 mr-2" />
+                            Delete Sale
+                        </Button>
+                    )}
                 </div>
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Sale Details</h2>
@@ -396,13 +439,13 @@ export const SaleDetails: React.FC = () => {
                             <div className="flex justify-between">
                                 <span>Amount Paid:</span>
                                 <span className="font-medium text-green-600">
-                                    {formatCurrency(sale.debtor.amountPaid)}
+                                    {formatCurrency(sale.debtor.amountPaid ?? 0)}
                                 </span>
                             </div>
                             <div className="flex justify-between border-t pt-2">
                                 <span>Outstanding Balance:</span>
                                 <span className="font-semibold text-red-600">
-                                    {formatCurrency(sale.debtor.amountDue)}
+                                    {formatCurrency(sale.debtor.amountDue ?? 0)}
                                 </span>
                             </div>
                             {sale.creditDueDate && (
@@ -410,7 +453,7 @@ export const SaleDetails: React.FC = () => {
                                     <span>Due Date:</span>
                                     <span
                                         className={`${new Date(sale.creditDueDate) < new Date() &&
-                                            sale.debtor.amountDue > 0
+                                            (sale.debtor.amountDue ?? 0) > 0
                                             ? 'text-red-600 font-semibold'
                                             : 'text-gray-800'
                                             }`}
