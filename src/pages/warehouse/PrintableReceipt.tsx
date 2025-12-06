@@ -93,6 +93,10 @@ const PrintableReceipt: React.FC<PrintableReceiptProps> = ({ sale, onClose }) =>
                     <span>-{formatCurrency(totalDiscount)}</span>
                 </p>
             )}
+            <p style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>VAT (0%):</span>
+                <span>₦0.00</span>
+            </p>
             <p
                 style={{
                     display: 'flex',
