@@ -12,6 +12,7 @@ export interface WarehouseCustomer {
   creditLimit?: number | null;
   totalPurchases: number;
   totalSpent?: number;
+  totalProfit?: number;
   averageOrderValue?: number;
   lastPurchaseDate?: string | null;
   paymentReliabilityScore: number;
