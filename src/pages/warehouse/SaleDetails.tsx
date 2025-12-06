@@ -72,7 +72,7 @@ export const SaleDetails: React.FC = () => {
 
     // Handle Delete Sale
     const handleDeleteSale = async () => {
-        if (!receiptNumber) return;
+        if (!saleData?.data?.saleIds || saleData.data.saleIds.length === 0) return;
 
         const confirmed = window.confirm(
             'Are you sure you want to delete this sale? This action cannot be undone.'
@@ -81,7 +81,8 @@ export const SaleDetails: React.FC = () => {
         if (!confirmed) return;
 
         try {
-            await warehouseService.deleteSale(receiptNumber);
+            // Use the first sale ID from the grouped sales
+            await warehouseService.deleteSale(saleData.data.saleIds[0]);
             toast.success('Sale deleted successfully');
             navigate('/warehouse/sales');
         } catch (error) {
