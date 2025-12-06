@@ -23,7 +23,7 @@ const DailyOpeningStock: React.FC = () => {
     const [filterProduct, setFilterProduct] = useState<string>('');
     const [showLowStockOnly, setShowLowStockOnly] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(50);
 
     // Fetch opening stock data with pagination
     const { data, isLoading, error } = useQuery<OpeningStockResponse>({

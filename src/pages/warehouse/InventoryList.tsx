@@ -29,7 +29,7 @@ export const InventoryList: React.FC = () => {
     const [selectedItem, setSelectedItem] = useState<WarehouseInventory | null>(null);
     const [showLowStockOnly, setShowLowStockOnly] = useState(false);
     const queryClient = useQueryClient();
-    const pageSize = 10;
+    const pageSize = 50;
 
     const parseNumber = (value: unknown, fallback = 0) => {
         if (typeof value === 'number') {
