@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuthStore } from '../../store/authStore';
+import { UserRole } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 // import { Package } from 'lucide-react';
@@ -24,11 +25,29 @@ export const Login = () => {
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    const from = location.state?.from?.pathname || '/dashboard';
-
     const form = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
     });
+
+    // Get default route based on user role
+    const getDefaultRoute = (userRole: UserRole): string => {
+        switch (userRole) {
+            case UserRole.SUPER_ADMIN:
+                return '/dashboard';
+            case UserRole.DISTRIBUTION_ADMIN:
+            case UserRole.DISTRIBUTION_SALES_REP:
+                return '/distribution';
+            case UserRole.TRANSPORT_ADMIN:
+            case UserRole.TRANSPORT_STAFF:
+                return '/transport';
+            case UserRole.WAREHOUSE_ADMIN:
+            case UserRole.WAREHOUSE_SALES_OFFICER:
+            case UserRole.CASHIER:
+                return '/warehouse';
+            default:
+                return '/dashboard';
+        }
+    };
 
     const onSubmit = async (data: LoginFormData) => {
         try {
@@ -36,6 +55,13 @@ export const Login = () => {
             setError(null);
             // ✅ Pass username and password separately
             await login(data.username, data.password);
+
+            // Get the user role after successful login
+            const currentUser = useAuthStore.getState().user;
+            const defaultRoute = currentUser ? getDefaultRoute(currentUser.role) : '/dashboard';
+
+            // Use the stored "from" location if it exists and user has access, otherwise use default route
+            const from = location.state?.from?.pathname || defaultRoute;
             navigate(from, { replace: true });
         } catch (error: any) {
             setError(error.response?.data?.message || 'Login failed. Please try again.');

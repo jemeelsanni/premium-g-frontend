@@ -40,6 +40,27 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         navigate('/login');
     };
 
+    // Get default home route based on user role
+    const getDefaultRoute = (): string => {
+        const role = user?.role;
+        switch (role) {
+            case UserRole.SUPER_ADMIN:
+                return '/dashboard';
+            case UserRole.DISTRIBUTION_ADMIN:
+            case UserRole.DISTRIBUTION_SALES_REP:
+                return '/distribution';
+            case UserRole.TRANSPORT_ADMIN:
+            case UserRole.TRANSPORT_STAFF:
+                return '/transport';
+            case UserRole.WAREHOUSE_ADMIN:
+            case UserRole.WAREHOUSE_SALES_OFFICER:
+            case UserRole.CASHIER:
+                return '/warehouse';
+            default:
+                return '/dashboard';
+        }
+    };
+
     // Helper function to check if user has access to navigation item
     const hasAccess = (roles: UserRole[]): boolean => {
         return user?.role ? roles.includes(user.role) : false;
@@ -51,7 +72,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             name: 'Dashboard',
             href: '/dashboard',
             icon: LayoutDashboard,
-            roles: Object.values(UserRole), // All roles have access to dashboard
+            roles: [UserRole.SUPER_ADMIN], // Only SUPER_ADMIN has access to main dashboard
         },
         {
             name: 'Distribution',
@@ -168,7 +189,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <div className="flex flex-col h-full">
                     {/* Logo */}
                     <div className="flex items-center justify-between h-16 px-4 border-b">
-                        <Link to="/dashboard" className="flex items-center">
+                        <Link to={getDefaultRoute()} className="flex items-center">
                             <img src={logo} alt="Logo" className="h-8 w-8" />
                             <h1 className="text-xl font-bold text-indigo-600">Premium G</h1>
                         </Link>
