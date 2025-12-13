@@ -13,6 +13,7 @@ import DebtorsDashboard from './DebtorsDashboard';
 import OffloadPurchase from './OffloadPurchase';
 import DailyOpeningStock from './DailyOpeningStock';
 import ExpiringProducts from './ExpiringProducts';
+import AuditLogs from './AuditLogs';
 import { canAccessWarehouseFeature, WarehouseFeature } from '../../utils/warehousePermissions';
 import { JSX } from 'react';
 
@@ -172,6 +173,17 @@ export const WarehouseRoutes = () => {
                     <ProtectedWarehouseRoute
                         element={<ExpiringProducts />}
                         feature={WarehouseFeature.EXPIRED_PRODUCTS}
+                    />
+                }
+            />
+
+            {/* Audit Logs - Restricted (Admin only) */}
+            <Route
+                path="audit-logs"
+                element={
+                    <ProtectedWarehouseRoute
+                        element={<AuditLogs />}
+                        feature={WarehouseFeature.MANAGE_INVENTORY}
                     />
                 }
             />
