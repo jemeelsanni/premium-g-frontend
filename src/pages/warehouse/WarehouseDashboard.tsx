@@ -17,7 +17,8 @@ import {
     Filter,
     Calendar,
     X,
-    TrendingUp
+    TrendingUp,
+    FileText
 } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -960,6 +961,31 @@ export const WarehouseDashboard: React.FC = () => {
                                 </h3>
                                 <p className="mt-2 text-sm text-gray-500">
                                     View expired products
+                                </p>
+                            </div>
+                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                <ArrowRight className="h-6 w-6" />
+                            </span>
+                        </Link>
+                        )}
+
+                        {/* Audit Logs - Only for super admin and sales officer */}
+                        {canAccessWarehouseFeature(WarehouseFeature.MANAGE_INVENTORY) && (
+                        <Link
+                            to="/warehouse/audit-logs"
+                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        >
+                            <div>
+                                <span className="rounded-lg inline-flex p-3 bg-slate-50 text-slate-600 group-hover:bg-slate-100">
+                                    <FileText className="h-6 w-6" />
+                                </span>
+                            </div>
+                            <div className="mt-4">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                    Audit Logs
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    View inventory changes and suspicious activities
                                 </p>
                             </div>
                             <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
