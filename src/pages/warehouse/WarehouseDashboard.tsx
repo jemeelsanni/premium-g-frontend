@@ -249,7 +249,7 @@ export const WarehouseDashboard: React.FC = () => {
             value: `₦${totalOutstanding.toLocaleString()}`,
             icon: AlertCircle,
             color: 'orange',
-            subtitle: `${totalDebtors} debtor${totalDebtors !== 1 ? 's' : ''}`
+            subtitle: `${totalDebtors} customer${totalDebtors !== 1 ? 's' : ''} with debt`
         },
         {
             statType: DashboardStat.INVENTORY_ITEMS,

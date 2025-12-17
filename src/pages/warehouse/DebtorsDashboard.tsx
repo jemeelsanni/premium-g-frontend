@@ -250,7 +250,7 @@ const DebtorsDashboard: React.FC = () => {
                             <h3 className="text-sm font-semibold text-gray-600 mb-2">
                                 {status.replace('_', ' ')}
                             </h3>
-                            <p className="text-xl font-bold">{data.count}</p>
+                            <p className="text-xl font-bold">{data.count} customer{data.count !== 1 ? 's' : ''}</p>
                             <p className="text-sm text-gray-500 mt-1">
                                 Due: {formatCurrency(data.amountDue)}
                             </p>
