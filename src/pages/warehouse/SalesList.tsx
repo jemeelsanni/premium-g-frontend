@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, User, Tag, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Download, FileText, Filter } from 'lucide-react';
+import { Plus, User, DollarSign, TrendingUp, Package, ChevronLeft, ChevronRight, Download, FileText, Filter } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
@@ -404,15 +404,16 @@ export const SalesList: React.FC = () => {
                     <div className="p-5">
                         <div className="flex items-center">
                             <div className="flex-shrink-0">
-                                <Tag className="h-6 w-6 text-green-600" />
+                                <DollarSign className="h-6 w-6 text-green-600" />
                             </div>
                             <div className="ml-5 w-0 flex-1">
                                 <dl>
                                     <dt className="text-sm font-medium text-gray-500 truncate">
-                                        With Discounts
+                                        Revenue
                                     </dt>
                                     <dd className="text-lg font-semibold text-gray-900">
-                                        {salesData?.data?.sales?.filter((s: any) => s.discountApplied).length || 0}
+                                        ₦{salesData?.data?.sales?.reduce((sum: number, s: any) =>
+                                            sum + parseNumber(s.totalAmount), 0).toLocaleString() || '0'}
                                     </dd>
                                 </dl>
                             </div>
@@ -424,16 +425,20 @@ export const SalesList: React.FC = () => {
                     <div className="p-5">
                         <div className="flex items-center">
                             <div className="flex-shrink-0">
-                                <TrendingDown className="h-6 w-6 text-red-600" />
+                                <Package className="h-6 w-6 text-purple-600" />
                             </div>
                             <div className="ml-5 w-0 flex-1">
                                 <dl>
                                     <dt className="text-sm font-medium text-gray-500 truncate">
-                                        Total Discounts Given
+                                        Number of Packs Sold
                                     </dt>
                                     <dd className="text-lg font-semibold text-gray-900">
-                                        ₦{salesData?.data?.sales?.reduce((sum: number, s: any) =>
-                                            sum + parseNumber(s.totalDiscountAmount), 0).toLocaleString() || '0'}
+                                        {salesData?.data?.sales?.reduce((sum: number, s: any) => {
+                                            const items = Array.isArray(s?.items) ? s.items : [];
+                                            const totalPacks = items.reduce((packSum: number, item: any) =>
+                                                packSum + (item?.unitType?.toLowerCase() === 'pack' ? parseNumber(item.quantity) : 0), 0);
+                                            return sum + totalPacks;
+                                        }, 0).toLocaleString() || '0'}
                                     </dd>
                                 </dl>
                             </div>
