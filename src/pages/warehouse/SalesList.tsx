@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, User, DollarSign, TrendingUp, Package, ChevronLeft, ChevronRight, Download, FileText, Filter } from 'lucide-react';
+import { Plus, User, DollarSign, TrendingUp, Package, ChevronLeft, ChevronRight, Download, FileText, Filter, TrendingDown } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
