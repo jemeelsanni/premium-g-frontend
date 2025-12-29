@@ -32,6 +32,20 @@ export const SalesList: React.FC = () => {
             }),
     });
 
+    // Fetch summary stats for the filtered period
+    const { data: statsData } = useQuery({
+        queryKey: ['warehouse-sales-stats', startDate, endDate],
+        queryFn: () => {
+            const params: any = {};
+            if (period === 'custom' && startDate && endDate) {
+                // For custom date range, we need to convert to filter params
+                params.filterMonth = new Date(startDate).getMonth() + 1;
+                params.filterYear = new Date(startDate).getFullYear();
+            }
+            return warehouseService.getDashboardStats(params);
+        },
+    });
+
 
     // ✅ Calculate pagination values
     const totalPages = salesData?.data?.pagination?.totalPages || 1;
@@ -412,8 +426,7 @@ export const SalesList: React.FC = () => {
                                         Revenue
                                     </dt>
                                     <dd className="text-lg font-semibold text-gray-900">
-                                        ₦{salesData?.data?.sales?.reduce((sum: number, s: any) =>
-                                            sum + parseNumber(s.totalAmount), 0).toLocaleString() || '0'}
+                                        ₦{parseNumber(statsData?.data?.summary?.totalRevenue).toLocaleString()}
                                     </dd>
                                 </dl>
                             </div>
@@ -433,12 +446,7 @@ export const SalesList: React.FC = () => {
                                         Number of Packs Sold
                                     </dt>
                                     <dd className="text-lg font-semibold text-gray-900">
-                                        {salesData?.data?.sales?.reduce((sum: number, s: any) => {
-                                            const items = Array.isArray(s?.items) ? s.items : [];
-                                            const totalPacks = items.reduce((packSum: number, item: any) =>
-                                                packSum + (item?.unitType?.toLowerCase() === 'pack' ? parseNumber(item.quantity) : 0), 0);
-                                            return sum + totalPacks;
-                                        }, 0).toLocaleString() || '0'}
+                                        {parseNumber(statsData?.data?.summary?.totalQuantitySold).toLocaleString()}
                                     </dd>
                                 </dl>
                             </div>
