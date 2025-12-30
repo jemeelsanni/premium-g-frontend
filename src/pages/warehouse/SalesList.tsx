@@ -38,8 +38,12 @@ export const SalesList: React.FC = () => {
         queryFn: () => {
             const params: any = {};
 
-            if (period !== '' && period !== 'custom') {
-                // For predefined periods (day, week, month, year)
+            // If we have date filters (from any period selection), send them to the API
+            if (startDate && endDate) {
+                params.startDate = dayjs(startDate).toISOString();
+                params.endDate = dayjs(endDate).endOf('day').toISOString();
+            } else if (period !== '' && period !== 'custom') {
+                // Fallback: For predefined periods without dates set, use filterMonth/Year
                 const now = dayjs();
                 if (period === 'month') {
                     params.filterMonth = now.month() + 1;
@@ -47,15 +51,8 @@ export const SalesList: React.FC = () => {
                 } else if (period === 'year') {
                     params.filterYear = now.year();
                 }
-                // Note: day and week don't map to dashboard stats params
-                // They will show all-time stats which is fine for now
-            } else if (period === 'custom' && startDate && endDate) {
-                // For custom date range, use the selected dates
-                const start = dayjs(startDate);
-                params.filterMonth = start.month() + 1;
-                params.filterYear = start.year();
             }
-            // If no period selected, fetch all-time stats (empty params)
+            // If no period selected and no dates, fetch all-time stats (empty params)
 
             return warehouseService.getDashboardStats(params);
         },
