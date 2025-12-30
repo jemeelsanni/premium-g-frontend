@@ -27,21 +27,36 @@ export const SalesList: React.FC = () => {
         queryKey: ['warehouse-sales', currentPage, pageSize, startDate, endDate],
         queryFn: () =>
             warehouseService.getSales(currentPage, pageSize, {
-                startDate: period === 'custom' ? startDate : undefined,
-                endDate: period === 'custom' ? endDate : undefined,
+                startDate: startDate ? dayjs(startDate).toISOString() : undefined,
+                endDate: endDate ? dayjs(endDate).toISOString() : undefined,
             }),
     });
 
     // Fetch summary stats for the filtered period
     const { data: statsData } = useQuery({
-        queryKey: ['warehouse-sales-stats', startDate, endDate],
+        queryKey: ['warehouse-sales-stats', period, startDate, endDate],
         queryFn: () => {
             const params: any = {};
-            if (period === 'custom' && startDate && endDate) {
-                // For custom date range, we need to convert to filter params
-                params.filterMonth = new Date(startDate).getMonth() + 1;
-                params.filterYear = new Date(startDate).getFullYear();
+
+            if (period !== '' && period !== 'custom') {
+                // For predefined periods (day, week, month, year)
+                const now = dayjs();
+                if (period === 'month') {
+                    params.filterMonth = now.month() + 1;
+                    params.filterYear = now.year();
+                } else if (period === 'year') {
+                    params.filterYear = now.year();
+                }
+                // Note: day and week don't map to dashboard stats params
+                // They will show all-time stats which is fine for now
+            } else if (period === 'custom' && startDate && endDate) {
+                // For custom date range, use the selected dates
+                const start = dayjs(startDate);
+                params.filterMonth = start.month() + 1;
+                params.filterYear = start.year();
             }
+            // If no period selected, fetch all-time stats (empty params)
+
             return warehouseService.getDashboardStats(params);
         },
     });
@@ -204,17 +219,17 @@ export const SalesList: React.FC = () => {
         setPeriod(value);
 
         if (value === 'day') {
-            setStartDate(dayjs().startOf('day').toISOString());
-            setEndDate(dayjs().endOf('day').toISOString());
+            setStartDate(dayjs().startOf('day').format('YYYY-MM-DD'));
+            setEndDate(dayjs().endOf('day').format('YYYY-MM-DD'));
         } else if (value === 'week') {
-            setStartDate(dayjs().startOf('week').toISOString());
-            setEndDate(dayjs().endOf('week').toISOString());
+            setStartDate(dayjs().startOf('week').format('YYYY-MM-DD'));
+            setEndDate(dayjs().endOf('week').format('YYYY-MM-DD'));
         } else if (value === 'month') {
-            setStartDate(dayjs().startOf('month').toISOString());
-            setEndDate(dayjs().endOf('month').toISOString());
+            setStartDate(dayjs().startOf('month').format('YYYY-MM-DD'));
+            setEndDate(dayjs().endOf('month').format('YYYY-MM-DD'));
         } else if (value === 'year') {
-            setStartDate(dayjs().startOf('year').toISOString());
-            setEndDate(dayjs().endOf('year').toISOString());
+            setStartDate(dayjs().startOf('year').format('YYYY-MM-DD'));
+            setEndDate(dayjs().endOf('year').format('YYYY-MM-DD'));
         } else if (value === 'custom' || value === '') {
             setStartDate('');
             setEndDate('');

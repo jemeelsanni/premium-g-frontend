@@ -332,17 +332,18 @@ export const CashFlowList: React.FC = () => {
     // Extract cash flow entries from the API response
     const cashFlowEntries = cashFlowData?.data?.cashFlowEntries || [];
     const pagination = cashFlowData?.data?.pagination;
+    const summary = cashFlowData?.data?.summary;
 
-    // Calculate summary stats
-    const totalInflow = cashFlowEntries
+    // Use summary from API if available, otherwise calculate from current page
+    const totalInflow = summary?.totalInflow ?? cashFlowEntries
         .filter((entry: any) => entry.transactionType === 'CASH_IN')
         .reduce((sum: number, entry: any) => sum + Number(entry.amount), 0);
 
-    const totalOutflow = cashFlowEntries
+    const totalOutflow = summary?.totalOutflow ?? cashFlowEntries
         .filter((entry: any) => entry.transactionType === 'CASH_OUT')
         .reduce((sum: number, entry: any) => sum + Number(entry.amount), 0);
 
-    const netCashFlow = totalInflow - totalOutflow;
+    const netCashFlow = summary?.netCashFlow ?? (totalInflow - totalOutflow);
 
     // Generate month/year options
     const currentYear = new Date().getFullYear();
