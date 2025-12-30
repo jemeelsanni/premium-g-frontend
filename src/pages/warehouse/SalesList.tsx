@@ -32,39 +32,6 @@ export const SalesList: React.FC = () => {
             }),
     });
 
-    // Fetch summary stats for the filtered period
-    const { data: statsData } = useQuery({
-        queryKey: ['warehouse-sales-stats', period, startDate, endDate],
-        queryFn: () => {
-            const params: any = {};
-
-            // If we have date filters (from any period selection), send them to the API
-            if (startDate && endDate) {
-                params.startDate = dayjs(startDate).toISOString();
-                params.endDate = dayjs(endDate).endOf('day').toISOString();
-            } else if (period !== '' && period !== 'custom') {
-                // Fallback: For predefined periods without dates set, use filterMonth/Year
-                const now = dayjs();
-                if (period === 'month') {
-                    params.filterMonth = now.month() + 1;
-                    params.filterYear = now.year();
-                } else if (period === 'year') {
-                    params.filterYear = now.year();
-                }
-            }
-            // If no period selected and no dates, fetch all-time stats (empty params)
-
-            return warehouseService.getDashboardStats(params);
-        },
-    });
-
-
-    // ✅ Calculate pagination values
-    const totalPages = salesData?.data?.pagination?.totalPages || 1;
-    const total = salesData?.data?.pagination?.total || 0;
-    const hasNext = currentPage < totalPages;
-    const hasPrev = currentPage > 1;
-
     const parseNumber = (value: any, fallback = 0): number => {
         if (typeof value === 'number') return value;
         if (typeof value === 'string') {
@@ -73,6 +40,26 @@ export const SalesList: React.FC = () => {
         }
         return fallback;
     };
+
+    // ✅ Calculate pagination values
+    const totalPages = salesData?.data?.pagination?.totalPages || 1;
+    const total = salesData?.data?.pagination?.total || 0;
+    const hasNext = currentPage < totalPages;
+    const hasPrev = currentPage > 1;
+
+    // Calculate summary stats from the sales API response
+    // If API provides summary for all filtered data, use that; otherwise calculate from current page
+    const allSales = salesData?.data?.sales || [];
+    const apiSummary = (salesData?.data as any)?.summary;
+
+    const totalRevenue = apiSummary?.totalRevenue ?? allSales.reduce((sum: number, sale: any) =>
+        sum + parseNumber(sale.totalAmount), 0);
+
+    const totalPacksSold = apiSummary?.totalQuantitySold ?? allSales.reduce((sum: number, sale: any) => {
+        const items = Array.isArray(sale?.items) ? sale.items : [];
+        return sum + items.reduce((packSum: number, item: any) =>
+            packSum + parseNumber(item.quantity), 0);
+    }, 0);
 
     const formatProductSummary = (record: any) => {
         const items = Array.isArray(record?.items) ? record.items : [];
@@ -438,7 +425,7 @@ export const SalesList: React.FC = () => {
                                         Revenue
                                     </dt>
                                     <dd className="text-lg font-semibold text-gray-900">
-                                        ₦{parseNumber(statsData?.data?.summary?.totalRevenue).toLocaleString()}
+                                        ₦{totalRevenue.toLocaleString()}
                                     </dd>
                                 </dl>
                             </div>
@@ -458,7 +445,7 @@ export const SalesList: React.FC = () => {
                                         Number of Packs Sold
                                     </dt>
                                     <dd className="text-lg font-semibold text-gray-900">
-                                        {parseNumber(statsData?.data?.summary?.totalQuantitySold).toLocaleString()}
+                                        {totalPacksSold.toLocaleString()}
                                     </dd>
                                 </dl>
                             </div>
