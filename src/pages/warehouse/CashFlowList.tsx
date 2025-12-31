@@ -57,8 +57,19 @@ export const CashFlowList: React.FC = () => {
 
         if (filters.transactionType) params.transactionType = filters.transactionType;
         if (filters.paymentMethod) params.paymentMethod = filters.paymentMethod;
-        if (filters.startDate) params.startDate = filters.startDate;
-        if (filters.endDate) params.endDate = filters.endDate;
+
+        // Convert dates to ISO format with proper time boundaries
+        if (filters.startDate) {
+            const start = new Date(filters.startDate);
+            start.setHours(0, 0, 0, 0);
+            params.startDate = start.toISOString();
+        }
+        if (filters.endDate) {
+            const end = new Date(filters.endDate);
+            end.setHours(23, 59, 59, 999);
+            params.endDate = end.toISOString();
+        }
+
         if (filters.isReconciled !== '') params.isReconciled = filters.isReconciled;
 
         return params;

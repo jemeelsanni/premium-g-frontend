@@ -27,8 +27,8 @@ export const SalesList: React.FC = () => {
         queryKey: ['warehouse-sales', currentPage, pageSize, startDate, endDate],
         queryFn: () =>
             warehouseService.getSales(currentPage, pageSize, {
-                startDate: startDate ? dayjs(startDate).toISOString() : undefined,
-                endDate: endDate ? dayjs(endDate).toISOString() : undefined,
+                startDate: startDate ? dayjs(startDate).startOf('day').toISOString() : undefined,
+                endDate: endDate ? dayjs(endDate).endOf('day').toISOString() : undefined,
             }),
     });
 
