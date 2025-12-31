@@ -211,28 +211,35 @@ export const CashFlowList: React.FC = () => {
 
     // Quick filter buttons for common date ranges
     const setQuickFilter = (type: 'today' | 'week' | 'month' | 'year') => {
-        const today = new Date();
+        const now = new Date();
         const startDate = new Date();
 
         switch (type) {
             case 'today':
+                // Today: from start of day to now
                 startDate.setHours(0, 0, 0, 0);
                 break;
             case 'week':
-                startDate.setDate(today.getDate() - 7);
+                // Last 7 days: from 7 days ago to now
+                startDate.setDate(now.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
                 break;
             case 'month':
-                startDate.setMonth(today.getMonth() - 1);
+                // Last 30 days: from 30 days ago to now
+                startDate.setMonth(now.getMonth() - 1);
+                startDate.setHours(0, 0, 0, 0);
                 break;
             case 'year':
-                startDate.setFullYear(today.getFullYear() - 1);
+                // This year: from start of year to now
+                startDate.setMonth(0, 1);
+                startDate.setHours(0, 0, 0, 0);
                 break;
         }
 
         setFilters(prev => ({
             ...prev,
             startDate: startDate.toISOString().split('T')[0],
-            endDate: today.toISOString().split('T')[0]
+            endDate: now.toISOString().split('T')[0]
         }));
         setCurrentPage(1);
     };

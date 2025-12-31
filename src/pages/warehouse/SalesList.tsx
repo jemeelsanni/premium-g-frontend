@@ -203,17 +203,21 @@ export const SalesList: React.FC = () => {
         setPeriod(value);
 
         if (value === 'day') {
+            // Today: from start of day to current moment
             setStartDate(dayjs().startOf('day').format('YYYY-MM-DD'));
-            setEndDate(dayjs().endOf('day').format('YYYY-MM-DD'));
+            setEndDate(dayjs().format('YYYY-MM-DD'));
         } else if (value === 'week') {
+            // This week: from start of week to current moment
             setStartDate(dayjs().startOf('week').format('YYYY-MM-DD'));
-            setEndDate(dayjs().endOf('week').format('YYYY-MM-DD'));
+            setEndDate(dayjs().format('YYYY-MM-DD'));
         } else if (value === 'month') {
+            // This month: from start of month to current moment
             setStartDate(dayjs().startOf('month').format('YYYY-MM-DD'));
-            setEndDate(dayjs().endOf('month').format('YYYY-MM-DD'));
+            setEndDate(dayjs().format('YYYY-MM-DD'));
         } else if (value === 'year') {
+            // This year: from start of year to current moment
             setStartDate(dayjs().startOf('year').format('YYYY-MM-DD'));
-            setEndDate(dayjs().endOf('year').format('YYYY-MM-DD'));
+            setEndDate(dayjs().format('YYYY-MM-DD'));
         } else if (value === 'custom' || value === '') {
             setStartDate('');
             setEndDate('');
