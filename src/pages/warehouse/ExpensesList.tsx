@@ -32,6 +32,7 @@ const expenseTypeOptions: Array<{ value: string; label: string }> = [
     { value: 'SECURITY', label: 'Security' },
     { value: 'CLEANING_SERVICES', label: 'Cleaning Services' },
     { value: 'INSURANCE', label: 'Insurance' },
+    { value: 'SALARY_AND_WAGES', label: 'Salary and Wages' },
     { value: 'OFFLOAD', label: 'Truck Offload' },
     { value: 'OTHER', label: 'Other' }
 ];
