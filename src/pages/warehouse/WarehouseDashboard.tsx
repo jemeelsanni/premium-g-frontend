@@ -38,20 +38,24 @@ export const WarehouseDashboard: React.FC = () => {
     const [filterMonth, setFilterMonth] = useState(currentDate.getMonth() + 1);
     const [filterYear, setFilterYear] = useState(currentDate.getFullYear());
     const [showFilter, setShowFilter] = useState(false);
-    const [filterType, setFilterType] = useState<'month' | 'year' | 'all'>('month');
+    const [filterType, setFilterType] = useState<'month' | 'year' | 'all' | 'date-range'>('month');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const getQueryParams = () => {
         if (filterType === 'all') {
             return {};
         } else if (filterType === 'year') {
             return { filterYear };
+        } else if (filterType === 'date-range') {
+            return { startDate, endDate };
         } else {
             return { filterMonth, filterYear };
         }
     };
 
     const { data: stats, isLoading, error } = useQuery({
-        queryKey: ['warehouse-dashboard', filterMonth, filterYear, filterType],
+        queryKey: ['warehouse-dashboard', filterMonth, filterYear, filterType, startDate, endDate],
         queryFn: () => warehouseService.getDashboardStats(getQueryParams()),
     });
 
@@ -137,6 +141,14 @@ export const WarehouseDashboard: React.FC = () => {
     const getPeriodLabel = () => {
         if (filterType === 'all') return 'All Time';
         if (filterType === 'year') return `Year ${filterYear}`;
+        if (filterType === 'date-range') {
+            if (startDate && endDate) {
+                const start = new Date(startDate).toLocaleDateString();
+                const end = new Date(endDate).toLocaleDateString();
+                return `${start} - ${end}`;
+            }
+            return 'Custom Date Range';
+        }
         return `${monthNames[filterMonth - 1]} ${filterYear}`;
     };
 
@@ -470,9 +482,37 @@ export const WarehouseDashboard: React.FC = () => {
                             >
                                 <option value="month">Specific Month</option>
                                 <option value="year">Entire Year</option>
+                                <option value="date-range">Custom Date Range</option>
                                 <option value="all">All Time</option>
                             </select>
                         </div>
+
+                        {filterType === 'date-range' && (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Start Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        End Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            </>
+                        )}
 
                         {filterType === 'month' && (
                             <div>
@@ -603,32 +643,32 @@ export const WarehouseDashboard: React.FC = () => {
 
             {/* 🆕 NEW: Profitability Overview - Hidden for restricted users */}
             {!hasRestrictedWarehouseAccess() && (
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-lg p-6 border-l-4 border-green-500">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                        <TrendingUp className="h-6 w-6 mr-2 text-green-600" />
-                        Profitability Analysis
-                    </h3>
-                    <span className="text-sm text-gray-600">{getPeriodLabel()}</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Net Profit Card */}
-                    <div className="bg-white rounded-lg p-4 shadow">
-                        <div className="text-sm text-gray-600 mb-1">Net Profit</div>
-                        <div className="text-2xl font-bold text-green-600">
-                            ₦{safeSummaryNumber('netProfit').toLocaleString()}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            {safeSummaryNumber('netProfitMargin').toFixed(2)}% margin
-                        </div>
-                        <div className="text-xs text-gray-400 mt-2">
-                            ₦{safeSummaryNumber('profitPerSale').toLocaleString()} per sale
-                        </div>
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                            <TrendingUp className="h-6 w-6 mr-2 text-green-600" />
+                            Profitability Analysis
+                        </h3>
+                        <span className="text-sm text-gray-600">{getPeriodLabel()}</span>
                     </div>
 
-                    {/* Cost Breakdown */}
-                    {/* <div className="bg-white rounded-lg p-4 shadow">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Net Profit Card */}
+                        <div className="bg-white rounded-lg p-4 shadow">
+                            <div className="text-sm text-gray-600 mb-1">Net Profit</div>
+                            <div className="text-2xl font-bold text-green-600">
+                                ₦{safeSummaryNumber('netProfit').toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                                {safeSummaryNumber('netProfitMargin').toFixed(2)}% margin
+                            </div>
+                            <div className="text-xs text-gray-400 mt-2">
+                                ₦{safeSummaryNumber('profitPerSale').toLocaleString()} per sale
+                            </div>
+                        </div>
+
+                        {/* Cost Breakdown */}
+                        {/* <div className="bg-white rounded-lg p-4 shadow">
                         <div className="text-sm text-gray-600 mb-3">Cost Structure</div>
                         <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm">
@@ -672,44 +712,44 @@ export const WarehouseDashboard: React.FC = () => {
                         </div>
                     </div> */}
 
-                    {/* P&L Summary */}
-                    <div className="bg-white rounded-lg p-4 shadow">
-                        <div className="text-sm text-gray-600 mb-3">P&L Summary</div>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Revenue</span>
-                                <span className="font-semibold">
-                                    ₦{safeSummaryNumber('totalRevenue').toLocaleString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">COGS</span>
-                                <span className="text-red-600">
-                                    -₦{safeSummaryNumber('totalCOGS').toLocaleString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between border-t border-gray-200 pt-2">
-                                <span className="text-gray-600">Gross Profit</span>
-                                <span className="font-semibold">
-                                    ₦{safeSummaryNumber('grossProfit').toLocaleString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Expenses</span>
-                                <span className="text-orange-600">
-                                    -₦{safeSummaryNumber('totalExpenses').toLocaleString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between border-t-2 border-green-500 pt-2 font-bold">
-                                <span className="text-gray-900">Net Profit</span>
-                                <span className="text-green-600">
-                                    ₦{safeSummaryNumber('netProfit').toLocaleString()}
-                                </span>
+                        {/* P&L Summary */}
+                        <div className="bg-white rounded-lg p-4 shadow">
+                            <div className="text-sm text-gray-600 mb-3">P&L Summary</div>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Revenue</span>
+                                    <span className="font-semibold">
+                                        ₦{safeSummaryNumber('totalRevenue').toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">COGS</span>
+                                    <span className="text-red-600">
+                                        -₦{safeSummaryNumber('totalCOGS').toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between border-t border-gray-200 pt-2">
+                                    <span className="text-gray-600">Gross Profit</span>
+                                    <span className="font-semibold">
+                                        ₦{safeSummaryNumber('grossProfit').toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Expenses</span>
+                                    <span className="text-orange-600">
+                                        -₦{safeSummaryNumber('totalExpenses').toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between border-t-2 border-green-500 pt-2 font-bold">
+                                    <span className="text-gray-900">Net Profit</span>
+                                    <span className="text-green-600">
+                                        ₦{safeSummaryNumber('netProfit').toLocaleString()}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
             )}
 
             {/* Quick Actions */}
@@ -721,277 +761,277 @@ export const WarehouseDashboard: React.FC = () => {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                         {/* Record Sale - Always visible */}
                         {canAccessWarehouseFeature(WarehouseFeature.RECORD_SALES) && (
-                        <Link
-                            to="/warehouse/sales/create"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-600 group-hover:bg-blue-100">
-                                    <ShoppingCart className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/sales/create"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-600 group-hover:bg-blue-100">
+                                        <ShoppingCart className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Record Sale
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Record a new warehouse sale
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Record Sale
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Record a new warehouse sale
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Manage Inventory - Only for super admin and sales officer */}
                         {canAccessWarehouseFeature(WarehouseFeature.MANAGE_INVENTORY) && (
-                        <Link
-                            to="/warehouse/inventory"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-purple-50 text-purple-600 group-hover:bg-purple-100">
-                                    <Package className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/inventory"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-purple-50 text-purple-600 group-hover:bg-purple-100">
+                                        <Package className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Manage Inventory
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        View and update stock levels
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Manage Inventory
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    View and update stock levels
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Customer Database - Always visible */}
                         {canAccessWarehouseFeature(WarehouseFeature.CUSTOMER_DATABASE) && (
-                        <Link
-                            to="/warehouse/customers"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-600 group-hover:bg-green-100">
-                                    <Users className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/customers"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-600 group-hover:bg-green-100">
+                                        <Users className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Customer Database
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Manage warehouse customers
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Customer Database
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Manage warehouse customers
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Cash Flow - Only for super admin and sales officer */}
                         {canAccessWarehouseFeature(WarehouseFeature.CASH_FLOW) && (
-                        <Link
-                            to="/warehouse/cash-flow"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-orange-50 text-orange-600 group-hover:bg-orange-100">
-                                    <DollarSign className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/cash-flow"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-orange-50 text-orange-600 group-hover:bg-orange-100">
+                                        <DollarSign className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Cash Flow
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Monitor cash flow operations
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Cash Flow
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Monitor cash flow operations
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Expenses - Only for super admin and sales officer */}
                         {canAccessWarehouseFeature(WarehouseFeature.EXPENSES) && (
-                        <Link
-                            to="/warehouse/expenses"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-rose-50 text-rose-600 group-hover:bg-rose-100">
-                                    <Receipt className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/expenses"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-rose-50 text-rose-600 group-hover:bg-rose-100">
+                                        <Receipt className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Warehouse Expenses
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Review and track spend history
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Warehouse Expenses
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Review and track spend history
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Discount Requests - Always visible */}
                         {canAccessWarehouseFeature(WarehouseFeature.DISCOUNT_REQUEST) && (
-                        <Link
-                            to="/warehouse/discounts"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                                    <Percent className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/discounts"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
+                                        <Percent className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Discount Requests
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Review and approve warehouse discounts
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Discount Requests
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Review and approve warehouse discounts
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Debtors - Always visible (read-only for restricted users) */}
                         {canAccessWarehouseFeature(WarehouseFeature.DEBTORS) && (
-                        <Link
-                            to="/warehouse/debtors"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                                    <AlertCircle className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/debtors"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
+                                        <AlertCircle className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Warehouse Debtors
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        {hasRestrictedWarehouseAccess() ? 'View warehouse debtors' : 'Review and update warehouse debtors'}
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Warehouse Debtors
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    {hasRestrictedWarehouseAccess() ? 'View warehouse debtors' : 'Review and update warehouse debtors'}
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Purchases - Only for super admin and sales officer */}
                         {canAccessWarehouseFeature(WarehouseFeature.PURCHASES) && (
-                        <Link
-                            to="/warehouse/offload-purchases"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                                    <Package className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/offload-purchases"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
+                                        <Package className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Warehouse Purchases
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Record warehouse purchases
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Warehouse Purchases
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Record warehouse purchases
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Daily Opening Stock - Always visible */}
                         {canAccessWarehouseFeature(WarehouseFeature.OPENING_STOCK) && (
-                        <Link
-                            to="/warehouse/daily-opening-stock"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                                    <Calendar className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/daily-opening-stock"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
+                                        <Calendar className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Daily Opening Stock
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Record daily opening stock
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Daily Opening Stock
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Record daily opening stock
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Expired Products - Always visible */}
                         {canAccessWarehouseFeature(WarehouseFeature.EXPIRED_PRODUCTS) && (
-                        <Link
-                            to="/warehouse/expiring-products"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                                    <AlertTriangle className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/expiring-products"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
+                                        <AlertTriangle className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Expired products
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        View expired products
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Expired products
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    View expired products
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
 
                         {/* Audit Logs - Only for super admin and sales officer */}
                         {canAccessWarehouseFeature(WarehouseFeature.MANAGE_INVENTORY) && (
-                        <Link
-                            to="/warehouse/audit-logs"
-                            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                        >
-                            <div>
-                                <span className="rounded-lg inline-flex p-3 bg-slate-50 text-slate-600 group-hover:bg-slate-100">
-                                    <FileText className="h-6 w-6" />
+                            <Link
+                                to="/warehouse/audit-logs"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-slate-50 text-slate-600 group-hover:bg-slate-100">
+                                        <FileText className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Audit Logs
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        View inventory changes and suspicious activities
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
                                 </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    Audit Logs
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    View inventory changes and suspicious activities
-                                </p>
-                            </div>
-                            <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
-                                <ArrowRight className="h-6 w-6" />
-                            </span>
-                        </Link>
+                            </Link>
                         )}
                     </div>
                 </div>
@@ -1053,119 +1093,119 @@ export const WarehouseDashboard: React.FC = () => {
 
             {/* Data Grid with Expense Breakdown and Top Customers - Hidden for restricted users */}
             {!hasRestrictedWarehouseAccess() && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-2">
 
-                {/* Recent Expenses */}
-                <div className="bg-white shadow rounded-lg xl:col-span-3">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                Recent Expenses
-                            </h3>
-                            <Link
-                                to="/warehouse/expenses"
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                                View details
-                            </Link>
+                    {/* Recent Expenses */}
+                    <div className="bg-white shadow rounded-lg xl:col-span-3">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                                    Recent Expenses
+                                </h3>
+                                <Link
+                                    to="/warehouse/expenses"
+                                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                    View details
+                                </Link>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <Table
+                                data={recentExpenses}
+                                columns={expenseColumns}
+                                loading={expensesLoading}
+                                emptyMessage="No expenses recorded yet"
+                            />
                         </div>
                     </div>
-                    <div className="p-6">
-                        <Table
-                            data={recentExpenses}
-                            columns={expenseColumns}
-                            loading={expensesLoading}
-                            emptyMessage="No expenses recorded yet"
-                        />
-                    </div>
-                </div>
 
-                {/* 🆕 NEW: Top Profitable Customers */}
-                <div className="bg-white shadow rounded-lg xl:col-span-3">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                                <Users className="h-5 w-5 text-indigo-500 mr-2" />
-                                Top Profitable Customers
-                            </h3>
-                            <Link
-                                to="/warehouse/customers"
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                                View all customers
-                            </Link>
+                    {/* 🆕 NEW: Top Profitable Customers */}
+                    <div className="bg-white shadow rounded-lg xl:col-span-3">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
+                                    <Users className="h-5 w-5 text-indigo-500 mr-2" />
+                                    Top Profitable Customers
+                                </h3>
+                                <Link
+                                    to="/warehouse/customers"
+                                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                    View all customers
+                                </Link>
+                            </div>
                         </div>
-                    </div>
-                    <div className="p-6">
-                        {(() => {
-                            const topCustomers = stats?.data?.topCustomers || [];
+                        <div className="p-6">
+                            {(() => {
+                                const topCustomers = stats?.data?.topCustomers || [];
 
-                            if (topCustomers.length === 0) {
-                                return (
-                                    <div className="text-center text-gray-500 py-8">
-                                        No customer profitability data available
-                                    </div>
-                                );
-                            }
-
-                            const customerColumns = [
-                                {
-                                    key: 'customerName',
-                                    title: 'Customer',
-                                    render: (value: string, record: any) => (
-                                        <div>
-                                            <div className="font-medium text-gray-900">{value}</div>
-                                            <div className="text-xs text-gray-500">
-                                                {record.orderCount} order{record.orderCount !== 1 ? 's' : ''}
-                                            </div>
+                                if (topCustomers.length === 0) {
+                                    return (
+                                        <div className="text-center text-gray-500 py-8">
+                                            No customer profitability data available
                                         </div>
-                                    )
-                                },
-                                {
-                                    key: 'revenue',
-                                    title: 'Revenue',
-                                    render: (value: number) => (
-                                        <span className="text-gray-900">
-                                            ₦{parseNumber(value).toLocaleString()}
-                                        </span>
-                                    )
-                                },
-                                {
-                                    key: 'netProfit',
-                                    title: 'Net Profit',
-                                    render: (value: number, record: any) => (
-                                        <div>
-                                            <div className="font-semibold text-green-600">
-                                                ₦{parseNumber(value).toLocaleString()}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {parseNumber(record.netProfitMargin).toFixed(1)}% margin
-                                            </div>
-                                        </div>
-                                    )
-                                },
-                                {
-                                    key: 'outstandingDebt',
-                                    title: 'Debt',
-                                    render: (value: number) => {
-                                        const debt = parseNumber(value);
-                                        if (debt === 0) {
-                                            return <span className="text-gray-400">None</span>;
-                                        }
-                                        return (
-                                            <span className="text-orange-600 font-medium">
-                                                ₦{debt.toLocaleString()}
-                                            </span>
-                                        );
-                                    }
+                                    );
                                 }
-                            ];
 
-                            return <Table data={topCustomers} columns={customerColumns} />;
-                        })()}
+                                const customerColumns = [
+                                    {
+                                        key: 'customerName',
+                                        title: 'Customer',
+                                        render: (value: string, record: any) => (
+                                            <div>
+                                                <div className="font-medium text-gray-900">{value}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {record.orderCount} order{record.orderCount !== 1 ? 's' : ''}
+                                                </div>
+                                            </div>
+                                        )
+                                    },
+                                    {
+                                        key: 'revenue',
+                                        title: 'Revenue',
+                                        render: (value: number) => (
+                                            <span className="text-gray-900">
+                                                ₦{parseNumber(value).toLocaleString()}
+                                            </span>
+                                        )
+                                    },
+                                    {
+                                        key: 'netProfit',
+                                        title: 'Net Profit',
+                                        render: (value: number, record: any) => (
+                                            <div>
+                                                <div className="font-semibold text-green-600">
+                                                    ₦{parseNumber(value).toLocaleString()}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    {parseNumber(record.netProfitMargin).toFixed(1)}% margin
+                                                </div>
+                                            </div>
+                                        )
+                                    },
+                                    {
+                                        key: 'outstandingDebt',
+                                        title: 'Debt',
+                                        render: (value: number) => {
+                                            const debt = parseNumber(value);
+                                            if (debt === 0) {
+                                                return <span className="text-gray-400">None</span>;
+                                            }
+                                            return (
+                                                <span className="text-orange-600 font-medium">
+                                                    ₦{debt.toLocaleString()}
+                                                </span>
+                                            );
+                                        }
+                                    }
+                                ];
+
+                                return <Table data={topCustomers} columns={customerColumns} />;
+                            })()}
+                        </div>
                     </div>
                 </div>
-            </div>
             )}
         </div>
     );
