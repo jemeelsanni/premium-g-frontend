@@ -18,7 +18,7 @@ import {
     Calendar,
     X,
     TrendingUp,
-    FileText
+    // FileText
 } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -1010,7 +1010,7 @@ export const WarehouseDashboard: React.FC = () => {
                         )}
 
                         {/* Audit Logs - Only for super admin and sales officer */}
-                        {canAccessWarehouseFeature(WarehouseFeature.MANAGE_INVENTORY) && (
+                        {/* {canAccessWarehouseFeature(WarehouseFeature.MANAGE_INVENTORY) && (
                             <Link
                                 to="/warehouse/audit-logs"
                                 className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -1032,7 +1032,7 @@ export const WarehouseDashboard: React.FC = () => {
                                     <ArrowRight className="h-6 w-6" />
                                 </span>
                             </Link>
-                        )}
+                        )} */}
                     </div>
                 </div>
             </div>
