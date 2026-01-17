@@ -12,6 +12,7 @@ import {
     ArrowRight,
     AlertCircle,
     Target,
+    Building2,
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -247,7 +248,7 @@ export const DistributionDashboard: React.FC = () => {
             )}
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Link to="/distribution/orders/create" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
                     <div className="flex items-start">
                         <div className="p-3 bg-blue-50 rounded-lg">
@@ -288,6 +289,21 @@ export const DistributionDashboard: React.FC = () => {
                             <p className="text-sm text-gray-600 mb-3">Track monthly targets and performance</p>
                             <div className="flex items-center text-green-600 text-sm font-medium">
                                 View Details <ArrowRight className="h-4 w-4 ml-1" />
+                            </div>
+                        </div>
+                    </div>
+                </Link>
+
+                <Link to="/distribution/suppliers" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+                    <div className="flex items-start">
+                        <div className="p-3 bg-orange-50 rounded-lg">
+                            <Building2 className="h-6 w-6 text-orange-600" />
+                        </div>
+                        <div className="ml-4 flex-1">
+                            <h3 className="text-lg font-semibold mb-1">Manage Suppliers</h3>
+                            <p className="text-sm text-gray-600 mb-3">View and manage supplier companies</p>
+                            <div className="flex items-center text-orange-600 text-sm font-medium">
+                                View All <ArrowRight className="h-4 w-4 ml-1" />
                             </div>
                         </div>
                     </div>

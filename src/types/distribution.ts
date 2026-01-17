@@ -29,8 +29,8 @@ export enum PaymentStatus {
   CONFIRMED = 'CONFIRMED'
 }
 
-// ✨ NEW: Rite Foods status enum
-export enum RiteFoodsStatus {
+// ✨ Supplier status enum
+export enum SupplierStatus {
   NOT_SENT = 'NOT_SENT',
   PAYMENT_SENT = 'PAYMENT_SENT',
   ORDER_RAISED = 'ORDER_RAISED',
@@ -46,6 +46,21 @@ export enum DeliveryStatus {
   FULLY_DELIVERED = 'FULLY_DELIVERED',
   PARTIALLY_DELIVERED = 'PARTIALLY_DELIVERED',
   FAILED = 'FAILED'
+}
+
+export interface SupplierCompany {
+  id: string;
+  name: string;
+  code: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  contactPerson?: string;
+  paymentTerms?: string;
+  notes?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DistributionCustomer {
@@ -88,18 +103,22 @@ export interface DistributionOrder {
   paymentConfirmedAt?: string;
   paymentNotes?: string;
   
-  // ✨ Rite Foods payment tracking
-  paidToRiteFoods: boolean;
-  amountPaidToRiteFoods?: number;
-  paymentDateToRiteFoods?: string;
-  riteFoodsOrderNumber?: string;
-  riteFoodsInvoiceNumber?: string;
-  riteFoodsStatus: RiteFoodsStatus;
-  
-  // ✨ NEW: Critical fields for price adjustment lock
-  orderRaisedByRFL: boolean;  // TRUE when Rite Foods raises the order
-  orderRaisedAt?: string;      // Timestamp when order was raised
-  riteFoodsLoadedDate?: string;
+  // ✨ Supplier company reference
+  supplierCompanyId?: string;
+  supplierCompany?: SupplierCompany;
+
+  // ✨ Supplier payment tracking
+  paidToSupplier: boolean;
+  amountPaidToSupplier?: number;
+  paymentDateToSupplier?: string;
+  supplierOrderNumber?: string;
+  supplierInvoiceNumber?: string;
+  supplierStatus: SupplierStatus;
+
+  // ✨ Critical fields for price adjustment lock
+  orderRaisedBySupplier: boolean;  // TRUE when supplier raises the order
+  orderRaisedAt?: string;          // Timestamp when order was raised
+  supplierLoadedDate?: string;
   
   // Transport fields
   transporterCompany?: string;
@@ -163,13 +182,13 @@ export interface RecordPaymentData {
   notes?: string;
 }
 
-export interface RiteFoodsPaymentData {
+export interface SupplierPaymentData {
   orderId: string;
   amount: number;
   paymentMethod: 'BANK_TRANSFER' | 'CHECK';
-  reference: string;
-  riteFoodsOrderNumber?: string;
-  riteFoodsInvoiceNumber?: string;
+  reference?: string;
+  supplierOrderNumber?: string;
+  supplierInvoiceNumber?: string;
 }
 
 export interface AssignTransportData {
@@ -194,15 +213,15 @@ export interface RecordDeliveryData {
 export interface PriceAdjustmentData {
   orderId: string;
   adjustedAmount: number;
-  adjustmentType: 'RITE_FOODS_PRICE_CHANGE' | 'CUSTOMER_NEGOTIATION' | 'ERROR_CORRECTION' | 'OTHER';
+  adjustmentType: 'SUPPLIER_PRICE_CHANGE' | 'CUSTOMER_NEGOTIATION' | 'ERROR_CORRECTION' | 'OTHER';
   reason: string;
-  riteFoodsInvoiceReference?: string;
+  supplierInvoiceReference?: string;
 }
 
-// ✨ NEW: Update Rite Foods status data
-export interface UpdateRiteFoodsStatusData {
+// ✨ Update supplier status data
+export interface UpdateSupplierStatusData {
   orderId: string;
-  riteFoodsStatus: 'PAYMENT_SENT' | 'ORDER_RAISED' | 'PROCESSING' | 'LOADED' | 'DISPATCHED';
+  supplierStatus: 'PAYMENT_SENT' | 'ORDER_RAISED' | 'PROCESSING' | 'LOADED' | 'DISPATCHED';
   orderRaisedAt?: string;
   loadedDate?: string;
 }
@@ -238,34 +257,36 @@ export const canAdjustOrderPrice = (order: DistributionOrder): PriceAdjustmentEl
       reason: 'Payment must be confirmed before adjusting price'
     };
   }
-  
-  // Check 2: Order must NOT be raised by Rite Foods (Primary check)
-  if (order.orderRaisedByRFL === true) {
-    const raisedDate = order.orderRaisedAt 
-      ? new Date(order.orderRaisedAt).toLocaleDateString() 
+
+  // Check 2: Order must NOT be raised by supplier (Primary check)
+  if (order.orderRaisedBySupplier === true) {
+    const raisedDate = order.orderRaisedAt
+      ? new Date(order.orderRaisedAt).toLocaleDateString()
       : 'a previous date';
-    
+
+    const supplierName = order.supplierCompany?.name || 'the supplier';
+
     return {
       canAdjust: false,
-      reason: `Order was raised by Rite Foods on ${raisedDate}. Price adjustments are permanently locked.`
+      reason: `Order was raised by ${supplierName} on ${raisedDate}. Price adjustments are permanently locked.`
     };
   }
-  
-  // Check 3: Rite Foods status must not be in locked states
-  const lockedStatuses: RiteFoodsStatus[] = [
-    RiteFoodsStatus.ORDER_RAISED,
-    RiteFoodsStatus.PROCESSING,
-    RiteFoodsStatus.LOADED,
-    RiteFoodsStatus.DISPATCHED
+
+  // Check 3: Supplier status must not be in locked states
+  const lockedStatuses: SupplierStatus[] = [
+    SupplierStatus.ORDER_RAISED,
+    SupplierStatus.PROCESSING,
+    SupplierStatus.LOADED,
+    SupplierStatus.DISPATCHED
   ];
-  
-  if (lockedStatuses.includes(order.riteFoodsStatus)) {
+
+  if (lockedStatuses.includes(order.supplierStatus)) {
     return {
       canAdjust: false,
-      reason: `Order status is "${order.riteFoodsStatus}". Price adjustments are not permitted at this stage.`
+      reason: `Order status is "${order.supplierStatus}". Price adjustments are not permitted at this stage.`
     };
   }
-  
+
   // All checks passed - adjustment is allowed
   return {
     canAdjust: true

@@ -15,16 +15,17 @@ import {
     Truck,
     FileDown,
     Lock,
-    Edit
+    Edit,
+    Building2
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { UpdateRiteFoodsStatusModal } from '../../components/distribution/UpdateRiteFoodsStatusModal';
+import { UpdateSupplierStatusModal } from '../../components/distribution/UpdateSupplierStatusModal';
 import { RecordDeliveryModal } from '../../components/distribution/RecordDeliveryModal';
-import { PayRiteFoodsModal } from '../../components/distribution/PayRiteFoodsModal';
+import { PaySupplierModal } from '../../components/distribution/PaySupplierModal';
 import { AssignTransportModal } from '../../components/distribution/AssignTransportModal';
 import { PriceAdjustmentModal } from '@/components/distribution/PriceAdjustmentModal';
 import { toast } from 'react-hot-toast';
@@ -37,9 +38,9 @@ export const OrderDetails: React.FC = () => {
 
     // State management
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-    const [isRiteFoodsModalOpen, setIsRiteFoodsModalOpen] = useState(false);
+    const [isSupplierStatusModalOpen, setIsSupplierStatusModalOpen] = useState(false);
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
-    const [isPayRiteFoodsModalOpen, setIsPayRiteFoodsModalOpen] = useState(false);
+    const [isPaySupplierModalOpen, setIsPaySupplierModalOpen] = useState(false);
     const [isAssignTransportModalOpen, setIsAssignTransportModalOpen] = useState(false);
     const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
@@ -290,6 +291,50 @@ export const OrderDetails: React.FC = () => {
                 </div>
             </div>
 
+            {/* Supplier Information */}
+            {order.supplierCompany && (
+                <div className="bg-white shadow rounded-lg p-6">
+                    <div className="flex items-center mb-4">
+                        <Building2 className="h-5 w-5 text-gray-400 mr-2" />
+                        <h3 className="text-lg font-medium text-gray-900">Supplier Information</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <p className="text-sm text-gray-500">Company Name</p>
+                            <p className="text-sm font-medium text-gray-900">{order.supplierCompany.name}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500">Code</p>
+                            <p className="text-sm font-medium text-gray-900">{order.supplierCompany.code}</p>
+                        </div>
+                        {order.supplierCompany.contactPerson && (
+                            <div>
+                                <p className="text-sm text-gray-500">Contact Person</p>
+                                <p className="text-sm font-medium text-gray-900">{order.supplierCompany.contactPerson}</p>
+                            </div>
+                        )}
+                        {order.supplierCompany.email && (
+                            <div>
+                                <p className="text-sm text-gray-500">Email</p>
+                                <p className="text-sm font-medium text-gray-900">{order.supplierCompany.email}</p>
+                            </div>
+                        )}
+                        {order.supplierCompany.phone && (
+                            <div>
+                                <p className="text-sm text-gray-500">Phone</p>
+                                <p className="text-sm font-medium text-gray-900">{order.supplierCompany.phone}</p>
+                            </div>
+                        )}
+                        {order.supplierCompany.paymentTerms && (
+                            <div>
+                                <p className="text-sm text-gray-500">Payment Terms</p>
+                                <p className="text-sm font-medium text-gray-900">{order.supplierCompany.paymentTerms}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Order Items */}
             <div className="bg-white shadow rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Order Items</h3>
@@ -487,65 +532,67 @@ export const OrderDetails: React.FC = () => {
             <div className="bg-white shadow rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Order Status Management</h3>
 
-                {/* Rite Foods Payment & Status Section */}
+                {/* Supplier Payment & Status Section */}
                 <div className="border-b pb-4 mb-4">
                     <div className="flex items-center justify-between mb-3">
                         <div>
-                            <h4 className="text-sm font-semibold text-gray-700">Rite Foods Payment</h4>
+                            <h4 className="text-sm font-semibold text-gray-700">
+                                {order.supplierCompany?.name || 'Supplier'} Payment
+                            </h4>
                             <p className="text-xs text-gray-500 mt-1">
                                 Payment Status: <span className="font-medium">
-                                    {order.paidToRiteFoods ? '✓ Paid' : 'Not Paid'}
+                                    {order.paidToSupplier ? '✓ Paid' : 'Not Paid'}
                                 </span>
                             </p>
-                            {order.paidToRiteFoods && (
+                            {order.paidToSupplier && (
                                 <p className="text-xs text-gray-500">
-                                    Rite Foods Status: <span className="font-medium">{order.riteFoodsStatus}</span>
+                                    Supplier Status: <span className="font-medium">{order.supplierStatus}</span>
                                 </p>
                             )}
                         </div>
 
-                        {!order.paidToRiteFoods && (
+                        {!order.paidToSupplier && (
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setIsPayRiteFoodsModalOpen(true)}
+                                onClick={() => setIsPaySupplierModalOpen(true)}
                                 disabled={order.paymentStatus !== 'CONFIRMED'}
                                 className="flex items-center"
                             >
                                 <DollarSign className="h-4 w-4 mr-2" />
-                                Pay Rite Foods
+                                Pay {order.supplierCompany?.name || 'Supplier'}
                             </Button>
                         )}
 
-                        {order.paidToRiteFoods && (
+                        {order.paidToSupplier && (
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setIsRiteFoodsModalOpen(true)}
+                                onClick={() => setIsSupplierStatusModalOpen(true)}
                                 className="flex items-center"
                             >
                                 <Package className="h-4 w-4 mr-2" />
-                                Update Rite Foods Status
+                                Update {order.supplierCompany?.name || 'Supplier'} Status
                             </Button>
                         )}
                     </div>
 
-                    {!order.paidToRiteFoods && order.paymentStatus !== 'CONFIRMED' && (
+                    {!order.paidToSupplier && order.paymentStatus !== 'CONFIRMED' && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
                             <p className="text-yellow-800">
-                                ⚠️ Customer payment must be confirmed before paying Rite Foods
+                                ⚠️ Customer payment must be confirmed before paying {order.supplierCompany?.name || 'supplier'}
                             </p>
                         </div>
                     )}
 
-                    {order.paidToRiteFoods && (
+                    {order.paidToSupplier && (
                         <div className="bg-green-50 border border-green-200 rounded p-3 text-xs">
                             <p className="text-green-800">
-                                ✓ Payment sent to Rite Foods on {formatDate(order.paymentDateToRiteFoods)}
+                                ✓ Payment sent to {order.supplierCompany?.name || 'supplier'} on {formatDate(order.paymentDateToSupplier)}
                             </p>
-                            {order.riteFoodsOrderNumber && (
+                            {order.supplierOrderNumber && (
                                 <p className="text-green-800 mt-1">
-                                    Order #: {order.riteFoodsOrderNumber}
+                                    Order #: {order.supplierOrderNumber}
                                 </p>
                             )}
                         </div>
@@ -568,7 +615,7 @@ export const OrderDetails: React.FC = () => {
                         </div>
 
                         <div className="flex space-x-2">
-                            {!order.transporterCompany && order.riteFoodsStatus === 'LOADED' && (
+                            {!order.transporterCompany && order.supplierStatus === 'LOADED' && (
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -595,10 +642,10 @@ export const OrderDetails: React.FC = () => {
                         </div>
                     </div>
 
-                    {!order.transporterCompany && order.riteFoodsStatus !== 'LOADED' && (
+                    {!order.transporterCompany && order.supplierStatus !== 'LOADED' && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
                             <p className="text-yellow-800">
-                                ⚠️ Rite Foods status must be LOADED before assigning transport
+                                ⚠️ Supplier status must be LOADED before assigning transport
                             </p>
                         </div>
                     )}
@@ -774,11 +821,12 @@ export const OrderDetails: React.FC = () => {
                 </form>
             </Modal>
 
-            <UpdateRiteFoodsStatusModal
-                isOpen={isRiteFoodsModalOpen}
-                onClose={() => setIsRiteFoodsModalOpen(false)}
+            <UpdateSupplierStatusModal
+                isOpen={isSupplierStatusModalOpen}
+                onClose={() => setIsSupplierStatusModalOpen(false)}
                 orderId={order.id}
-                currentStatus={order.riteFoodsStatus}
+                currentStatus={order.supplierStatus}
+                supplierName={order.supplierCompany?.name}
             />
 
             <RecordDeliveryModal
@@ -789,11 +837,12 @@ export const OrderDetails: React.FC = () => {
                 totalPacks={order.totalPacks}
             />
 
-            <PayRiteFoodsModal
-                isOpen={isPayRiteFoodsModalOpen}
-                onClose={() => setIsPayRiteFoodsModalOpen(false)}
+            <PaySupplierModal
+                isOpen={isPaySupplierModalOpen}
+                onClose={() => setIsPaySupplierModalOpen(false)}
                 orderId={order.id}
                 amount={parseFloat(order.finalAmount?.toString() || '0')}
+                supplierName={order.supplierCompany?.name}
             />
 
             <AssignTransportModal

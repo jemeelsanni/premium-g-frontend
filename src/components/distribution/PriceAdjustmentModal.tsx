@@ -58,9 +58,9 @@ export const PriceAdjustmentModal = ({ orderId, currentAmount, onClose }: PriceA
 
         adjustmentMutation.mutate({
             adjustedAmount: amount,
-            adjustmentType: 'RITE_FOODS_PRICE_CHANGE',
+            adjustmentType: 'SUPPLIER_PRICE_CHANGE',
             reason: reason.trim(),
-            riteFoodsInvoiceReference: invoiceRef.trim() || undefined,
+            supplierInvoiceReference: invoiceRef.trim() || undefined,
         });
     };
 
@@ -107,14 +107,14 @@ export const PriceAdjustmentModal = ({ orderId, currentAmount, onClose }: PriceA
                         onChange={(e) => setReason(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         rows={3}
-                        placeholder="Explain reason for Rite Foods price change"
+                        placeholder="Explain reason for supplier price change"
                         required
                     />
                 </div>
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Rite Foods Invoice Reference (Optional)
+                        Supplier Invoice Reference (Optional)
                     </label>
                     <Input
                         type="text"

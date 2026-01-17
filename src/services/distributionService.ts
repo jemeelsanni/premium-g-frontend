@@ -92,24 +92,24 @@ export interface BulkPaymentConfirmData {
   notes?: string;
 }
 
-export interface PayRiteFoodsData {
+export interface PaySupplierData {
   orderId: string;
   amount: number;
   paymentMethod: string;
   reference?: string;
-  riteFoodsOrderNumber?: string;
-  riteFoodsInvoiceNumber?: string;
+  supplierOrderNumber?: string;
+  supplierInvoiceNumber?: string;
 }
 
-export interface PayRiteFoodsResponse {
+export interface PaySupplierResponse {
   success: boolean;
   message: string;
   data: {
     order: DistributionOrder;
     payment: PaymentHistory;
     paymentReference: string;
-    riteFoodsOrderNumber: string;
-    riteFoodsInvoiceNumber: string;
+    supplierOrderNumber: string;
+    supplierInvoiceNumber: string;
   };
 }
 
@@ -171,9 +171,9 @@ export class DistributionService extends BaseApiService {
     return this.post<DistributionOrder>({ orderId, notes }, '/payments/confirm');
   }
 
-  // ✅ Pay Rite Foods
-  async payRiteFoods(data: PayRiteFoodsData): Promise<PayRiteFoodsResponse> {
-    return this.post<PayRiteFoodsResponse>(data, '/payments/rite-foods');
+  // ✅ Pay Supplier
+  async paySupplier(data: PaySupplierData): Promise<PaySupplierResponse> {
+    return this.post<PaySupplierResponse>(data, '/payments/supplier');
   }
 
   async bulkConfirmPayments(data: BulkPaymentConfirmData): Promise<any> {
@@ -254,9 +254,17 @@ export class DistributionService extends BaseApiService {
     return response.data;
   }
 
-  // Rite Foods Status & Delivery
-  async updateRiteFoodsStatus(orderId: string, status: string): Promise<DistributionOrder> {
-    return this.put<DistributionOrder>({ riteFoodsStatus: status }, `/orders/${orderId}/rite-foods-status`);
+  // Supplier Status & Delivery
+  async updateSupplierStatus(data: { orderId: string; supplierStatus: string; orderRaisedAt?: string; loadedDate?: string }): Promise<DistributionOrder> {
+    return this.put<DistributionOrder>(
+      {
+        orderId: data.orderId,
+        supplierStatus: data.supplierStatus,
+        orderRaisedAt: data.orderRaisedAt,
+        loadedDate: data.loadedDate
+      },
+      '/payments/supplier/status'
+    );
   }
 
   async assignTransport(orderId: string, data: {
