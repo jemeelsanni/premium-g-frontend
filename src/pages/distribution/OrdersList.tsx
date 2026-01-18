@@ -133,7 +133,7 @@ export const OrdersList: React.FC = () => {
         }
     };
 
-    const getStatusBadge = (status: string) => {
+    const getStatusBadge = (status: string, record?: any) => {
         const configs: Record<string, { class: string; label: string }> = {
             // Payment Status
             PENDING: { class: 'bg-orange-100 text-orange-800', label: 'Pending Payment' },
@@ -156,13 +156,39 @@ export const OrdersList: React.FC = () => {
 
             // Order Status
             PAYMENT_CONFIRMED: { class: 'bg-green-100 text-green-800', label: 'Payment OK' },
-            SENT_TO_RITE_FOODS: { class: 'bg-purple-100 text-purple-800', label: 'At Rite Foods' },
-            PROCESSING_BY_RFL: { class: 'bg-purple-100 text-purple-800', label: 'Processing' },
+            SENT_TO_SUPPLIER: { class: 'bg-purple-100 text-purple-800', label: 'At Supplier' },
+            PROCESSING_BY_SUPPLIER: { class: 'bg-purple-100 text-purple-800', label: 'Processing' },
             DELIVERED: { class: 'bg-green-100 text-green-800', label: 'Delivered' },
             CANCELLED: { class: 'bg-red-100 text-red-800', label: 'Cancelled' },
         };
 
-        const config = configs[status] || { class: 'bg-gray-100 text-gray-800', label: status };
+        let config = configs[status] || { class: 'bg-gray-100 text-gray-800', label: status };
+
+        // Dynamic label for supplier-specific statuses
+        if (record?.supplierCompany?.name) {
+            const supplierName = record.supplierCompany.name;
+
+            // Main order status
+            if (status === 'SENT_TO_SUPPLIER') {
+                config = { ...config, label: `At ${supplierName}` };
+            } else if (status === 'PROCESSING_BY_SUPPLIER') {
+                config = { ...config, label: `${supplierName} Processing` };
+            }
+
+            // Supplier status badges - add supplier name
+            else if (status === 'PAYMENT_SENT') {
+                config = { ...config, label: `${supplierName} - Payment Sent` };
+            } else if (status === 'ORDER_RAISED') {
+                config = { ...config, label: `${supplierName} - Order Raised` };
+            } else if (status === 'PROCESSING') {
+                config = { ...config, label: `${supplierName} - Processing` };
+            } else if (status === 'LOADED') {
+                config = { ...config, label: `${supplierName} - Loaded` };
+            } else if (status === 'DISPATCHED') {
+                config = { ...config, label: `${supplierName} - Dispatched` };
+            }
+        }
+
         return (
             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.class}`}>
                 {config.label}
@@ -215,17 +241,17 @@ export const OrdersList: React.FC = () => {
         {
             key: 'paymentStatus',
             title: 'Payment',
-            render: (value: string) => getStatusBadge(value)
+            render: (value: string, record: any) => getStatusBadge(value, record)
         },
         {
             key: 'supplierStatus',
             title: 'Supplier',
-            render: (value: string) => getStatusBadge(value)
+            render: (value: string, record: any) => getStatusBadge(value, record)
         },
         {
             key: 'deliveryStatus',
             title: 'Delivery',
-            render: (value: string) => getStatusBadge(value)
+            render: (value: string, record: any) => getStatusBadge(value, record)
         },
         {
             key: 'createdAt',

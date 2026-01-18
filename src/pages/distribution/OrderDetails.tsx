@@ -218,7 +218,7 @@ export const OrderDetails: React.FC = () => {
                     </Button>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${order.status === 'DELIVERED' || order.status === 'PARTIALLY_DELIVERED'
                         ? 'bg-green-100 text-green-800'
-                        : order.status === 'PROCESSING' || order.status === 'PROCESSING_BY_RFL'
+                        : order.status === 'PROCESSING' || order.status === 'PROCESSING_BY_SUPPLIER'
                             ? 'bg-blue-100 text-blue-800'
                             : order.status === 'PENDING' || order.status === 'PAYMENT_CONFIRMED'
                                 ? 'bg-yellow-100 text-yellow-800'

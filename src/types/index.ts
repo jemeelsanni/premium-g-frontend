@@ -219,15 +219,15 @@ export interface DistributionOrder {
   deliveryReviewedAt?: string;
   
   // Order status
-  status: 
-    | 'PENDING' 
-    | 'PAYMENT_CONFIRMED' 
-    | 'SENT_TO_RITE_FOODS' 
-    | 'PROCESSING_BY_RFL' 
-    | 'LOADED' 
-    | 'IN_TRANSIT' 
-    | 'DELIVERED' 
-    | 'PARTIALLY_DELIVERED' 
+  status:
+    | 'PENDING'
+    | 'PAYMENT_CONFIRMED'
+    | 'SENT_TO_SUPPLIER'
+    | 'PROCESSING_BY_SUPPLIER'
+    | 'LOADED'
+    | 'IN_TRANSIT'
+    | 'DELIVERED'
+    | 'PARTIALLY_DELIVERED'
     | 'CANCELLED';
   
   orderItems?: DistributionOrderItem[];
