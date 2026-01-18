@@ -165,6 +165,31 @@ export const CreateOrder: React.FC = () => {
         }
     }, [existingOrder, isEditing, setValue]);
 
+    // Auto-populate delivery location when customer is selected
+    const selectedCustomerId = watch('customerId');
+    useEffect(() => {
+        if (selectedCustomerId && !isEditing) {
+            // Extract customers array
+            let customersArray: any[] = [];
+            if (customersResponse) {
+                if ((customersResponse as any).data?.customers) {
+                    customersArray = (customersResponse as any).data.customers;
+                } else if ((customersResponse as any).customers) {
+                    customersArray = (customersResponse as any).customers;
+                } else if (Array.isArray((customersResponse as any).data)) {
+                    customersArray = (customersResponse as any).data;
+                } else if (Array.isArray(customersResponse)) {
+                    customersArray = customersResponse;
+                }
+            }
+
+            const selectedCustomer = customersArray.find((c: any) => c.id === selectedCustomerId);
+            if (selectedCustomer && selectedCustomer.address) {
+                setValue('deliveryLocation', selectedCustomer.address);
+            }
+        }
+    }, [selectedCustomerId, customersResponse, setValue, isEditing]);
+
 
     const onSubmit = (data: OrderFormData) => {
         // Format the data exactly as the backend expects
