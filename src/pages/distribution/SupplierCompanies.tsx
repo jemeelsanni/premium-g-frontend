@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, CheckCircle, XCircle, Building2, Mail, Phone, User } from 'lucide-react';
 import supplierCompanyService from '../../services/supplierCompanyService';
@@ -11,7 +12,6 @@ interface SupplierFormData {
   phone?: string;
   address?: string;
   contactPerson?: string;
-  paymentTerms?: string;
   notes?: string;
 }
 
@@ -27,7 +27,6 @@ const SupplierCompanies: React.FC = () => {
     phone: '',
     address: '',
     contactPerson: '',
-    paymentTerms: '',
     notes: ''
   });
 
@@ -75,7 +74,6 @@ const SupplierCompanies: React.FC = () => {
       phone: supplier.phone || '',
       address: supplier.address || '',
       contactPerson: supplier.contactPerson || '',
-      paymentTerms: supplier.paymentTerms || '',
       notes: supplier.notes || ''
     });
     setShowForm(true);
@@ -115,7 +113,6 @@ const SupplierCompanies: React.FC = () => {
       phone: '',
       address: '',
       contactPerson: '',
-      paymentTerms: '',
       notes: ''
     });
     setEditingSupplier(null);
@@ -214,19 +211,6 @@ const SupplierCompanies: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Payment Terms
-                </label>
-                <input
-                  type="text"
-                  value={formData.paymentTerms}
-                  onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., NET 30, COD"
-                />
-              </div>
-
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Address
@@ -275,9 +259,8 @@ const SupplierCompanies: React.FC = () => {
         {suppliers.map((supplier) => (
           <div
             key={supplier.id}
-            className={`bg-white rounded-lg shadow-md p-6 ${
-              !supplier.isActive ? 'opacity-60' : ''
-            }`}
+            className={`bg-white rounded-lg shadow-md p-6 ${!supplier.isActive ? 'opacity-60' : ''
+              }`}
           >
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
@@ -332,11 +315,10 @@ const SupplierCompanies: React.FC = () => {
               </button>
               <button
                 onClick={() => handleToggleStatus(supplier)}
-                className={`flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2 ${
-                  supplier.isActive
-                    ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
-                    : 'bg-green-50 text-green-600 hover:bg-green-100'
-                }`}
+                className={`flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2 ${supplier.isActive
+                  ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
+                  : 'bg-green-50 text-green-600 hover:bg-green-100'
+                  }`}
               >
                 {supplier.isActive ? 'Deactivate' : 'Activate'}
               </button>
