@@ -239,8 +239,8 @@ export const OrdersList: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (record: any) => (
-                <Link to={`/distribution/orders/${record.id}`}>
+            render: (_value: any, record: any) => (
+                <Link to={`/distribution/orders/${record?.id || ''}`}>
                     <Button variant="outline" size="sm">
                         <Eye className="h-4 w-4 mr-1" />
                         View
