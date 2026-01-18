@@ -202,7 +202,7 @@ const SupplierCompanies: React.FC = () => {
                 />
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Contact Person
                 </label>
@@ -314,8 +314,8 @@ const SupplierCompanies: React.FC = () => {
               <button
                 onClick={() => handleToggleStatus(supplier)}
                 className={`flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2 ${supplier.isActive
-                    ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
-                    : 'bg-green-50 text-green-600 hover:bg-green-100'
+                  ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
+                  : 'bg-green-50 text-green-600 hover:bg-green-100'
                   }`}
               >
                 {supplier.isActive ? 'Deactivate' : 'Activate'}
