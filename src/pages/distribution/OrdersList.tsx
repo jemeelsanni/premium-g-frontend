@@ -24,20 +24,20 @@ export const OrdersList: React.FC = () => {
 
     // Get filters from URL
     const paymentStatusFilter = searchParams.get('paymentStatus') || '';
-    const riteFoodsStatusFilter = searchParams.get('riteFoodsStatus') || '';
+    const supplierStatusFilter = searchParams.get('supplierStatus') || '';
     const deliveryStatusFilter = searchParams.get('deliveryStatus') || '';
     const orderStatusFilter = searchParams.get('status') || '';
 
     const pageSize = 10;
 
     const { data: ordersData, isLoading, error } = useQuery({
-        queryKey: ['distribution-orders', currentPage, pageSize, searchTerm, paymentStatusFilter, riteFoodsStatusFilter, deliveryStatusFilter, orderStatusFilter],
+        queryKey: ['distribution-orders', currentPage, pageSize, searchTerm, paymentStatusFilter, supplierStatusFilter, deliveryStatusFilter, orderStatusFilter],
         queryFn: () => distributionService.getOrders({
             page: currentPage,
             limit: pageSize,
             search: searchTerm || undefined,
             paymentStatus: paymentStatusFilter || undefined,
-            riteFoodsStatus: riteFoodsStatusFilter || undefined,
+            supplierStatus: supplierStatusFilter || undefined,
             deliveryStatus: deliveryStatusFilter || undefined,
             status: orderStatusFilter || undefined,
         }),
@@ -66,7 +66,7 @@ export const OrdersList: React.FC = () => {
         setCurrentPage(1);
     };
 
-    const hasActiveFilters = paymentStatusFilter || riteFoodsStatusFilter || deliveryStatusFilter || orderStatusFilter || searchTerm;
+    const hasActiveFilters = paymentStatusFilter || supplierStatusFilter || deliveryStatusFilter || orderStatusFilter || searchTerm;
 
     const handleExport = async (options: ExportOptions) => {
         setIsExporting(true);
@@ -218,8 +218,8 @@ export const OrdersList: React.FC = () => {
             render: (value: string) => getStatusBadge(value)
         },
         {
-            key: 'riteFoodsStatus',
-            title: 'Rite Foods',
+            key: 'supplierStatus',
+            title: 'Supplier',
             render: (value: string) => getStatusBadge(value)
         },
         {
@@ -393,10 +393,10 @@ export const OrdersList: React.FC = () => {
                                     </button>
                                 </span>
                             )}
-                            {riteFoodsStatusFilter && (
+                            {supplierStatusFilter && (
                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    Rite Foods: {riteFoodsStatusFilter}
-                                    <button onClick={() => handleFilterChange('riteFoodsStatus', '')} className="ml-2 hover:text-blue-900">
+                                    Supplier: {supplierStatusFilter}
+                                    <button onClick={() => handleFilterChange('supplierStatus', '')} className="ml-2 hover:text-blue-900">
                                         <X className="h-3 w-3" />
                                     </button>
                                 </span>
@@ -455,14 +455,14 @@ export const OrdersList: React.FC = () => {
                             </select>
                         </div>
 
-                        {/* Rite Foods Status */}
+                        {/* Supplier Status */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Rite Foods Status
+                                Supplier Status
                             </label>
                             <select
-                                value={riteFoodsStatusFilter}
-                                onChange={(e) => handleFilterChange('riteFoodsStatus', e.target.value)}
+                                value={supplierStatusFilter}
+                                onChange={(e) => handleFilterChange('supplierStatus', e.target.value)}
                                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             >
                                 <option value="">All Statuses</option>

@@ -39,7 +39,7 @@ export interface DistributionFilters {
   endDate?: string;
   search?: string;
   paymentStatus?: string;
-  riteFoodsStatus?: string;
+  supplierStatus?: string;
   deliveryStatus?: string;
 }
 
