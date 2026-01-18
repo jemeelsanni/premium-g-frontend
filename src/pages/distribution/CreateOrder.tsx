@@ -21,6 +21,7 @@ const orderItemSchema = z.object({
 
 const orderSchema = z.object({
     customerId: z.string().min(1, 'Customer is required'),
+    supplierCompanyId: z.string().min(1, 'Supplier is required'),
     deliveryLocation: z.string().min(1, 'Delivery location is required'),
     orderItems: z.array(orderItemSchema).min(1, 'At least one item is required'),
     remark: z.string().optional(),
@@ -45,6 +46,7 @@ export const CreateOrder: React.FC = () => {
         resolver: zodResolver(orderSchema),
         defaultValues: {
             customerId: '',
+            supplierCompanyId: '',
             deliveryLocation: '',
             orderItems: [{ productId: '', pallets: 0, packs: 1, amount: 0 }],
             remark: ''
@@ -66,6 +68,25 @@ export const CreateOrder: React.FC = () => {
                 return response;
             } catch (error) {
                 console.error('Error fetching customers:', error);
+                throw error;
+            }
+        },
+    });
+
+    // Fetch suppliers
+    const { data: suppliersResponse, isLoading: loadingSuppliers } = useQuery({
+        queryKey: ['supplier-companies-active'],
+        queryFn: async () => {
+            try {
+                const response = await fetch('/api/v1/supplier-companies?isActive=true', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    },
+                });
+                if (!response.ok) throw new Error('Failed to fetch suppliers');
+                return response.json();
+            } catch (error) {
+                console.error('Error fetching suppliers:', error);
                 throw error;
             }
         },
@@ -151,6 +172,7 @@ export const CreateOrder: React.FC = () => {
             const order = (existingOrder as any).data?.order || (existingOrder as any).data || existingOrder;
 
             setValue('customerId', order.customerId);
+            setValue('supplierCompanyId', order.supplierCompanyId || '');
             setValue('deliveryLocation', order.deliveryLocation || '');
             setValue('remark', order.remark || '');
 
@@ -195,6 +217,7 @@ export const CreateOrder: React.FC = () => {
         // Format the data exactly as the backend expects
         const orderData = {
             customerId: data.customerId,
+            supplierCompanyId: data.supplierCompanyId,
             deliveryLocation: data.deliveryLocation.trim(), // Backend will find/create location
             orderItems: data.orderItems.map(item => ({
                 productId: item.productId,
@@ -396,10 +419,12 @@ export const CreateOrder: React.FC = () => {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs">
                     <p className="font-semibold text-blue-800 mb-2">📊 Debug Info:</p>
                     <p className="text-blue-600">✓ Customers: {customers.length}</p>
+                    <p className="text-blue-600">✓ Suppliers: {suppliersResponse?.data?.length || 0}</p>
                     <p className="text-blue-600">✓ Products: {products.length}</p>
                     <p className="text-blue-600">✓ Locations (optional): {locations.length}</p>
                     {customers.length === 0 && <p className="text-red-600 mt-2">⚠️ No customers found</p>}
                     {products.length === 0 && <p className="text-red-600 mt-2">⚠️ No products found</p>}
+                    {(!suppliersResponse?.data || suppliersResponse.data.length === 0) && <p className="text-red-600 mt-2">⚠️ No suppliers found</p>}
                 </div>
             )}
 
@@ -441,6 +466,33 @@ export const CreateOrder: React.FC = () => {
                             )}
                             {errors.customerId && (
                                 <p className="mt-1 text-sm text-red-600">{errors.customerId.message}</p>
+                            )}
+                        </div>
+
+                        {/* Supplier Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">
+                                Supplier *
+                            </label>
+                            {loadingSuppliers ? (
+                                <div className="mt-1 p-2 text-sm text-gray-500">Loading suppliers...</div>
+                            ) : (
+                                <>
+                                    <select
+                                        {...register('supplierCompanyId')}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    >
+                                        <option value="">Select Supplier</option>
+                                        {suppliersResponse?.data?.map((supplier: any) => (
+                                            <option key={supplier.id} value={supplier.id}>
+                                                {supplier.name} ({supplier.code})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </>
+                            )}
+                            {errors.supplierCompanyId && (
+                                <p className="mt-1 text-sm text-red-600">{errors.supplierCompanyId.message}</p>
                             )}
                         </div>
 
