@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
+import supplierCompanyService from '../../services/supplierCompanyService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -76,20 +77,7 @@ export const CreateOrder: React.FC = () => {
     // Fetch suppliers
     const { data: suppliersResponse, isLoading: loadingSuppliers } = useQuery({
         queryKey: ['supplier-companies-active'],
-        queryFn: async () => {
-            try {
-                const response = await fetch('/api/v1/supplier-companies?isActive=true', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    },
-                });
-                if (!response.ok) throw new Error('Failed to fetch suppliers');
-                return response.json();
-            } catch (error) {
-                console.error('Error fetching suppliers:', error);
-                throw error;
-            }
-        },
+        queryFn: () => supplierCompanyService.getAllSupplierCompanies(true),
     });
 
     // Fetch products
@@ -419,12 +407,12 @@ export const CreateOrder: React.FC = () => {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs">
                     <p className="font-semibold text-blue-800 mb-2">📊 Debug Info:</p>
                     <p className="text-blue-600">✓ Customers: {customers.length}</p>
-                    <p className="text-blue-600">✓ Suppliers: {suppliersResponse?.data?.length || 0}</p>
+                    <p className="text-blue-600">✓ Suppliers: {suppliersResponse?.length || 0}</p>
                     <p className="text-blue-600">✓ Products: {products.length}</p>
                     <p className="text-blue-600">✓ Locations (optional): {locations.length}</p>
                     {customers.length === 0 && <p className="text-red-600 mt-2">⚠️ No customers found</p>}
                     {products.length === 0 && <p className="text-red-600 mt-2">⚠️ No products found</p>}
-                    {(!suppliersResponse?.data || suppliersResponse.data.length === 0) && <p className="text-red-600 mt-2">⚠️ No suppliers found</p>}
+                    {(!suppliersResponse || suppliersResponse.length === 0) && <p className="text-red-600 mt-2">⚠️ No suppliers found</p>}
                 </div>
             )}
 
@@ -483,7 +471,7 @@ export const CreateOrder: React.FC = () => {
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                     >
                                         <option value="">Select Supplier</option>
-                                        {suppliersResponse?.data?.map((supplier: any) => (
+                                        {suppliersResponse?.map((supplier: any) => (
                                             <option key={supplier.id} value={supplier.id}>
                                                 {supplier.name} ({supplier.code})
                                             </option>
