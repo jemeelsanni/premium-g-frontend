@@ -56,7 +56,6 @@ export interface SupplierCompany {
   phone?: string;
   address?: string;
   contactPerson?: string;
-  paymentTerms?: string;
   notes?: string;
   isActive: boolean;
   createdAt: string;

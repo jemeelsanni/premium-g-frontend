@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, CheckCircle, XCircle, Building2, Mail, Phone, User } from 'lucide-react';
 import supplierCompanyService from '../../services/supplierCompanyService';
@@ -39,8 +38,9 @@ const SupplierCompanies: React.FC = () => {
       setLoading(true);
       const data = await supplierCompanyService.getAllSupplierCompanies();
       setSuppliers(data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load suppliers');
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to load suppliers');
     } finally {
       setLoading(false);
     }
@@ -60,8 +60,9 @@ const SupplierCompanies: React.FC = () => {
 
       resetForm();
       loadSuppliers();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save supplier');
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to save supplier');
     }
   };
 
@@ -86,8 +87,9 @@ const SupplierCompanies: React.FC = () => {
       });
       toast.success(`Supplier ${supplier.isActive ? 'deactivated' : 'activated'} successfully`);
       loadSuppliers();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update supplier status');
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to update supplier status');
     }
   };
 
@@ -100,8 +102,9 @@ const SupplierCompanies: React.FC = () => {
       await supplierCompanyService.deleteSupplierCompany(supplier.id);
       toast.success('Supplier deleted successfully');
       loadSuppliers();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete supplier');
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to delete supplier');
     }
   };
 
@@ -298,11 +301,6 @@ const SupplierCompanies: React.FC = () => {
                   <span>{supplier.contactPerson}</span>
                 </div>
               )}
-              {supplier.paymentTerms && (
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Payment Terms:</span> {supplier.paymentTerms}
-                </div>
-              )}
             </div>
 
             <div className="flex gap-2">
@@ -316,8 +314,8 @@ const SupplierCompanies: React.FC = () => {
               <button
                 onClick={() => handleToggleStatus(supplier)}
                 className={`flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2 ${supplier.isActive
-                  ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
-                  : 'bg-green-50 text-green-600 hover:bg-green-100'
+                    ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
+                    : 'bg-green-50 text-green-600 hover:bg-green-100'
                   }`}
               >
                 {supplier.isActive ? 'Deactivate' : 'Activate'}
