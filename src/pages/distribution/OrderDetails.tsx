@@ -395,9 +395,8 @@ export const OrderDetails: React.FC = () => {
                         order?.paymentStatus === 'CONFIRMED' && (
                             <>
                                 {(() => {
-                                    const isLoaded = order?.supplierStatus === 'LOADED' || order?.supplierStatus === 'DISPATCHED';
-                                    const isOrderRaised = !!order?.orderRaisedBySupplier;
-                                    const canAdjust = !isLoaded && !isOrderRaised;
+                                    const isLoaded = order?.status === 'LOADED';
+                                    const canAdjust = !isLoaded;
 
                                     return (
                                         <Button
@@ -410,9 +409,7 @@ export const OrderDetails: React.FC = () => {
                                             title={
                                                 isLoaded
                                                     ? 'Price adjustment not allowed - Order has been loaded'
-                                                    : isOrderRaised
-                                                        ? 'Price adjustment not allowed - Order already raised by supplier'
-                                                        : 'Adjust order price'
+                                                    : 'Adjust order price'
                                             }
                                         >
                                             <Edit className="h-4 w-4 mr-2" />
@@ -422,16 +419,13 @@ export const OrderDetails: React.FC = () => {
                                 })()}
 
                                 {/* ✨ Info message when adjustment is disabled */}
-                                {(order?.supplierStatus === 'LOADED' || order?.supplierStatus === 'DISPATCHED' || order?.orderRaisedBySupplier) && (
+                                {order?.status === 'LOADED' && (
                                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start mt-2">
                                         <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
                                         <div className="text-sm text-yellow-800">
                                             <p className="font-medium">Price Adjustment Locked</p>
                                             <p className="mt-1">
-                                                {order?.supplierStatus === 'LOADED' || order?.supplierStatus === 'DISPATCHED'
-                                                    ? 'Order has already been loaded. Price adjustments are no longer permitted.'
-                                                    : `This order was raised by ${order?.supplierCompany?.name || 'supplier'}. Price adjustments are no longer permitted.`
-                                                }
+                                                Order has been loaded. Price adjustments are no longer permitted.
                                             </p>
                                         </div>
                                     </div>
