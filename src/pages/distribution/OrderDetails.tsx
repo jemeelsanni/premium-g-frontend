@@ -95,7 +95,10 @@ export const OrderDetails: React.FC = () => {
 
     // Calculate values
     const balance = parseFloat(order.balance || 0);
-    const canConfirmPayment = order.paymentStatus === 'PENDING' && balance === 0;
+    const canConfirmPayment =
+        !order.paidToSupplier && // Not already paid to supplier
+        order.paymentStatus !== 'CONFIRMED' && // Not already confirmed
+        (order.amountPaid || 0) > 0; // Customer has paid something
 
     const handleExportOrderPDF = async () => {
         setIsExportingPDF(true);
