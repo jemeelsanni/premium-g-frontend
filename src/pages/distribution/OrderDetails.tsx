@@ -371,14 +371,23 @@ export const OrderDetails: React.FC = () => {
 
                     {/* Confirm Payment Button */}
                     {canConfirmPayment && (
-                        <Button
-                            onClick={() => confirmPaymentMutation.mutate()}
-                            disabled={confirmPaymentMutation.isPending}
-                            className="w-full bg-green-600 hover:bg-green-700"
-                        >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            {confirmPaymentMutation.isPending ? 'Confirming...' : 'Confirm Payment'}
-                        </Button>
+                        <>
+                            {balance > 0 && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-2">
+                                    <p className="text-xs text-yellow-800">
+                                        ⚠️ Outstanding balance of ₦{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} will be tracked in customer balance. Customer can pay remaining amount later.
+                                    </p>
+                                </div>
+                            )}
+                            <Button
+                                onClick={() => confirmPaymentMutation.mutate()}
+                                disabled={confirmPaymentMutation.isPending}
+                                className="w-full bg-green-600 hover:bg-green-700"
+                            >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                {confirmPaymentMutation.isPending ? 'Confirming...' : 'Confirm Payment'}
+                            </Button>
+                        </>
                     )}
 
                     {/* ✨ Adjust Price Button - Only before order is loaded */}
