@@ -37,22 +37,12 @@ export const OrderDetails: React.FC = () => {
     const queryClient = useQueryClient();
 
     // State management
-    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isSupplierStatusModalOpen, setIsSupplierStatusModalOpen] = useState(false);
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
     const [isPaySupplierModalOpen, setIsPaySupplierModalOpen] = useState(false);
     const [isAssignTransportModalOpen, setIsAssignTransportModalOpen] = useState(false);
     const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
-
-    const [paymentData, setPaymentData] = useState({
-        amount: 0,
-        paymentMethod: 'CASH',
-        reference: '',
-        paidBy: '',
-        receivedBy: '',
-        notes: ''
-    });
 
     // Data fetching
     const { data: orderResponse, isLoading } = useQuery({
@@ -68,20 +58,6 @@ export const OrderDetails: React.FC = () => {
     });
 
     // Mutations
-    const recordPaymentMutation = useMutation({
-        mutationFn: (data: any) => distributionService.recordPayment(data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['distribution-order', id] });
-            queryClient.invalidateQueries({ queryKey: ['order-payments', id] });
-            toast.success('Payment recorded successfully!');
-            setIsPaymentModalOpen(false);
-            resetPaymentForm();
-        },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to record payment');
-        }
-    });
-
     const confirmPaymentMutation = useMutation({
         mutationFn: () => distributionService.confirmPayment(id!, 'Payment confirmed by accountant'),
         onSuccess: () => {
@@ -93,29 +69,6 @@ export const OrderDetails: React.FC = () => {
         }
     });
 
-    // Helper functions
-    const resetPaymentForm = () => {
-        setPaymentData({
-            amount: 0,
-            paymentMethod: 'CASH',
-            reference: '',
-            paidBy: '',
-            receivedBy: '',
-            notes: ''
-        });
-    };
-
-    const handleRecordPayment = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!paymentData.receivedBy) {
-            toast.error('Received By is required');
-            return;
-        }
-        recordPaymentMutation.mutate({
-            orderId: id!,
-            ...paymentData
-        });
-    };
 
     // Loading state
     if (isLoading) {
@@ -415,16 +368,6 @@ export const OrderDetails: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div className="mt-4 space-y-2">
-                    {/* Record Payment Button */}
-                    {order.paymentStatus === 'PENDING' && balance > 0 && (
-                        <Button
-                            onClick={() => setIsPaymentModalOpen(true)}
-                            className="w-full"
-                        >
-                            <DollarSign className="h-4 w-4 mr-2" />
-                            Record Payment
-                        </Button>
-                    )}
 
                     {/* Confirm Payment Button */}
                     {canConfirmPayment && (
@@ -438,44 +381,48 @@ export const OrderDetails: React.FC = () => {
                         </Button>
                     )}
 
-                    {/* ✨ CORRECTED: Adjust Price Button - Shows when admin AND payment confirmed */}
+                    {/* ✨ Adjust Price Button - Only before order is loaded */}
                     {(['SUPER_ADMIN', 'DISTRIBUTION_ADMIN'].includes(userRole)) &&
                         order?.paymentStatus === 'CONFIRMED' && (
                             <>
-                                <Button
-                                    onClick={() => setShowAdjustmentModal(true)}
-                                    disabled={!!order?.orderRaisedByRFL}
-                                    className={`w-full ${order?.orderRaisedByRFL
-                                        ? 'bg-gray-400 cursor-not-allowed hover:bg-gray-400'
-                                        : 'bg-orange-600 hover:bg-orange-700'
-                                        }`}
-                                    title={
-                                        order?.orderRaisedByRFL
-                                            ? 'Price adjustment not allowed - Order already raised by Rite Foods'
-                                            : 'Adjust order price'
-                                    }
-                                >
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Adjust Price
-                                    {order?.orderRaisedByRFL && (
-                                        <Lock className="h-4 w-4 ml-2" />
-                                    )}
-                                </Button>
+                                {(() => {
+                                    const isLoaded = order?.supplierStatus === 'LOADED' || order?.supplierStatus === 'DISPATCHED';
+                                    const isOrderRaised = !!order?.orderRaisedBySupplier;
+                                    const canAdjust = !isLoaded && !isOrderRaised;
+
+                                    return (
+                                        <Button
+                                            onClick={() => setShowAdjustmentModal(true)}
+                                            disabled={!canAdjust}
+                                            className={`w-full ${!canAdjust
+                                                ? 'bg-gray-400 cursor-not-allowed hover:bg-gray-400'
+                                                : 'bg-orange-600 hover:bg-orange-700'
+                                                }`}
+                                            title={
+                                                isLoaded
+                                                    ? 'Price adjustment not allowed - Order has been loaded'
+                                                    : isOrderRaised
+                                                        ? 'Price adjustment not allowed - Order already raised by supplier'
+                                                        : 'Adjust order price'
+                                            }
+                                        >
+                                            <Edit className="h-4 w-4 mr-2" />
+                                            Adjust Price
+                                        </Button>
+                                    );
+                                })()}
 
                                 {/* ✨ Info message when adjustment is disabled */}
-                                {order?.orderRaisedByRFL && (
-                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start">
+                                {(order?.supplierStatus === 'LOADED' || order?.supplierStatus === 'DISPATCHED' || order?.orderRaisedBySupplier) && (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start mt-2">
                                         <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
                                         <div className="text-sm text-yellow-800">
                                             <p className="font-medium">Price Adjustment Locked</p>
                                             <p className="mt-1">
-                                                This order was raised by Rite Foods on{' '}
-                                                <strong>
-                                                    {order?.orderRaisedAt
-                                                        ? formatDate(order.orderRaisedAt)
-                                                        : 'N/A'}
-                                                </strong>.
-                                                Price adjustments are no longer permitted.
+                                                {order?.supplierStatus === 'LOADED' || order?.supplierStatus === 'DISPATCHED'
+                                                    ? 'Order has already been loaded. Price adjustments are no longer permitted.'
+                                                    : `This order was raised by ${order?.supplierCompany?.name || 'supplier'}. Price adjustments are no longer permitted.`
+                                                }
                                             </p>
                                         </div>
                                     </div>
@@ -493,36 +440,110 @@ export const OrderDetails: React.FC = () => {
             {order?.priceAdjustments && order.priceAdjustments.length > 0 && (
                 <div className="bg-white shadow rounded-lg p-6">
                     <h3 className="text-lg font-semibold mb-3">Price Adjustment History</h3>
-                    <div className="space-y-3">
-                        {order.priceAdjustments.map((adjustment: any) => (
-                            <div key={adjustment.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <span className="font-medium text-gray-700">Original: </span>
-                                        <span className="line-through text-gray-600">
-                                            ₦{parseFloat(adjustment.originalAmount).toLocaleString()}
-                                        </span>
-                                        <span className="mx-2 text-gray-400">→</span>
-                                        <span className="font-medium text-gray-700">New: </span>
-                                        <span className="text-green-600 font-semibold">
-                                            ₦{parseFloat(adjustment.adjustedAmount).toLocaleString()}
-                                        </span>
+                    <div className="space-y-4">
+                        {order.priceAdjustments.map((adjustment: any) => {
+                            // Parse item changes from reason if present
+                            const reasonParts = adjustment.reason?.split('\n\nItem Changes:\n') || [adjustment.reason];
+                            const mainReason = reasonParts[0];
+                            const itemChanges = reasonParts[1];
+
+                            return (
+                                <div key={adjustment.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                    {/* Header with amounts and date */}
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <span className="font-medium text-gray-700">Original: </span>
+                                            <span className="line-through text-gray-600">
+                                                ₦{parseFloat(adjustment.originalAmount).toLocaleString(undefined, {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                })}
+                                            </span>
+                                            <span className="mx-2 text-gray-400">→</span>
+                                            <span className="font-medium text-gray-700">New: </span>
+                                            <span className="text-orange-600 font-semibold">
+                                                ₦{parseFloat(adjustment.adjustedAmount).toLocaleString(undefined, {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                })}
+                                            </span>
+                                            <span className="ml-3 text-sm font-medium text-gray-600">
+                                                (Difference: ₦{Math.abs(parseFloat(adjustment.adjustedAmount) - parseFloat(adjustment.originalAmount)).toLocaleString(undefined, {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                })})
+                                            </span>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-gray-500">
+                                                {formatDate(adjustment.createdAt)}
+                                            </div>
+                                            {adjustment.adjuster && (
+                                                <div className="text-xs text-gray-600 mt-1">
+                                                    by {adjustment.adjuster.username}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <span className="text-xs text-gray-500">
-                                        {formatDate(adjustment.createdAt)}
-                                    </span>
-                                </div>
-                                <div className="text-sm mt-2">
-                                    <strong className="text-gray-700">Reason:</strong>
-                                    <p className="text-gray-600 mt-1">{adjustment.reason}</p>
-                                </div>
-                                {adjustment.riteFoodsInvoiceReference && (
-                                    <div className="text-sm text-gray-600 mt-1">
-                                        <strong>Invoice Ref:</strong> {adjustment.riteFoodsInvoiceReference}
+
+                                    {/* Main Reason */}
+                                    <div className="text-sm mb-2">
+                                        <strong className="text-gray-700">Reason:</strong>
+                                        <p className="text-gray-600 mt-1 whitespace-pre-wrap">{mainReason}</p>
                                     </div>
-                                )}
-                            </div>
-                        ))}
+
+                                    {/* Item Changes Table */}
+                                    {itemChanges && (
+                                        <div className="mt-3 pt-3 border-t border-yellow-300">
+                                            <strong className="text-sm text-gray-700">Item Price Changes:</strong>
+                                            <div className="mt-2 bg-white rounded border border-yellow-300 overflow-hidden">
+                                                <table className="min-w-full text-xs">
+                                                    <thead className="bg-yellow-100">
+                                                        <tr>
+                                                            <th className="px-3 py-2 text-left font-medium text-gray-700">Product</th>
+                                                            <th className="px-3 py-2 text-center font-medium text-gray-700">Old Price</th>
+                                                            <th className="px-3 py-2 text-center font-medium text-gray-700">New Price</th>
+                                                            <th className="px-3 py-2 text-center font-medium text-gray-700">Packs</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-yellow-200">
+                                                        {itemChanges.split('; ').map((change: string, idx: number) => {
+                                                            // Parse: "Product Name: ₦850 → ₦900 per pack (240 packs)"
+                                                            const match = change.match(/(.*): ₦([\d.]+) → ₦([\d.]+) per pack \((\d+) packs\)/);
+                                                            if (!match) return null;
+
+                                                            const [, productName, oldPrice, newPrice, packs] = match;
+
+                                                            return (
+                                                                <tr key={idx} className="hover:bg-yellow-50">
+                                                                    <td className="px-3 py-2 text-gray-900">{productName}</td>
+                                                                    <td className="px-3 py-2 text-center text-gray-600 line-through">
+                                                                        ₦{parseFloat(oldPrice).toLocaleString()}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-center text-orange-600 font-medium">
+                                                                        ₦{parseFloat(newPrice).toLocaleString()}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-center text-gray-700">
+                                                                        {packs}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Invoice Reference */}
+                                    {adjustment.riteFoodsInvoiceReference && (
+                                        <div className="text-sm text-gray-600 mt-2">
+                                            <strong>Supplier Invoice Ref:</strong> {adjustment.riteFoodsInvoiceReference}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
@@ -709,118 +730,6 @@ export const OrderDetails: React.FC = () => {
             </div>
 
             {/* Modals */}
-            <Modal
-                isOpen={isPaymentModalOpen}
-                onClose={() => setIsPaymentModalOpen(false)}
-                title="Record Payment"
-            >
-                <form onSubmit={handleRecordPayment} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                            Amount *
-                        </label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={paymentData.amount}
-                            onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) || 0 })}
-                            required
-                            className="mt-1"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                            Outstanding balance: ₦{balance.toLocaleString()}
-                        </p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                            Payment Method *
-                        </label>
-                        <select
-                            value={paymentData.paymentMethod}
-                            onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: e.target.value })}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="CASH">Cash</option>
-                            <option value="BANK_TRANSFER">Bank Transfer</option>
-                            <option value="CHECK">Check</option>
-                            <option value="WHATSAPP_TRANSFER">WhatsApp Transfer</option>
-                            <option value="POS">POS</option>
-                            <option value="MOBILE_MONEY">Mobile Money</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                            Reference
-                        </label>
-                        <Input
-                            type="text"
-                            value={paymentData.reference}
-                            onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
-                            placeholder="Transaction reference"
-                            className="mt-1"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                            Paid By
-                        </label>
-                        <Input
-                            type="text"
-                            value={paymentData.paidBy}
-                            onChange={(e) => setPaymentData({ ...paymentData, paidBy: e.target.value })}
-                            placeholder="Name of person who paid"
-                            className="mt-1"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                            Received By *
-                        </label>
-                        <Input
-                            type="text"
-                            value={paymentData.receivedBy}
-                            onChange={(e) => setPaymentData({ ...paymentData, receivedBy: e.target.value })}
-                            required
-                            placeholder="Your name"
-                            className="mt-1"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                            Notes
-                        </label>
-                        <textarea
-                            value={paymentData.notes}
-                            onChange={(e) => setPaymentData({ ...paymentData, notes: e.target.value })}
-                            rows={3}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        />
-                    </div>
-
-                    <div className="flex justify-end space-x-3 pt-4">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsPaymentModalOpen(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={recordPaymentMutation.isPending}
-                        >
-                            {recordPaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
-
             <UpdateSupplierStatusModal
                 isOpen={isSupplierStatusModalOpen}
                 onClose={() => setIsSupplierStatusModalOpen(false)}
@@ -855,6 +764,7 @@ export const OrderDetails: React.FC = () => {
                 <PriceAdjustmentModal
                     orderId={order.id}
                     currentAmount={order.finalAmount}
+                    orderItems={order.orderItems || []}
                     onClose={() => setShowAdjustmentModal(false)}
                 />
             )}

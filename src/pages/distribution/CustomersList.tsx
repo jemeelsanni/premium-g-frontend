@@ -141,6 +141,30 @@ export const CustomersList: React.FC = () => {
             )
         },
         {
+            key: 'customerBalance',
+            title: 'Balance',
+            render: (value: number) => {
+                const balance = value || 0;
+                const isDebt = balance > 0;
+                const isCredit = balance < 0;
+
+                return (
+                    <div className="text-center">
+                        <div className={`text-sm font-semibold ${
+                            isDebt ? 'text-red-600' : isCredit ? 'text-green-600' : 'text-gray-900'
+                        }`}>
+                            ₦{Math.abs(balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className={`text-xs ${
+                            isDebt ? 'text-red-500' : isCredit ? 'text-green-500' : 'text-gray-500'
+                        }`}>
+                            {isDebt ? 'Owes' : isCredit ? 'Credit' : 'Clear'}
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
             key: 'actions',
             title: 'Actions',
             render: (record: any) => (

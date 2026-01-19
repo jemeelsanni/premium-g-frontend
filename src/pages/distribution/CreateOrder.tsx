@@ -17,6 +17,7 @@ const orderItemSchema = z.object({
     productId: z.string().min(1, 'Product is required'),
     pallets: z.number().min(0, 'Pallets must be non-negative'),
     packs: z.number().min(1, 'Packs must be at least 1'),
+    pricePerPack: z.number().min(0, 'Price per pack must be positive'),
     amount: z.number().min(0, 'Amount must be positive'),
 });
 
@@ -25,6 +26,7 @@ const orderSchema = z.object({
     supplierCompanyId: z.string().min(1, 'Supplier is required'),
     deliveryLocation: z.string().min(1, 'Delivery location is required'),
     orderItems: z.array(orderItemSchema).min(1, 'At least one item is required'),
+    amountPaid: z.number().min(0, 'Amount paid cannot be negative').optional(),
     remark: z.string().optional(),
 });
 
@@ -49,7 +51,8 @@ export const CreateOrder: React.FC = () => {
             customerId: '',
             supplierCompanyId: '',
             deliveryLocation: '',
-            orderItems: [{ productId: '', pallets: 0, packs: 1, amount: 0 }],
+            orderItems: [{ productId: '', pallets: 0, packs: 1, pricePerPack: 0, amount: 0 }],
+            amountPaid: 0,
             remark: ''
         }
     });
@@ -213,6 +216,7 @@ export const CreateOrder: React.FC = () => {
                 packs: Number(item.packs) || 0,
                 amount: Number(item.amount) || 0
             })),
+            amountPaid: Number(data.amountPaid) || 0,
             remark: data.remark?.trim() || ''
         };
 
@@ -226,7 +230,7 @@ export const CreateOrder: React.FC = () => {
     };
 
     const addOrderItem = () => {
-        append({ productId: '', pallets: 0, packs: 1, amount: 0 });
+        append({ productId: '', pallets: 0, packs: 1, pricePerPack: 0, amount: 0 });
     };
 
     const removeOrderItem = (index: number) => {
@@ -242,6 +246,9 @@ export const CreateOrder: React.FC = () => {
     const totalAmount = watchedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     const totalPacks = watchedItems.reduce((sum, item) => sum + (Number(item.packs) || 0), 0);
     const totalPallets = watchedItems.reduce((sum, item) => sum + (Number(item.pallets) || 0), 0);
+
+    const amountPaid = watch('amountPaid') || 0;
+    const orderBalance = totalAmount - amountPaid; // Positive = customer owes us, Negative = we owe customer
 
     // Extract data from nested API responses
     let customers: any[] = [];
@@ -263,8 +270,8 @@ export const CreateOrder: React.FC = () => {
 
     useEffect(() => {
         const subscription = watch((value, { name }) => {
-            // Only trigger on productId or pallets changes
-            if (!name || (!name.includes('.productId') && !name.includes('.pallets'))) {
+            // Trigger on productId, pallets, or pricePerPack changes
+            if (!name || (!name.includes('.productId') && !name.includes('.pallets') && !name.includes('.pricePerPack'))) {
                 return;
             }
 
@@ -283,7 +290,7 @@ export const CreateOrder: React.FC = () => {
 
             const pallets = Number(item.pallets) || 0;
             const packsPerPallet = Number(selectedProduct.packsPerPallet) || 0;
-            const pricePerPack = parseFloat(selectedProduct.costPerPack || 0);
+            const pricePerPack = Number(item.pricePerPack) || 0;
 
             // Validate maximum pallets
             if (pallets > 12) {
@@ -295,7 +302,7 @@ export const CreateOrder: React.FC = () => {
             // Calculate total packs
             const calculatedPacks = pallets * packsPerPallet;
 
-            // Calculate amount
+            // Calculate amount (packs * manual price per pack)
             const calculatedAmount = calculatedPacks * pricePerPack;
 
             // Get current values
@@ -455,6 +462,45 @@ export const CreateOrder: React.FC = () => {
                             {errors.customerId && (
                                 <p className="mt-1 text-sm text-red-600">{errors.customerId.message}</p>
                             )}
+
+                            {/* Customer Balance Warning */}
+                            {selectedCustomerId && (() => {
+                                const selectedCustomer = customers.find((c: any) => c.id === selectedCustomerId);
+                                if (!selectedCustomer) return null;
+
+                                const customerBalance = selectedCustomer.customerBalance || 0;
+                                const hasBalance = Math.abs(customerBalance) > 0.01;
+
+                                if (!hasBalance) return null;
+
+                                const isDebt = customerBalance > 0;
+
+                                return (
+                                    <div className={`mt-2 p-3 rounded-lg border ${
+                                        isDebt
+                                            ? 'bg-red-50 border-red-200'
+                                            : 'bg-green-50 border-green-200'
+                                    }`}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className={`text-sm font-semibold ${
+                                                    isDebt ? 'text-red-800' : 'text-green-800'
+                                                }`}>
+                                                    {isDebt ? '⚠️ Customer has outstanding balance' : '✓ Customer has credit'}
+                                                </p>
+                                                <p className={`text-xs ${
+                                                    isDebt ? 'text-red-600' : 'text-green-600'
+                                                }`}>
+                                                    {isDebt
+                                                        ? `Customer owes: ₦${Math.abs(customerBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                                                        : `Customer credit: ₦${Math.abs(customerBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Supplier Selection */}
@@ -551,9 +597,9 @@ export const CreateOrder: React.FC = () => {
 
                     <div className="space-y-4">
                         {fields.map((field, index) => (
-                            <div key={field.id} className="grid grid-cols-1 gap-4 sm:grid-cols-6 p-4 border border-gray-200 rounded-lg">
+                            <div key={field.id} className="grid grid-cols-1 gap-4 sm:grid-cols-12 p-4 border border-gray-200 rounded-lg">
                                 {/* Product */}
-                                <div className="sm:col-span-2">
+                                <div className="sm:col-span-4">
                                     <label className="block text-sm font-medium text-gray-700">
                                         Product *
                                     </label>
@@ -577,9 +623,9 @@ export const CreateOrder: React.FC = () => {
                                 </div>
 
                                 {/* Pallets */}
-                                <div>
+                                <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">
-                                        Pallets (Max: 12) *
+                                        Pallets *
                                     </label>
                                     <Input
                                         type="number"
@@ -598,12 +644,13 @@ export const CreateOrder: React.FC = () => {
                                             }
                                         }}
                                     />
+                                    <p className="text-xs text-gray-500 mt-1">Max: 12</p>
                                 </div>
 
                                 {/* Packs - Read-only */}
-                                <div>
+                                <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">
-                                        Total Packs
+                                        Packs
                                     </label>
                                     <Input
                                         type="number"
@@ -613,16 +660,38 @@ export const CreateOrder: React.FC = () => {
                                         tabIndex={-1}
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        Auto-calculated
+                                        Auto-calc
                                     </p>
                                 </div>
 
+                                {/* Price Per Pack - Manual input */}
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Price/Pack (₦) *
+                                    </label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        {...register(`orderItems.${index}.pricePerPack`, {
+                                            valueAsNumber: true
+                                        })}
+                                        className="mt-1"
+                                        placeholder="0.00"
+                                    />
+                                    {errors.orderItems?.[index]?.pricePerPack && (
+                                        <p className="mt-1 text-xs text-red-600">
+                                            {errors.orderItems[index]?.pricePerPack?.message}
+                                        </p>
+                                    )}
+                                </div>
+
                                 {/* Amount - Read-only with formatted display */}
-                                <div>
+                                <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">
                                         Amount (₦)
                                     </label>
-                                    <div className="mt-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm">
+                                    <div className="mt-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm font-semibold text-gray-900">
                                         ₦{(Number(watchedItems[index]?.amount) || 0).toLocaleString(undefined, {
                                             minimumFractionDigits: 2,
                                             maximumFractionDigits: 2
@@ -633,22 +702,23 @@ export const CreateOrder: React.FC = () => {
                                         {...register(`orderItems.${index}.amount`)}
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        Auto-calculated
+                                        Auto-calc
                                     </p>
                                 </div>
 
                                 {/* Remove Button */}
-                                <div className="flex items-end">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => removeOrderItem(index)}
-                                        disabled={fields.length === 1}
-                                        className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                                {fields.length > 1 && (
+                                    <div className="sm:col-span-12 flex justify-end -mt-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => removeOrderItem(index)}
+                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -669,6 +739,64 @@ export const CreateOrder: React.FC = () => {
                         <div className="flex justify-between text-base font-semibold pt-2 border-t">
                             <span>Total Amount:</span>
                             <span>₦{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+
+                    {/* Payment Section */}
+                    <div className="mt-6 pt-6 border-t">
+                        <h4 className="text-md font-medium text-gray-900 mb-3">Payment</h4>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Amount Paid by Customer
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    {...register('amountPaid', { valueAsNumber: true })}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="0.00"
+                                />
+                                {errors.amountPaid && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.amountPaid.message}</p>
+                                )}
+                            </div>
+
+                            {/* Balance Display */}
+                            {amountPaid > 0 && (
+                                <div className={`p-3 rounded-lg ${
+                                    orderBalance > 0
+                                        ? 'bg-red-50 border border-red-200'
+                                        : orderBalance < 0
+                                        ? 'bg-green-50 border border-green-200'
+                                        : 'bg-gray-50 border border-gray-200'
+                                }`}>
+                                    <div className="flex justify-between items-center">
+                                        <span className={`text-sm font-medium ${
+                                            orderBalance > 0
+                                                ? 'text-red-700'
+                                                : orderBalance < 0
+                                                ? 'text-green-700'
+                                                : 'text-gray-700'
+                                        }`}>
+                                            {orderBalance > 0
+                                                ? 'Customer Balance (Owes):'
+                                                : orderBalance < 0
+                                                ? 'Customer Overpaid (Credit):'
+                                                : 'Fully Paid'}
+                                        </span>
+                                        <span className={`text-base font-bold ${
+                                            orderBalance > 0
+                                                ? 'text-red-700'
+                                                : orderBalance < 0
+                                                ? 'text-green-700'
+                                                : 'text-gray-700'
+                                        }`}>
+                                            ₦{Math.abs(orderBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

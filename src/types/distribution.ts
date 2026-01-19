@@ -73,6 +73,7 @@ export interface DistributionCustomer {
   salesRepId: string;
   totalOrders: number;
   totalSpent: number;
+  customerBalance: number;  // Positive = customer owes us, Negative = we owe customer (credit)
   averageOrderValue: number;
   lastOrderDate?: string;
   createdAt: string;
