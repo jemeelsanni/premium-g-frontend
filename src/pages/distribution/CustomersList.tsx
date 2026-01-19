@@ -167,14 +167,17 @@ export const CustomersList: React.FC = () => {
             }
         },
         {
-            key: 'actions',
+            key: 'id',
             title: 'Actions',
-            render: (record: any) => (
+            render: (_value: any, record: any) => (
                 <div className="flex items-center space-x-2">
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate(`/distribution/customers/${record.id}`)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/distribution/customers/${record.id}`);
+                        }}
                         className="text-blue-600 hover:text-blue-800"
                     >
                         <Eye className="h-4 w-4 mr-1" />
@@ -183,7 +186,10 @@ export const CustomersList: React.FC = () => {
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleOpenModal(record)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenModal(record);
+                        }}
                         className="text-gray-600 hover:text-gray-800"
                     >
                         <Edit className="h-4 w-4 mr-1" />
