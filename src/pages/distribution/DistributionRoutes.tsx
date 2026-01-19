@@ -4,6 +4,7 @@ import { OrdersList } from './OrdersList';
 import { CreateOrder } from './CreateOrder';
 import { OrderDetails } from './OrderDetails';
 import { CustomersList } from './CustomersList';
+import { CustomerDetail } from './CustomerDetail';
 import { TargetsPage } from './TargetsPage';
 import SupplierCompanies from './SupplierCompanies';
 
@@ -17,6 +18,7 @@ export const DistributionRoutes = () => {
             <Route path="orders/:id" element={<OrderDetails />} />
             <Route path="orders/:id/edit" element={<CreateOrder />} />
             <Route path="customers" element={<CustomersList />} />
+            <Route path="customers/:id" element={<CustomerDetail />} />
             <Route path="targets" element={<TargetsPage />} />
             <Route path="suppliers" element={<SupplierCompanies />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />

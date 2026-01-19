@@ -2,7 +2,8 @@
 // src/pages/distribution/CustomersList.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Users, Phone, Mail, Building, MapPin } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Search, Edit, Users, Phone, Mail, Building, MapPin, Eye } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -12,6 +13,7 @@ import { CustomerForm, CustomerFormData } from './CustomerForm';
 import { toast } from 'react-hot-toast';
 
 export const CustomersList: React.FC = () => {
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<any>(null);
@@ -168,15 +170,26 @@ export const CustomersList: React.FC = () => {
             key: 'actions',
             title: 'Actions',
             render: (record: any) => (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenModal(record)}
-                    className="text-blue-600 hover:text-blue-800"
-                >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                </Button>
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/distribution/customers/${record.id}`)}
+                        className="text-blue-600 hover:text-blue-800"
+                    >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenModal(record)}
+                        className="text-gray-600 hover:text-gray-800"
+                    >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                    </Button>
+                </div>
             )
         }
     ];
