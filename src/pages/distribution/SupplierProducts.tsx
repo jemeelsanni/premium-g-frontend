@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Package, DollarSign, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { distributionService } from '../../services/distributionService';
 import supplierCompanyService from '../../services/supplierCompanyService';
 import toast from 'react-hot-toast';
@@ -41,6 +42,7 @@ interface FormData {
 }
 
 const SupplierProducts: React.FC = () => {
+  const location = useLocation();
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -58,6 +60,14 @@ const SupplierProducts: React.FC = () => {
     leadTimeDays: '',
     notes: '',
   });
+
+  // Check if supplier was pre-selected from navigation
+  useEffect(() => {
+    const state = location.state as { selectedSupplierId?: string };
+    if (state?.selectedSupplierId) {
+      setSelectedSupplier(state.selectedSupplierId);
+    }
+  }, [location]);
 
   useEffect(() => {
     loadData();

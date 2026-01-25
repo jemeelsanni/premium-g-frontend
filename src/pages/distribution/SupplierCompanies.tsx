@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, CheckCircle, XCircle, Building2, Mail, Phone, User } from 'lucide-react';
+import { Plus, Edit, Trash2, CheckCircle, XCircle, Building2, Mail, Phone, User, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import supplierCompanyService from '../../services/supplierCompanyService';
 import { SupplierCompany } from '../../types/distribution';
 import toast from 'react-hot-toast';
@@ -15,6 +16,7 @@ interface SupplierFormData {
 }
 
 const SupplierCompanies: React.FC = () => {
+  const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<SupplierCompany[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -303,17 +305,24 @@ const SupplierCompanies: React.FC = () => {
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => navigate(`/distribution/suppliers/${supplier.id}`)}
+                className="flex-1 min-w-[80px] px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 flex items-center justify-center gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                View
+              </button>
               <button
                 onClick={() => handleEdit(supplier)}
-                className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-2"
+                className="flex-1 min-w-[80px] px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-2"
               >
                 <Edit className="w-4 h-4" />
                 Edit
               </button>
               <button
                 onClick={() => handleToggleStatus(supplier)}
-                className={`flex-1 px-3 py-2 rounded-lg flex items-center justify-center gap-2 ${supplier.isActive
+                className={`flex-1 min-w-[80px] px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-xs ${supplier.isActive
                   ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
                   : 'bg-green-50 text-green-600 hover:bg-green-100'
                   }`}

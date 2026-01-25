@@ -8,6 +8,7 @@ import { CustomerDetail } from './CustomerDetail';
 import { TargetsPage } from './TargetsPage';
 import SupplierCompanies from './SupplierCompanies';
 import SupplierProducts from './SupplierProducts';
+import SupplierDetail from './SupplierDetail';
 
 export const DistributionRoutes = () => {
     return (
@@ -22,6 +23,7 @@ export const DistributionRoutes = () => {
             <Route path="customers/:id" element={<CustomerDetail />} />
             <Route path="targets" element={<TargetsPage />} />
             <Route path="suppliers" element={<SupplierCompanies />} />
+            <Route path="suppliers/:id" element={<SupplierDetail />} />
             <Route path="supplier-products" element={<SupplierProducts />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
