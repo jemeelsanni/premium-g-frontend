@@ -335,6 +335,79 @@ export class DistributionService extends BaseApiService {
   async getWorkflowSummary(): Promise<any> {
     return this.get('/dashboard/workflow-summary');
   }
+
+  // ==========================================
+  // SUPPLIER PRODUCTS MANAGEMENT
+  // ==========================================
+
+  // Get all supplier products (optionally filtered)
+  async getSupplierProducts(filters?: {
+    supplierId?: string;
+    productId?: string;
+    availableOnly?: boolean;
+  }): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters?.supplierId) params.append('supplierId', filters.supplierId);
+    if (filters?.productId) params.append('productId', filters.productId);
+    if (filters?.availableOnly) params.append('availableOnly', 'true');
+
+    return apiClient.get(`/supplier-products?${params.toString()}`);
+  }
+
+  // Get products for a specific supplier
+  async getSupplierProductsBySupplier(supplierId: string, availableOnly: boolean = true): Promise<any> {
+    const params = availableOnly ? '?availableOnly=true' : '';
+    return apiClient.get(`/supplier-products/supplier/${supplierId}${params}`);
+  }
+
+  // Get a single supplier product
+  async getSupplierProduct(id: string): Promise<any> {
+    return apiClient.get(`/supplier-products/${id}`);
+  }
+
+  // Add a product to supplier's catalog
+  async createSupplierProduct(data: {
+    supplierCompanyId: string;
+    productId: string;
+    supplierCostPerPack: number;
+    isAvailable?: boolean;
+    minimumOrderPacks?: number;
+    leadTimeDays?: number;
+    notes?: string;
+  }): Promise<any> {
+    return apiClient.post('/supplier-products', data);
+  }
+
+  // Update supplier product
+  async updateSupplierProduct(id: string, data: {
+    supplierCostPerPack?: number;
+    isAvailable?: boolean;
+    minimumOrderPacks?: number;
+    leadTimeDays?: number;
+    notes?: string;
+  }): Promise<any> {
+    return apiClient.put(`/supplier-products/${id}`, data);
+  }
+
+  // Remove product from supplier's catalog
+  async deleteSupplierProduct(id: string): Promise<any> {
+    return apiClient.delete(`/supplier-products/${id}`);
+  }
+
+  // Bulk add/update products for a supplier
+  async bulkCreateSupplierProducts(data: {
+    supplierCompanyId: string;
+    products: Array<{
+      productId: string;
+      supplierCostPerPack: number;
+      isAvailable?: boolean;
+      minimumOrderPacks?: number;
+      leadTimeDays?: number;
+      notes?: string;
+    }>;
+  }): Promise<any> {
+    return apiClient.post('/supplier-products/bulk', data);
+  }
 }
 
 export const distributionService = new DistributionService();

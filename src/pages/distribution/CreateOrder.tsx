@@ -83,7 +83,27 @@ export const CreateOrder: React.FC = () => {
         queryFn: () => supplierCompanyService.getAllSupplierCompanies(true),
     });
 
-    // Fetch products
+    // Watch supplier selection to fetch supplier products
+    const selectedSupplierId = watch('supplierCompanyId');
+
+    // Fetch supplier products when supplier is selected
+    const { data: supplierProductsResponse, isLoading: loadingSupplierProducts } = useQuery({
+        queryKey: ['supplier-products', selectedSupplierId],
+        queryFn: async () => {
+            if (!selectedSupplierId) return null;
+            try {
+                const response = await distributionService.getSupplierProductsBySupplier(selectedSupplierId, true);
+                console.log('Supplier Products Response:', response);
+                return response;
+            } catch (error) {
+                console.error('Error fetching supplier products:', error);
+                return null;
+            }
+        },
+        enabled: !!selectedSupplierId,
+    });
+
+    // Fetch all products (fallback if no supplier selected)
     const { data: productsResponse, error: productsError } = useQuery({
         queryKey: ['distribution-products'],
         queryFn: async () => {
@@ -335,7 +355,19 @@ export const CreateOrder: React.FC = () => {
         }
     }
 
-    if (productsResponse) {
+    // Use supplier products if supplier is selected, otherwise all products
+    if (selectedSupplierId && supplierProductsResponse) {
+        const supplierProducts = (supplierProductsResponse as any).data?.products || (supplierProductsResponse as any).products || [];
+        // Map supplier products to include both product and supplier cost info
+        products = supplierProducts.map((sp: any) => ({
+            ...sp.product,
+            supplierCostPerPack: sp.supplierCostPerPack,
+            minimumOrderPacks: sp.minimumOrderPacks,
+            leadTimeDays: sp.leadTimeDays,
+            supplierProductId: sp.id,
+        }));
+        console.log('Using supplier-specific products:', products.length);
+    } else if (productsResponse) {
         if ((productsResponse as any).data?.products) {
             products = (productsResponse as any).data.products;
         } else if ((productsResponse as any).products) {
@@ -345,6 +377,7 @@ export const CreateOrder: React.FC = () => {
         } else if (Array.isArray(productsResponse)) {
             products = productsResponse;
         }
+        console.log('Using all products:', products.length);
     }
 
     if (locationsResponse) {
@@ -415,10 +448,12 @@ export const CreateOrder: React.FC = () => {
                     <p className="font-semibold text-blue-800 mb-2">📊 Debug Info:</p>
                     <p className="text-blue-600">✓ Customers: {customers.length}</p>
                     <p className="text-blue-600">✓ Suppliers: {suppliersResponse?.length || 0}</p>
-                    <p className="text-blue-600">✓ Products: {products.length}</p>
+                    <p className="text-blue-600">✓ Products: {products.length} {selectedSupplierId ? '(filtered by supplier)' : '(all)'}</p>
+                    {loadingSupplierProducts && <p className="text-blue-600">⏳ Loading supplier products...</p>}
                     <p className="text-blue-600">✓ Locations (optional): {locations.length}</p>
                     {customers.length === 0 && <p className="text-red-600 mt-2">⚠️ No customers found</p>}
-                    {products.length === 0 && <p className="text-red-600 mt-2">⚠️ No products found</p>}
+                    {products.length === 0 && selectedSupplierId && <p className="text-yellow-600 mt-2">⚠️ No products configured for this supplier. Add products in Supplier Products page.</p>}
+                    {products.length === 0 && !selectedSupplierId && <p className="text-red-600 mt-2">⚠️ No products found</p>}
                     {(!suppliersResponse || suppliersResponse.length === 0) && <p className="text-red-600 mt-2">⚠️ No suppliers found</p>}
                 </div>
             )}
@@ -527,6 +562,16 @@ export const CreateOrder: React.FC = () => {
                             )}
                             {errors.supplierCompanyId && (
                                 <p className="mt-1 text-sm text-red-600">{errors.supplierCompanyId.message}</p>
+                            )}
+                            {selectedSupplierId && (
+                                <p className="mt-1 text-xs text-blue-600">
+                                    ℹ️ Product dropdown will show only products available from this supplier
+                                </p>
+                            )}
+                            {selectedSupplierId && products.length === 0 && !loadingSupplierProducts && (
+                                <p className="mt-1 text-xs text-yellow-600">
+                                    ⚠️ No products configured for this supplier. Please add products in the Supplier Products page.
+                                </p>
                             )}
                         </div>
 

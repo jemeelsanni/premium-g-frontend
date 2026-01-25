@@ -1,0 +1,545 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit, Trash2, Package, DollarSign, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { distributionService } from '../../services/distributionService';
+import supplierCompanyService from '../../services/supplierCompanyService';
+import toast from 'react-hot-toast';
+import { Button } from '../../components/ui/Button';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+
+interface SupplierProduct {
+  id: string;
+  supplierCompanyId: string;
+  productId: string;
+  supplierCostPerPack: number;
+  isAvailable: boolean;
+  minimumOrderPacks?: number;
+  leadTimeDays?: number;
+  notes?: string;
+  supplierCompany: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  product: {
+    id: string;
+    productNo: string;
+    name: string;
+    packsPerPallet?: number;
+    pricePerPack?: number;
+  };
+}
+
+interface FormData {
+  supplierCompanyId: string;
+  productId: string;
+  supplierCostPerPack: string;
+  isAvailable: boolean;
+  minimumOrderPacks: string;
+  leadTimeDays: string;
+  notes: string;
+}
+
+const SupplierProducts: React.FC = () => {
+  const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<SupplierProduct | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('');
+
+  const [formData, setFormData] = useState<FormData>({
+    supplierCompanyId: '',
+    productId: '',
+    supplierCostPerPack: '',
+    isAvailable: true,
+    minimumOrderPacks: '',
+    leadTimeDays: '',
+    notes: '',
+  });
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedSupplier) {
+      loadSupplierProducts(selectedSupplier);
+    } else {
+      loadAllSupplierProducts();
+    }
+  }, [selectedSupplier]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [suppliersData, productsData] = await Promise.all([
+        supplierCompanyService.getAllSupplierCompanies(),
+        distributionService.getProducts(),
+      ]);
+      setSuppliers(suppliersData);
+      // Extract products from response
+      const extractedProducts = productsData.data?.products || productsData.data || productsData;
+      setProducts(extractedProducts);
+      await loadAllSupplierProducts();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAllSupplierProducts = async () => {
+    try {
+      const response = await distributionService.getSupplierProducts();
+      setSupplierProducts(response.data?.data || response.data || []);
+    } catch (error: any) {
+      toast.error('Failed to load supplier products');
+    }
+  };
+
+  const loadSupplierProducts = async (supplierId: string) => {
+    try {
+      const response = await distributionService.getSupplierProductsBySupplier(supplierId);
+      setSupplierProducts(response.data?.products || []);
+    } catch (error: any) {
+      toast.error('Failed to load supplier products');
+    }
+  };
+
+  const handleOpenModal = (item?: SupplierProduct) => {
+    if (item) {
+      setEditingItem(item);
+      setFormData({
+        supplierCompanyId: item.supplierCompanyId,
+        productId: item.productId,
+        supplierCostPerPack: item.supplierCostPerPack.toString(),
+        isAvailable: item.isAvailable,
+        minimumOrderPacks: item.minimumOrderPacks?.toString() || '',
+        leadTimeDays: item.leadTimeDays?.toString() || '',
+        notes: item.notes || '',
+      });
+    } else {
+      setEditingItem(null);
+      setFormData({
+        supplierCompanyId: selectedSupplier || '',
+        productId: '',
+        supplierCostPerPack: '',
+        isAvailable: true,
+        minimumOrderPacks: '',
+        leadTimeDays: '',
+        notes: '',
+      });
+    }
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingItem(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const submitData = {
+        supplierCompanyId: formData.supplierCompanyId,
+        productId: formData.productId,
+        supplierCostPerPack: parseFloat(formData.supplierCostPerPack),
+        isAvailable: formData.isAvailable,
+        minimumOrderPacks: formData.minimumOrderPacks ? parseInt(formData.minimumOrderPacks) : undefined,
+        leadTimeDays: formData.leadTimeDays ? parseInt(formData.leadTimeDays) : undefined,
+        notes: formData.notes || undefined,
+      };
+
+      if (editingItem) {
+        await distributionService.updateSupplierProduct(editingItem.id, submitData);
+        toast.success('Supplier product updated successfully');
+      } else {
+        await distributionService.createSupplierProduct(submitData);
+        toast.success('Supplier product added successfully');
+      }
+
+      handleCloseModal();
+      if (selectedSupplier) {
+        loadSupplierProducts(selectedSupplier);
+      } else {
+        loadAllSupplierProducts();
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to save supplier product');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to remove this product from the supplier catalog?')) {
+      return;
+    }
+
+    try {
+      await distributionService.deleteSupplierProduct(id);
+      toast.success('Supplier product removed successfully');
+      if (selectedSupplier) {
+        loadSupplierProducts(selectedSupplier);
+      } else {
+        loadAllSupplierProducts();
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete supplier product');
+    }
+  };
+
+  const toggleAvailability = async (item: SupplierProduct) => {
+    try {
+      await distributionService.updateSupplierProduct(item.id, {
+        isAvailable: !item.isAvailable,
+      });
+      toast.success(`Product ${item.isAvailable ? 'disabled' : 'enabled'} successfully`);
+      if (selectedSupplier) {
+        loadSupplierProducts(selectedSupplier);
+      } else {
+        loadAllSupplierProducts();
+      }
+    } catch (error: any) {
+      toast.error('Failed to update availability');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Supplier Products</h1>
+        <p className="text-gray-600 mt-1">Manage products available from each supplier</p>
+      </div>
+
+      {/* Filter and Actions */}
+      <div className="bg-white shadow rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter by Supplier
+              </label>
+              <select
+                value={selectedSupplier}
+                onChange={(e) => setSelectedSupplier(e.target.value)}
+                className="block w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Suppliers</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name} ({supplier.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <Button onClick={() => handleOpenModal()} className="flex items-center">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Supplier Product
+          </Button>
+        </div>
+      </div>
+
+      {/* Supplier Products Table */}
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        {supplierProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">
+              {selectedSupplier
+                ? 'No products found for this supplier'
+                : 'No supplier products configured yet'}
+            </p>
+            <Button onClick={() => handleOpenModal()} className="mt-4">
+              <Plus className="h-4 w-4 mr-2" />
+              Add First Product
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Supplier
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cost/Pack
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Min Order
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lead Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {supplierProducts.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {item.supplierCompany.name}
+                        </div>
+                        <div className="text-sm text-gray-500">{item.supplierCompany.code}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{item.product.name}</div>
+                        <div className="text-sm text-gray-500">{item.product.productNo}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm">
+                        <DollarSign className="h-4 w-4 text-gray-400 mr-1" />
+                        <span className="font-semibold">
+                          ₦{item.supplierCostPerPack.toLocaleString()}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {item.minimumOrderPacks ? `${item.minimumOrderPacks} packs` : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {item.leadTimeDays ? (
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Clock className="h-4 w-4 mr-1" />
+                          {item.leadTimeDays} days
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">N/A</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => toggleAvailability(item)}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          item.isAvailable
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {item.isAvailable ? (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Available
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Unavailable
+                          </>
+                        )}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleOpenModal(item)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={handleCloseModal}></div>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <form onSubmit={handleSubmit}>
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    {editingItem ? 'Edit Supplier Product' : 'Add Supplier Product'}
+                  </h3>
+
+                  <div className="space-y-4">
+                    {/* Supplier Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Supplier <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        required
+                        disabled={!!editingItem}
+                        value={formData.supplierCompanyId}
+                        onChange={(e) =>
+                          setFormData({ ...formData, supplierCompanyId: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                      >
+                        <option value="">Select Supplier</option>
+                        {suppliers.map((supplier) => (
+                          <option key={supplier.id} value={supplier.id}>
+                            {supplier.name} ({supplier.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Product Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Product <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        required
+                        disabled={!!editingItem}
+                        value={formData.productId}
+                        onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                      >
+                        <option value="">Select Product</option>
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} ({product.productNo})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Supplier Cost Per Pack */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Supplier Cost Per Pack (₦) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        step="0.01"
+                        min="0"
+                        value={formData.supplierCostPerPack}
+                        onChange={(e) =>
+                          setFormData({ ...formData, supplierCostPerPack: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter cost per pack"
+                      />
+                    </div>
+
+                    {/* Minimum Order Packs */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Minimum Order (Packs)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.minimumOrderPacks}
+                        onChange={(e) =>
+                          setFormData({ ...formData, minimumOrderPacks: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Optional minimum order quantity"
+                      />
+                    </div>
+
+                    {/* Lead Time Days */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Lead Time (Days)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.leadTimeDays}
+                        onChange={(e) =>
+                          setFormData({ ...formData, leadTimeDays: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Optional delivery lead time"
+                      />
+                    </div>
+
+                    {/* Availability */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="isAvailable"
+                        checked={formData.isAvailable}
+                        onChange={(e) =>
+                          setFormData({ ...formData, isAvailable: e.target.checked })
+                        }
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isAvailable" className="ml-2 block text-sm text-gray-700">
+                        Product is currently available from this supplier
+                      </label>
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <textarea
+                        rows={3}
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Optional notes about this product from this supplier"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <Button type="submit" className="w-full sm:w-auto sm:ml-3">
+                    {editingItem ? 'Update' : 'Add'} Product
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCloseModal}
+                    className="mt-3 w-full sm:mt-0 sm:w-auto"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SupplierProducts;
