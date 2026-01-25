@@ -103,8 +103,14 @@ const SupplierProducts: React.FC = () => {
   const loadAllSupplierProducts = async () => {
     try {
       const response = await distributionService.getSupplierProducts();
-      setSupplierProducts(response.data?.data || response.data || []);
+      // Backend returns { success: true, data: supplierProducts }
+      // Axios wraps it, so response.data.data contains the array
+      const products = response.data?.data || [];
+      console.log('All supplier products response:', response.data);
+      console.log('Extracted products:', products);
+      setSupplierProducts(products);
     } catch (error: any) {
+      console.error('Error loading supplier products:', error);
       toast.error('Failed to load supplier products');
     }
   };
@@ -112,8 +118,14 @@ const SupplierProducts: React.FC = () => {
   const loadSupplierProducts = async (supplierId: string) => {
     try {
       const response = await distributionService.getSupplierProductsBySupplier(supplierId);
-      setSupplierProducts(response.data?.products || []);
+      // Backend returns { success: true, data: { supplier, products } }
+      // Axios wraps it, so response.data.data.products contains the array
+      const products = response.data?.data?.products || [];
+      console.log('Supplier products response:', response.data);
+      console.log('Extracted products:', products);
+      setSupplierProducts(products);
     } catch (error: any) {
+      console.error('Error loading supplier products:', error);
       toast.error('Failed to load supplier products');
     }
   };
