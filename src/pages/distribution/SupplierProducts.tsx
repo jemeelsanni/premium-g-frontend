@@ -131,6 +131,7 @@ const SupplierProducts: React.FC = () => {
   };
 
   const handleOpenModal = (item?: SupplierProduct) => {
+    console.log('handleOpenModal called with item:', item);
     if (item) {
       setEditingItem(item);
       setFormData({
@@ -154,7 +155,9 @@ const SupplierProducts: React.FC = () => {
         notes: '',
       });
     }
+    console.log('Setting showModal to true');
     setShowModal(true);
+    console.log('Modal state should be:', true);
   };
 
   const handleCloseModal = () => {
@@ -236,6 +239,8 @@ const SupplierProducts: React.FC = () => {
       </div>
     );
   }
+
+  console.log('Rendering SupplierProducts - showModal:', showModal);
 
   return (
     <div className="p-6">
@@ -407,7 +412,7 @@ const SupplierProducts: React.FC = () => {
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={handleCloseModal}></div>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="relative inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full z-50">
               <form onSubmit={handleSubmit}>
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">
