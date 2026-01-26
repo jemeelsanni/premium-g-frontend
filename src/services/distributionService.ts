@@ -290,6 +290,17 @@ export class DistributionService extends BaseApiService {
     return response;
   }
 
+  async createProduct(data: {
+    productNo: string;
+    name: string;
+    description?: string;
+    module: string;
+    packsPerPallet?: number;
+    pricePerPack?: number;
+  }): Promise<any> {
+    return apiClient.post('/admin/products', data);
+  }
+
   async getLocations(): Promise<any> {
     const response = await this.get<any>('/locations');
     console.log('Raw locations response:', response);

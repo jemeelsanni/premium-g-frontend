@@ -50,6 +50,10 @@ const SupplierProducts: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<SupplierProduct | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
+  const [newProductData, setNewProductData] = useState({
+    name: '',
+    description: '',
+  });
 
   const [formData, setFormData] = useState<FormData>({
     supplierCompanyId: '',
@@ -145,6 +149,10 @@ const SupplierProducts: React.FC = () => {
       });
     } else {
       setEditingItem(null);
+      setNewProductData({
+        name: '',
+        description: '',
+      });
       setFormData({
         supplierCompanyId: selectedSupplier || '',
         productId: '',
@@ -169,9 +177,43 @@ const SupplierProducts: React.FC = () => {
     e.preventDefault();
 
     try {
+      let productId = formData.productId;
+
+      // Create a new product if not editing (always create new product when adding)
+      if (!editingItem) {
+        // Find the selected supplier to get the supplier code
+        const selectedSupplierData = suppliers.find(s => s.id === formData.supplierCompanyId);
+        const supplierCode = selectedSupplierData?.code || 'SUP';
+
+        // Get the count of existing products for this supplier to generate sequential number
+        const existingSupplierProducts = supplierProducts.filter(
+          sp => sp.supplierCompanyId === formData.supplierCompanyId
+        );
+        const nextNumber = (existingSupplierProducts.length + 1).toString().padStart(3, '0');
+
+        // Generate product number: SUPPLIER_CODE-PRD-001
+        const productNo = `${supplierCode}-PRD-${nextNumber}`;
+
+        const productData = {
+          productNo: productNo,
+          name: newProductData.name,
+          description: newProductData.description || undefined,
+          module: 'DISTRIBUTION',
+        };
+
+        const createdProduct = await distributionService.createProduct(productData);
+        productId = createdProduct.data?.id || createdProduct.id;
+        toast.success('Product created successfully');
+
+        // Reload products list
+        const productsData = await distributionService.getProducts();
+        const extractedProducts = productsData.data?.products || productsData.data || productsData;
+        setProducts(extractedProducts);
+      }
+
       const submitData = {
         supplierCompanyId: formData.supplierCompanyId,
-        productId: formData.productId,
+        productId: productId,
         supplierCostPerPack: parseFloat(formData.supplierCostPerPack),
         isAvailable: formData.isAvailable,
         minimumOrderPacks: formData.minimumOrderPacks ? parseInt(formData.minimumOrderPacks) : undefined,
@@ -443,26 +485,55 @@ const SupplierProducts: React.FC = () => {
                       </select>
                     </div>
 
-                    {/* Product Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Product <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        required
-                        disabled={!!editingItem}
-                        value={formData.productId}
-                        onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                      >
-                        <option value="">Select Product</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} ({product.productNo})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {/* Product Name (Create New Product Only) */}
+                    {!editingItem ? (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Product Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={newProductData.name}
+                            onChange={(e) => setNewProductData({ ...newProductData, name: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter product name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Product Description
+                          </label>
+                          <textarea
+                            value={newProductData.description}
+                            onChange={(e) => setNewProductData({ ...newProductData, description: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            rows={2}
+                            placeholder="Optional product description"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Product <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          required
+                          disabled
+                          value={formData.productId}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100"
+                        >
+                          <option value="">Select Product</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name} ({product.productNo})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     {/* Supplier Cost Per Pack */}
                     <div>
