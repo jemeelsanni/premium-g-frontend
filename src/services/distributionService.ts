@@ -396,8 +396,14 @@ export class DistributionService extends BaseApiService {
     minimumOrderPacks?: number;
     leadTimeDays?: number;
     notes?: string;
+    priceChangeReason?: string;
   }): Promise<any> {
     return apiClient.put(`/supplier-products/${id}`, data);
+  }
+
+  // Get price change history for a supplier product
+  async getSupplierProductPriceHistory(id: string): Promise<any> {
+    return apiClient.get(`/supplier-products/${id}/price-history`);
   }
 
   // Remove product from supplier's catalog

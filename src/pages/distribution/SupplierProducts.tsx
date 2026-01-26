@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Package, DollarSign, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, DollarSign, Clock, CheckCircle, XCircle, History } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { distributionService } from '../../services/distributionService';
 import supplierCompanyService from '../../services/supplierCompanyService';
@@ -39,6 +39,7 @@ interface FormData {
   minimumOrderPacks: string;
   leadTimeDays: string;
   notes: string;
+  priceChangeReason: string;
 }
 
 const SupplierProducts: React.FC = () => {
@@ -50,9 +51,14 @@ const SupplierProducts: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<SupplierProduct | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
+  const [showPriceHistoryModal, setShowPriceHistoryModal] = useState(false);
+  const [priceHistory, setPriceHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedProductForHistory, setSelectedProductForHistory] = useState<SupplierProduct | null>(null);
   const [newProductData, setNewProductData] = useState({
     name: '',
     description: '',
+    packsPerPallet: '',
   });
 
   const [formData, setFormData] = useState<FormData>({
@@ -63,6 +69,7 @@ const SupplierProducts: React.FC = () => {
     minimumOrderPacks: '',
     leadTimeDays: '',
     notes: '',
+    priceChangeReason: '',
   });
 
   // Check if supplier was pre-selected from navigation
@@ -146,12 +153,14 @@ const SupplierProducts: React.FC = () => {
         minimumOrderPacks: item.minimumOrderPacks?.toString() || '',
         leadTimeDays: item.leadTimeDays?.toString() || '',
         notes: item.notes || '',
+        priceChangeReason: '',
       });
     } else {
       setEditingItem(null);
       setNewProductData({
         name: '',
         description: '',
+        packsPerPallet: '',
       });
       setFormData({
         supplierCompanyId: selectedSupplier || '',
@@ -161,6 +170,7 @@ const SupplierProducts: React.FC = () => {
         minimumOrderPacks: '',
         leadTimeDays: '',
         notes: '',
+        priceChangeReason: '',
       });
     }
     console.log('Setting showModal to true');
@@ -199,6 +209,7 @@ const SupplierProducts: React.FC = () => {
           name: newProductData.name,
           description: newProductData.description || undefined,
           module: 'DISTRIBUTION',
+          packsPerPallet: parseInt(newProductData.packsPerPallet),
         };
 
         const createdProduct = await distributionService.createProduct(productData);
@@ -211,20 +222,29 @@ const SupplierProducts: React.FC = () => {
         setProducts(extractedProducts);
       }
 
-      const submitData = {
-        supplierCompanyId: formData.supplierCompanyId,
-        productId: productId,
-        supplierCostPerPack: parseFloat(formData.supplierCostPerPack),
-        isAvailable: formData.isAvailable,
-        minimumOrderPacks: formData.minimumOrderPacks ? parseInt(formData.minimumOrderPacks) : undefined,
-        leadTimeDays: formData.leadTimeDays ? parseInt(formData.leadTimeDays) : undefined,
-        notes: formData.notes || undefined,
-      };
-
       if (editingItem) {
-        await distributionService.updateSupplierProduct(editingItem.id, submitData);
+        // For updates, include price change reason
+        const updateData = {
+          supplierCostPerPack: parseFloat(formData.supplierCostPerPack),
+          isAvailable: formData.isAvailable,
+          minimumOrderPacks: formData.minimumOrderPacks ? parseInt(formData.minimumOrderPacks) : undefined,
+          leadTimeDays: formData.leadTimeDays ? parseInt(formData.leadTimeDays) : undefined,
+          notes: formData.notes || undefined,
+          priceChangeReason: formData.priceChangeReason || undefined,
+        };
+        await distributionService.updateSupplierProduct(editingItem.id, updateData);
         toast.success('Supplier product updated successfully');
       } else {
+        // For creation, use original structure
+        const submitData = {
+          supplierCompanyId: formData.supplierCompanyId,
+          productId: productId,
+          supplierCostPerPack: parseFloat(formData.supplierCostPerPack),
+          isAvailable: formData.isAvailable,
+          minimumOrderPacks: formData.minimumOrderPacks ? parseInt(formData.minimumOrderPacks) : undefined,
+          leadTimeDays: formData.leadTimeDays ? parseInt(formData.leadTimeDays) : undefined,
+          notes: formData.notes || undefined,
+        };
         await distributionService.createSupplierProduct(submitData);
         toast.success('Supplier product added successfully');
       }
@@ -272,6 +292,28 @@ const SupplierProducts: React.FC = () => {
     } catch (error: any) {
       toast.error('Failed to update availability');
     }
+  };
+
+  const handleViewPriceHistory = async (item: SupplierProduct) => {
+    setSelectedProductForHistory(item);
+    setShowPriceHistoryModal(true);
+    setLoadingHistory(true);
+    try {
+      const response = await distributionService.getSupplierProductPriceHistory(item.id);
+      const history = response.data?.data || response.data || [];
+      setPriceHistory(history);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to load price history');
+      setPriceHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleClosePriceHistoryModal = () => {
+    setShowPriceHistoryModal(false);
+    setSelectedProductForHistory(null);
+    setPriceHistory([]);
   };
 
   if (loading) {
@@ -427,14 +469,23 @@ const SupplierProducts: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button
+                          onClick={() => handleViewPriceHistory(item)}
+                          className="text-purple-600 hover:text-purple-900"
+                          title="View price history"
+                        >
+                          <History className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleOpenModal(item)}
                           className="text-blue-600 hover:text-blue-900"
+                          title="Edit"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(item.id)}
                           className="text-red-600 hover:text-red-900"
+                          title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -503,6 +554,20 @@ const SupplierProducts: React.FC = () => {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Packs Per Pallet <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min="1"
+                            value={newProductData.packsPerPallet}
+                            onChange={(e) => setNewProductData({ ...newProductData, packsPerPallet: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter packs per pallet"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
                             Product Description
                           </label>
                           <textarea
@@ -553,6 +618,27 @@ const SupplierProducts: React.FC = () => {
                         placeholder="Enter cost per pack"
                       />
                     </div>
+
+                    {/* Price Change Reason - only shown when editing */}
+                    {editingItem && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Price Change Reason
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.priceChangeReason}
+                          onChange={(e) =>
+                            setFormData({ ...formData, priceChangeReason: e.target.value })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Optional: Why is the price changing?"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          If you change the supplier cost, explain why (e.g., "Supplier increased prices", "Negotiated discount")
+                        </p>
+                      </div>
+                    )}
 
                     {/* Minimum Order Packs */}
                     <div>
@@ -632,6 +718,137 @@ const SupplierProducts: React.FC = () => {
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Price History Modal */}
+      {showPriceHistoryModal && selectedProductForHistory && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={handleClosePriceHistoryModal}></div>
+
+            <div className="relative inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full z-50">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Price Change History
+                  </h3>
+                  <button
+                    onClick={handleClosePriceHistoryModal}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <span className="text-2xl">&times;</span>
+                  </button>
+                </div>
+
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedProductForHistory.product.name}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {selectedProductForHistory.supplierCompany.name} ({selectedProductForHistory.supplierCompany.code})
+                  </p>
+                  <p className="text-sm font-semibold text-blue-600 mt-1">
+                    Current Price: ₦{Number(selectedProductForHistory.supplierCostPerPack).toLocaleString()}
+                  </p>
+                </div>
+
+                {loadingHistory ? (
+                  <div className="flex justify-center py-8">
+                    <LoadingSpinner size="md" />
+                  </div>
+                ) : priceHistory.length === 0 ? (
+                  <div className="text-center py-8">
+                    <History className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-500">No price changes recorded yet</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Date
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Old Price
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            New Price
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Change
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Changed By
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Reason
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {priceHistory.map((record: any) => {
+                          const oldPrice = Number(record.oldPrice);
+                          const newPrice = Number(record.newPrice);
+                          const change = newPrice - oldPrice;
+                          const percentChange = ((change / oldPrice) * 100).toFixed(2);
+                          const isIncrease = change > 0;
+
+                          return (
+                            <tr key={record.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                {new Date(record.createdAt).toLocaleDateString()}
+                                <br />
+                                <span className="text-xs text-gray-500">
+                                  {new Date(record.createdAt).toLocaleTimeString()}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                ₦{oldPrice.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                ₦{newPrice.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                <span
+                                  className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                    isIncrease
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-green-100 text-green-800'
+                                  }`}
+                                >
+                                  {isIncrease ? '↑' : '↓'} ₦{Math.abs(change).toLocaleString()}
+                                  <span className="ml-1">({percentChange}%)</span>
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                {record.changedByUser?.username || 'Unknown'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {record.reason || <span className="text-gray-400 italic">No reason provided</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClosePriceHistoryModal}
+                  className="w-full sm:w-auto"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>

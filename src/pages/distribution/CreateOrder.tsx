@@ -310,6 +310,13 @@ export const CreateOrder: React.FC = () => {
 
             const pallets = Number(item.pallets) || 0;
             const packsPerPallet = Number(selectedProduct.packsPerPallet) || 0;
+
+            // Auto-populate price per pack from supplier cost when product is selected
+            if (name.includes('.productId') && selectedProduct.supplierCostPerPack) {
+                const supplierCost = Number(selectedProduct.supplierCostPerPack);
+                setValue(`orderItems.${index}.pricePerPack`, supplierCost, { shouldValidate: false });
+            }
+
             const pricePerPack = Number(item.pricePerPack) || 0;
 
             // Validate maximum pallets
@@ -322,7 +329,7 @@ export const CreateOrder: React.FC = () => {
             // Calculate total packs
             const calculatedPacks = pallets * packsPerPallet;
 
-            // Calculate amount (packs * manual price per pack)
+            // Calculate amount (packs * price per pack)
             const calculatedAmount = calculatedPacks * pricePerPack;
 
             // Get current values
@@ -656,7 +663,7 @@ export const CreateOrder: React.FC = () => {
                                         <option value="">Select Product</option>
                                         {products.map((product: any) => (
                                             <option key={product.id} value={product.id}>
-                                                {product.name}
+                                                {product.name} {product.supplierCostPerPack ? `- ₦${Number(product.supplierCostPerPack).toLocaleString()}/pack` : ''}
                                             </option>
                                         ))}
                                     </select>
@@ -665,6 +672,19 @@ export const CreateOrder: React.FC = () => {
                                             {errors.orderItems[index]?.productId?.message}
                                         </p>
                                     )}
+                                    {/* Display selected product info */}
+                                    {(() => {
+                                        const selectedProduct = products.find((p: any) => p.id === watchedItems[index]?.productId);
+                                        if (selectedProduct) {
+                                            return (
+                                                <p className="mt-1 text-xs text-blue-600">
+                                                    {selectedProduct.packsPerPallet && `${selectedProduct.packsPerPallet} packs/pallet`}
+                                                    {selectedProduct.supplierCostPerPack && ` • Supplier cost: ₦${Number(selectedProduct.supplierCostPerPack).toLocaleString()}`}
+                                                </p>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
                                 </div>
 
                                 {/* Pallets */}
