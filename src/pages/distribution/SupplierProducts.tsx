@@ -209,21 +209,30 @@ const SupplierProducts: React.FC = () => {
         }
         const supplierCode = selectedSupplierData.code;
 
-        // Get all existing products for this supplier to find the next available number
-        const existingSupplierProducts = supplierProducts.filter(
-          sp => sp.supplierCompanyId === formData.supplierCompanyId
-        );
+        // Fetch fresh supplier products from server to ensure we have the latest data
+        let existingSupplierProducts: any[] = [];
+        try {
+          const response = await distributionService.getSupplierProductsBySupplier(formData.supplierCompanyId, false);
+          existingSupplierProducts = response.data?.data?.products || [];
+          console.log('Fetched fresh supplier products:', existingSupplierProducts.length);
+        } catch (error) {
+          console.error('Error fetching supplier products:', error);
+          // Fallback to local state if API fails
+          existingSupplierProducts = supplierProducts.filter(
+            sp => sp.supplierCompanyId === formData.supplierCompanyId
+          );
+        }
 
         // Extract existing product numbers and find the highest number
         const prefix = `${supplierCode}-PRD-`;
         const existingNumbers = existingSupplierProducts
-          .map(sp => sp.product.productNo)
-          .filter(productNo => productNo && productNo.startsWith(prefix))
-          .map(productNo => {
+          .map((sp: any) => sp.product?.productNo)
+          .filter((productNo: string) => productNo && productNo.startsWith(prefix))
+          .map((productNo: string) => {
             const match = productNo.match(/-PRD-(\d+)$/);
             return match ? parseInt(match[1]) : 0;
           })
-          .filter(num => !isNaN(num));
+          .filter((num: number) => !isNaN(num));
 
         // Find the next available number
         const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
@@ -231,7 +240,7 @@ const SupplierProducts: React.FC = () => {
 
         // Generate product number: SUPPLIER_CODE-PRD-001
         const productNo = `${supplierCode}-PRD-${nextNumber}`;
-        console.log('Generated product number:', productNo, 'from existing numbers:', existingNumbers);
+        console.log('Generated product number:', productNo, 'from existing numbers:', existingNumbers, 'max:', maxNumber);
 
         const productData = {
           productNo: productNo,
