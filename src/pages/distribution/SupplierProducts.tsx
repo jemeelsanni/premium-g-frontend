@@ -209,14 +209,29 @@ const SupplierProducts: React.FC = () => {
         }
         const supplierCode = selectedSupplierData.code;
 
-        // Get the count of existing products for this supplier to generate sequential number
+        // Get all existing products for this supplier to find the next available number
         const existingSupplierProducts = supplierProducts.filter(
           sp => sp.supplierCompanyId === formData.supplierCompanyId
         );
-        const nextNumber = (existingSupplierProducts.length + 1).toString().padStart(3, '0');
+
+        // Extract existing product numbers and find the highest number
+        const prefix = `${supplierCode}-PRD-`;
+        const existingNumbers = existingSupplierProducts
+          .map(sp => sp.product.productNo)
+          .filter(productNo => productNo && productNo.startsWith(prefix))
+          .map(productNo => {
+            const match = productNo.match(/-PRD-(\d+)$/);
+            return match ? parseInt(match[1]) : 0;
+          })
+          .filter(num => !isNaN(num));
+
+        // Find the next available number
+        const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+        const nextNumber = (maxNumber + 1).toString().padStart(3, '0');
 
         // Generate product number: SUPPLIER_CODE-PRD-001
         const productNo = `${supplierCode}-PRD-${nextNumber}`;
+        console.log('Generated product number:', productNo, 'from existing numbers:', existingNumbers);
 
         const productData = {
           productNo: productNo,
