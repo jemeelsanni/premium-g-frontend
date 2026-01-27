@@ -272,20 +272,45 @@ export const CreateOrder: React.FC = () => {
 
     // Extract data from nested API responses
     let customers: any[] = [];
-    let products: any[] = React.useMemo(() => {
+
+    // Use supplier products if supplier is selected, otherwise all products
+    const products: any[] = React.useMemo(() => {
+        // Priority 1: Use supplier products when a supplier is selected
+        if (selectedSupplierId && supplierProductsResponse) {
+            const supplierProducts = (supplierProductsResponse as any).data?.products || (supplierProductsResponse as any).products || [];
+            // Map supplier products to include both product and supplier cost info
+            const mappedProducts = supplierProducts.map((sp: any) => ({
+                ...sp.product,
+                supplierCostPerPack: sp.supplierCostPerPack,
+                minimumOrderPacks: sp.minimumOrderPacks,
+                leadTimeDays: sp.leadTimeDays,
+                supplierProductId: sp.id,
+            }));
+            console.log('Using supplier-specific products:', mappedProducts.length);
+            return mappedProducts;
+        }
+
+        // Priority 2: Use all products as fallback
         if (productsResponse) {
             if ((productsResponse as any).data?.products) {
+                console.log('Using all products (data.products):', (productsResponse as any).data.products.length);
                 return (productsResponse as any).data.products;
             } else if ((productsResponse as any).products) {
+                console.log('Using all products (products):', (productsResponse as any).products.length);
                 return (productsResponse as any).products;
             } else if (Array.isArray((productsResponse as any).data)) {
+                console.log('Using all products (data array):', (productsResponse as any).data.length);
                 return (productsResponse as any).data;
             } else if (Array.isArray(productsResponse)) {
+                console.log('Using all products (array):', productsResponse.length);
                 return productsResponse;
             }
         }
+
+        console.log('No products available');
         return [];
-    }, [productsResponse]);
+    }, [selectedSupplierId, supplierProductsResponse, productsResponse]);
+
     let locations: any[] = [];
 
     useEffect(() => {
@@ -360,31 +385,6 @@ export const CreateOrder: React.FC = () => {
         } else if (Array.isArray(customersResponse)) {
             customers = customersResponse;
         }
-    }
-
-    // Use supplier products if supplier is selected, otherwise all products
-    if (selectedSupplierId && supplierProductsResponse) {
-        const supplierProducts = (supplierProductsResponse as any).data?.products || (supplierProductsResponse as any).products || [];
-        // Map supplier products to include both product and supplier cost info
-        products = supplierProducts.map((sp: any) => ({
-            ...sp.product,
-            supplierCostPerPack: sp.supplierCostPerPack,
-            minimumOrderPacks: sp.minimumOrderPacks,
-            leadTimeDays: sp.leadTimeDays,
-            supplierProductId: sp.id,
-        }));
-        console.log('Using supplier-specific products:', products.length);
-    } else if (productsResponse) {
-        if ((productsResponse as any).data?.products) {
-            products = (productsResponse as any).data.products;
-        } else if ((productsResponse as any).products) {
-            products = (productsResponse as any).products;
-        } else if (Array.isArray((productsResponse as any).data)) {
-            products = (productsResponse as any).data;
-        } else if (Array.isArray(productsResponse)) {
-            products = productsResponse;
-        }
-        console.log('Using all products:', products.length);
     }
 
     if (locationsResponse) {
