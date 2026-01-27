@@ -191,9 +191,23 @@ const SupplierProducts: React.FC = () => {
 
       // Create a new product if not editing (always create new product when adding)
       if (!editingItem) {
+        // Validate new product data
+        if (!newProductData.name || !newProductData.name.trim()) {
+          toast.error('Product name is required');
+          return;
+        }
+        if (!newProductData.packsPerPallet || parseInt(newProductData.packsPerPallet) < 1) {
+          toast.error('Packs per pallet must be at least 1');
+          return;
+        }
+
         // Find the selected supplier to get the supplier code
         const selectedSupplierData = suppliers.find(s => s.id === formData.supplierCompanyId);
-        const supplierCode = selectedSupplierData?.code || 'SUP';
+        if (!selectedSupplierData) {
+          toast.error('Please select a supplier');
+          return;
+        }
+        const supplierCode = selectedSupplierData.code;
 
         // Get the count of existing products for this supplier to generate sequential number
         const existingSupplierProducts = supplierProducts.filter(
@@ -206,20 +220,36 @@ const SupplierProducts: React.FC = () => {
 
         const productData = {
           productNo: productNo,
-          name: newProductData.name,
-          description: newProductData.description || undefined,
+          name: newProductData.name.trim(),
+          description: newProductData.description?.trim() || undefined,
           module: 'DISTRIBUTION',
           packsPerPallet: parseInt(newProductData.packsPerPallet),
         };
 
+        console.log('Creating product with data:', productData);
         const createdProduct = await distributionService.createProduct(productData);
+        console.log('Product created:', createdProduct);
+
         productId = createdProduct.data?.id || createdProduct.id;
+
+        if (!productId) {
+          console.error('No product ID returned:', createdProduct);
+          toast.error('Failed to create product - no ID returned');
+          return;
+        }
+
         toast.success('Product created successfully');
 
         // Reload products list
         const productsData = await distributionService.getProducts();
         const extractedProducts = productsData.data?.products || productsData.data || productsData;
         setProducts(extractedProducts);
+      }
+
+      // Validate supplier cost
+      if (!formData.supplierCostPerPack || parseFloat(formData.supplierCostPerPack) <= 0) {
+        toast.error('Supplier cost per pack must be greater than 0');
+        return;
       }
 
       if (editingItem) {
@@ -232,6 +262,7 @@ const SupplierProducts: React.FC = () => {
           notes: formData.notes || undefined,
           priceChangeReason: formData.priceChangeReason || undefined,
         };
+        console.log('Updating supplier product:', editingItem.id, updateData);
         await distributionService.updateSupplierProduct(editingItem.id, updateData);
         toast.success('Supplier product updated successfully');
       } else {
@@ -245,6 +276,7 @@ const SupplierProducts: React.FC = () => {
           leadTimeDays: formData.leadTimeDays ? parseInt(formData.leadTimeDays) : undefined,
           notes: formData.notes || undefined,
         };
+        console.log('Creating supplier product with data:', submitData);
         await distributionService.createSupplierProduct(submitData);
         toast.success('Supplier product added successfully');
       }
