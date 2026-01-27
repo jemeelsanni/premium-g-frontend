@@ -256,12 +256,13 @@ const SupplierProducts: React.FC = () => {
 
         console.log('Creating product with data:', productData);
         const createdProduct = await distributionService.createProduct(productData);
-        console.log('Product created:', createdProduct);
+        console.log('Product created - full response:', createdProduct);
 
-        productId = createdProduct.data?.id || createdProduct.id;
+        // Backend returns: { data: { success: true, message: '...', data: { product } } }
+        productId = createdProduct.data?.data?.product?.id || createdProduct.data?.product?.id || createdProduct.data?.id;
 
         if (!productId) {
-          console.error('No product ID returned:', createdProduct);
+          console.error('No product ID returned. Response structure:', createdProduct);
           toast.error('Failed to create product - no ID returned');
           return;
         }
