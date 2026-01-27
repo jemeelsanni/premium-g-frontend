@@ -209,24 +209,24 @@ const SupplierProducts: React.FC = () => {
         }
         const supplierCode = selectedSupplierData.code;
 
-        // Fetch fresh supplier products from server to ensure we have the latest data
-        let existingSupplierProducts: any[] = [];
+        // Fetch ALL products from database to check for product number conflicts
+        // This is critical because product numbers must be globally unique across all products
+        let allProducts: any[] = [];
         try {
-          const response = await distributionService.getSupplierProductsBySupplier(formData.supplierCompanyId, false);
-          existingSupplierProducts = response.data?.data?.products || [];
-          console.log('Fetched fresh supplier products:', existingSupplierProducts.length);
+          const response = await distributionService.getProducts();
+          allProducts = response.data?.products || response.data || [];
+          console.log('Fetched all products from database:', allProducts.length);
         } catch (error) {
-          console.error('Error fetching supplier products:', error);
-          // Fallback to local state if API fails
-          existingSupplierProducts = supplierProducts.filter(
-            sp => sp.supplierCompanyId === formData.supplierCompanyId
-          );
+          console.error('Error fetching all products:', error);
+          toast.error('Failed to fetch products. Please try again.');
+          return;
         }
 
-        // Extract existing product numbers and find the highest number
+        // Extract existing product numbers that match this supplier's prefix pattern
+        // and find the highest number to avoid conflicts
         const prefix = `${supplierCode}-PRD-`;
-        const existingNumbers = existingSupplierProducts
-          .map((sp: any) => sp.product?.productNo)
+        const existingNumbers = allProducts
+          .map((p: any) => p.productNo)
           .filter((productNo: string) => productNo && productNo.startsWith(prefix))
           .map((productNo: string) => {
             const match = productNo.match(/-PRD-(\d+)$/);
@@ -240,7 +240,11 @@ const SupplierProducts: React.FC = () => {
 
         // Generate product number: SUPPLIER_CODE-PRD-001
         const productNo = `${supplierCode}-PRD-${nextNumber}`;
-        console.log('Generated product number:', productNo, 'from existing numbers:', existingNumbers, 'max:', maxNumber);
+        console.log('Generated product number:', productNo);
+        console.log('  - Supplier code:', supplierCode);
+        console.log('  - Existing numbers with this prefix:', existingNumbers);
+        console.log('  - Max existing number:', maxNumber);
+        console.log('  - Next number:', nextNumber);
 
         const productData = {
           productNo: productNo,
