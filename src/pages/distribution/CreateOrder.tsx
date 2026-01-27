@@ -277,7 +277,20 @@ export const CreateOrder: React.FC = () => {
     const products: any[] = React.useMemo(() => {
         // Priority 1: Use supplier products when a supplier is selected
         if (selectedSupplierId && supplierProductsResponse) {
-            const supplierProducts = (supplierProductsResponse as any).data?.products || (supplierProductsResponse as any).products || [];
+            console.log('Supplier selected:', selectedSupplierId);
+            console.log('Full supplierProductsResponse:', supplierProductsResponse);
+            console.log('supplierProductsResponse.data:', (supplierProductsResponse as any).data);
+            console.log('supplierProductsResponse.data.data:', (supplierProductsResponse as any).data?.data);
+            console.log('supplierProductsResponse.data.products:', (supplierProductsResponse as any).data?.products);
+
+            // Try multiple possible response structures
+            const supplierProducts = (supplierProductsResponse as any).data?.data?.products ||
+                                     (supplierProductsResponse as any).data?.products ||
+                                     (supplierProductsResponse as any).products ||
+                                     [];
+
+            console.log('Extracted supplier products:', supplierProducts);
+
             // Map supplier products to include both product and supplier cost info
             const mappedProducts = supplierProducts.map((sp: any) => ({
                 ...sp.product,
@@ -286,7 +299,7 @@ export const CreateOrder: React.FC = () => {
                 leadTimeDays: sp.leadTimeDays,
                 supplierProductId: sp.id,
             }));
-            console.log('Using supplier-specific products:', mappedProducts.length);
+            console.log('Using supplier-specific products:', mappedProducts.length, mappedProducts);
             return mappedProducts;
         }
 
