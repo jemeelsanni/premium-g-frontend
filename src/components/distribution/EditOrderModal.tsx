@@ -154,7 +154,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
                 paymentStatus = 'PARTIAL';
             }
 
-            const response = await fetch(`/api/v1/distribution/orders/${orderId}`, {
+            const response = await fetch(`/api/v1/distribution/orders/${orderId}/items`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
