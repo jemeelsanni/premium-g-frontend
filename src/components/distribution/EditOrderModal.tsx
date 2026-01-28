@@ -155,7 +155,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
             }
 
             const response = await fetch(`/api/v1/distribution/orders/${orderId}/items`, {
-                method: 'POST',
+                method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
