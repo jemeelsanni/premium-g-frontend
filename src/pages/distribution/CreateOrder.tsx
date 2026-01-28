@@ -16,6 +16,7 @@ import { toast } from 'react-hot-toast';
 const orderItemSchema = z.object({
     productId: z.string().min(1, 'Product is required'),
     pallets: z.number().min(0, 'Pallets must be non-negative'),
+    addonPacks: z.number().min(0, 'Add-on packs must be non-negative').optional(),
     packs: z.number().min(1, 'Packs must be at least 1'),
     pricePerPack: z.number().min(0, 'Price per pack must be positive'),
     amount: z.number().min(0, 'Amount must be positive'),
@@ -51,7 +52,7 @@ export const CreateOrder: React.FC = () => {
             customerId: '',
             supplierCompanyId: '',
             deliveryLocation: '',
-            orderItems: [{ productId: '', pallets: 0, packs: 1, pricePerPack: 0, amount: 0 }],
+            orderItems: [{ productId: '', pallets: 0, addonPacks: 0, packs: 1, pricePerPack: 0, amount: 0 }],
             amountPaid: 0,
             remark: ''
         }
@@ -233,6 +234,7 @@ export const CreateOrder: React.FC = () => {
             orderItems: data.orderItems.map(item => ({
                 productId: item.productId,
                 pallets: Number(item.pallets) || 0,
+                addonPacks: Number(item.addonPacks) || 0,
                 packs: Number(item.packs) || 0,
                 amount: Number(item.amount) || 0
             })),
@@ -250,7 +252,7 @@ export const CreateOrder: React.FC = () => {
     };
 
     const addOrderItem = () => {
-        append({ productId: '', pallets: 0, packs: 1, pricePerPack: 0, amount: 0 });
+        append({ productId: '', pallets: 0, addonPacks: 0, packs: 1, pricePerPack: 0, amount: 0 });
     };
 
     const removeOrderItem = (index: number) => {
@@ -328,8 +330,8 @@ export const CreateOrder: React.FC = () => {
 
     useEffect(() => {
         const subscription = watch((value, { name }) => {
-            // Trigger on productId, pallets, or pricePerPack changes
-            if (!name || (!name.includes('.productId') && !name.includes('.pallets') && !name.includes('.pricePerPack'))) {
+            // Trigger on productId, pallets, addonPacks, or pricePerPack changes
+            if (!name || (!name.includes('.productId') && !name.includes('.pallets') && !name.includes('.addonPacks') && !name.includes('.pricePerPack'))) {
                 return;
             }
 
@@ -347,6 +349,7 @@ export const CreateOrder: React.FC = () => {
             if (!selectedProduct) return;
 
             const pallets = Number(item.pallets) || 0;
+            const addonPacks = Number(item.addonPacks) || 0;
             const packsPerPallet = Number(selectedProduct.packsPerPallet) || 0;
 
             // Auto-populate price per pack from supplier cost when product is selected
@@ -364,10 +367,10 @@ export const CreateOrder: React.FC = () => {
                 return;
             }
 
-            // Calculate total packs
-            const calculatedPacks = pallets * packsPerPallet;
+            // Calculate total packs: (pallets × packs per pallet) + add-on packs
+            const calculatedPacks = (pallets * packsPerPallet) + addonPacks;
 
-            // Calculate amount (packs * price per pack)
+            // Calculate amount (total packs * price per pack)
             const calculatedAmount = calculatedPacks * pricePerPack;
 
             // Get current values
@@ -725,10 +728,29 @@ export const CreateOrder: React.FC = () => {
                                     <p className="text-xs text-gray-500 mt-1">Max: 12</p>
                                 </div>
 
-                                {/* Packs - Read-only */}
+                                {/* Add-on Packs */}
                                 <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">
-                                        Packs
+                                        Add-on Packs
+                                    </label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        {...register(`orderItems.${index}.addonPacks`, {
+                                            valueAsNumber: true
+                                        })}
+                                        className="mt-1"
+                                        placeholder="0"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Extra packs beyond pallets
+                                    </p>
+                                </div>
+
+                                {/* Total Packs - Read-only */}
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Total Packs
                                     </label>
                                     <Input
                                         type="number"
@@ -738,7 +760,7 @@ export const CreateOrder: React.FC = () => {
                                         tabIndex={-1}
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        Auto-calc
+                                        Auto-calculated
                                     </p>
                                 </div>
 

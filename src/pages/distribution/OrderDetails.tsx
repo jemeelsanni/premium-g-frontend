@@ -24,7 +24,7 @@ import { UpdateSupplierStatusModal } from '../../components/distribution/UpdateS
 import { RecordDeliveryModal } from '../../components/distribution/RecordDeliveryModal';
 import { PaySupplierModal } from '../../components/distribution/PaySupplierModal';
 import { AssignTransportModal } from '../../components/distribution/AssignTransportModal';
-import { PriceAdjustmentModal } from '@/components/distribution/PriceAdjustmentModal';
+import { EditOrderModal } from '../../components/distribution/EditOrderModal';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '@/utils/dateUtils';
 
@@ -38,7 +38,7 @@ export const OrderDetails: React.FC = () => {
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
     const [isPaySupplierModalOpen, setIsPaySupplierModalOpen] = useState(false);
     const [isAssignTransportModalOpen, setIsAssignTransportModalOpen] = useState(false);
-    const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+    const [showEditOrderModal, setShowEditOrderModal] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
 
     // Data fetching
@@ -396,36 +396,36 @@ export const OrderDetails: React.FC = () => {
                             <>
                                 {(() => {
                                     const isLoaded = order?.status === 'LOADED';
-                                    const canAdjust = !isLoaded;
+                                    const canEdit = !isLoaded;
 
                                     return (
                                         <Button
-                                            onClick={() => setShowAdjustmentModal(true)}
-                                            disabled={!canAdjust}
-                                            className={`w-full ${!canAdjust
+                                            onClick={() => setShowEditOrderModal(true)}
+                                            disabled={!canEdit}
+                                            className={`w-full ${!canEdit
                                                 ? 'bg-gray-400 cursor-not-allowed hover:bg-gray-400'
-                                                : 'bg-orange-600 hover:bg-orange-700'
+                                                : 'bg-blue-600 hover:bg-blue-700'
                                                 }`}
                                             title={
                                                 isLoaded
-                                                    ? 'Price adjustment not allowed - Order has been loaded'
-                                                    : 'Adjust order price'
+                                                    ? 'Order editing not allowed - Order has been loaded'
+                                                    : 'Edit order items'
                                             }
                                         >
                                             <Edit className="h-4 w-4 mr-2" />
-                                            Adjust Price
+                                            Edit Order
                                         </Button>
                                     );
                                 })()}
 
-                                {/* ✨ Info message when adjustment is disabled */}
+                                {/* ✨ Info message when editing is disabled */}
                                 {order?.status === 'LOADED' && (
                                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start mt-2">
                                         <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
                                         <div className="text-sm text-yellow-800">
-                                            <p className="font-medium">Price Adjustment Locked</p>
+                                            <p className="font-medium">Order Editing Locked</p>
                                             <p className="mt-1">
-                                                Order has been loaded. Price adjustments are no longer permitted.
+                                                Order has been loaded. Order modifications are no longer permitted.
                                             </p>
                                         </div>
                                     </div>
@@ -763,12 +763,13 @@ export const OrderDetails: React.FC = () => {
                 orderId={order.id}
             />
 
-            {showAdjustmentModal && (
-                <PriceAdjustmentModal
+            {showEditOrderModal && (
+                <EditOrderModal
+                    isOpen={showEditOrderModal}
+                    onClose={() => setShowEditOrderModal(false)}
                     orderId={order.id}
-                    currentAmount={order.finalAmount}
-                    orderItems={order.orderItems || []}
-                    onClose={() => setShowAdjustmentModal(false)}
+                    currentItems={order.orderItems || []}
+                    supplierCompanyId={order.supplierCompanyId}
                 />
             )}
         </div>
