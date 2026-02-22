@@ -679,9 +679,7 @@ export interface DailyOpeningStockEditRequest {
 export interface SubmitManualStockData {
   productId: string;
   stockDate: string;
-  manualPallets: number;
   manualPacks: number;
-  manualUnits: number;
   notes?: string;
 }
 
@@ -1479,9 +1477,7 @@ export class WarehouseService extends BaseApiService {
   }
 
   async requestManualStockEdit(id: string, data: {
-    newManualPallets: number;
     newManualPacks: number;
-    newManualUnits: number;
     editReason: string;
   }): Promise<{
     success: boolean;

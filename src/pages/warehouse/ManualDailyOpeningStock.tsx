@@ -30,16 +30,12 @@ import { useAuthStore } from '../../store/authStore';
 const manualStockSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
   stockDate: z.string().min(1, 'Date is required'),
-  manualPallets: z.number().min(0, 'Must be 0 or greater'),
   manualPacks: z.number().min(0, 'Must be 0 or greater'),
-  manualUnits: z.number().min(0, 'Must be 0 or greater'),
   notes: z.string().optional(),
 });
 
 const editRequestSchema = z.object({
-  newManualPallets: z.number().min(0, 'Must be 0 or greater'),
   newManualPacks: z.number().min(0, 'Must be 0 or greater'),
-  newManualUnits: z.number().min(0, 'Must be 0 or greater'),
   editReason: z.string().min(10, 'Please provide a detailed reason (at least 10 characters)'),
 });
 
@@ -75,9 +71,7 @@ const ManualDailyOpeningStock: React.FC = () => {
     resolver: zodResolver(manualStockSchema),
     defaultValues: {
       stockDate: format(new Date(), 'yyyy-MM-dd'),
-      manualPallets: 0,
       manualPacks: 0,
-      manualUnits: 0,
     }
   });
 
@@ -184,9 +178,7 @@ const ManualDailyOpeningStock: React.FC = () => {
   const editRequestMutation = useMutation({
     mutationFn: (data: EditRequestFormData & { id: string }) =>
       warehouseService.requestManualStockEdit(data.id, {
-        newManualPallets: data.newManualPallets,
         newManualPacks: data.newManualPacks,
-        newManualUnits: data.newManualUnits,
         editReason: data.editReason,
       }),
     onSuccess: () => {
@@ -258,9 +250,7 @@ const ManualDailyOpeningStock: React.FC = () => {
 
   const handleRequestEdit = (entry: ManualStockEntry) => {
     setSelectedEntry(entry);
-    setEditValue('newManualPallets', entry.manualPallets);
     setEditValue('newManualPacks', entry.manualPacks);
-    setEditValue('newManualUnits', entry.manualUnits);
     setIsEditRequestModalOpen(true);
   };
 
@@ -479,7 +469,7 @@ const ManualDailyOpeningStock: React.FC = () => {
                     </tr>
                   ) : (
                     entries.map((entry) => {
-                      const hasVariance = entry.variancePallets !== 0 || entry.variancePacks !== 0 || entry.varianceUnits !== 0;
+                      const hasVariance = entry.variancePacks !== 0;
                       return (
                         <tr key={entry.id} className="hover:bg-gray-50">
                           <td className="px-4 py-4 text-sm text-gray-900">
@@ -492,13 +482,13 @@ const ManualDailyOpeningStock: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-4 py-4 text-right">
-                            <div className="text-sm text-gray-900">
-                              P: {entry.manualPallets} | K: {entry.manualPacks} | U: {entry.manualUnits}
+                            <div className="text-sm text-gray-900 font-medium">
+                              {entry.manualPacks} packs
                             </div>
                           </td>
                           <td className="px-4 py-4 text-right">
                             <div className="text-sm text-gray-900">
-                              P: {entry.systemPallets} | K: {entry.systemPacks} | U: {entry.systemUnits}
+                              {entry.systemPacks} packs
                             </div>
                           </td>
                           <td className="px-4 py-4 text-right">
@@ -506,7 +496,7 @@ const ManualDailyOpeningStock: React.FC = () => {
                               {hasVariance ? (
                                 <div className="flex items-center justify-end gap-1">
                                   <AlertTriangle className="h-4 w-4" />
-                                  <span>P: {entry.variancePallets} | K: {entry.variancePacks} | U: {entry.varianceUnits}</span>
+                                  <span>{entry.variancePacks > 0 ? '+' : ''}{entry.variancePacks}</span>
                                 </div>
                               ) : (
                                 <span>Match</span>
@@ -654,10 +644,10 @@ const ManualDailyOpeningStock: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-4 text-right text-sm text-gray-500">
-                        P: {request.oldManualPallets} | K: {request.oldManualPacks} | U: {request.oldManualUnits}
+                        {request.oldManualPacks} packs
                       </td>
                       <td className="px-4 py-4 text-right text-sm text-gray-900 font-medium">
-                        P: {request.newManualPallets} | K: {request.newManualPacks} | U: {request.newManualUnits}
+                        {request.newManualPacks} packs
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-500 max-w-xs truncate" title={request.editReason}>
                         {request.editReason}
@@ -737,26 +727,13 @@ const ManualDailyOpeningStock: React.FC = () => {
             error={submitErrors.stockDate?.message}
           />
 
-          <div className="grid grid-cols-3 gap-4">
-            <Input
-              label="Pallets"
-              type="number"
-              {...registerSubmit('manualPallets', { valueAsNumber: true })}
-              error={submitErrors.manualPallets?.message}
-            />
-            <Input
-              label="Packs"
-              type="number"
-              {...registerSubmit('manualPacks', { valueAsNumber: true })}
-              error={submitErrors.manualPacks?.message}
-            />
-            <Input
-              label="Units"
-              type="number"
-              {...registerSubmit('manualUnits', { valueAsNumber: true })}
-              error={submitErrors.manualUnits?.message}
-            />
-          </div>
+          <Input
+            label="Manual Pack Count *"
+            type="number"
+            {...registerSubmit('manualPacks', { valueAsNumber: true })}
+            error={submitErrors.manualPacks?.message}
+            placeholder="Enter the number of packs counted"
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -792,9 +769,9 @@ const ManualDailyOpeningStock: React.FC = () => {
             <div className="bg-gray-50 p-4 rounded-md space-y-2">
               <p><strong>Product:</strong> {selectedEntry.product.name}</p>
               <p><strong>Date:</strong> {format(new Date(selectedEntry.stockDate), 'dd MMM yyyy')}</p>
-              <p><strong>Manual Count:</strong> P: {selectedEntry.manualPallets} | K: {selectedEntry.manualPacks} | U: {selectedEntry.manualUnits}</p>
-              <p><strong>System Count:</strong> P: {selectedEntry.systemPallets} | K: {selectedEntry.systemPacks} | U: {selectedEntry.systemUnits}</p>
-              <p><strong>Variance:</strong> P: {selectedEntry.variancePallets} | K: {selectedEntry.variancePacks} | U: {selectedEntry.varianceUnits}</p>
+              <p><strong>Manual Count:</strong> {selectedEntry.manualPacks} packs</p>
+              <p><strong>System Count:</strong> {selectedEntry.systemPacks} packs</p>
+              <p><strong>Variance:</strong> {selectedEntry.variancePacks > 0 ? '+' : ''}{selectedEntry.variancePacks} packs</p>
               <p><strong>Submitted By:</strong> {selectedEntry.submittedByUser.username}</p>
             </div>
           )}
@@ -862,30 +839,17 @@ const ManualDailyOpeningStock: React.FC = () => {
             <div className="bg-gray-50 p-4 rounded-md space-y-2">
               <p><strong>Product:</strong> {selectedEntry.product.name}</p>
               <p><strong>Date:</strong> {format(new Date(selectedEntry.stockDate), 'dd MMM yyyy')}</p>
-              <p><strong>Current Values:</strong> P: {selectedEntry.manualPallets} | K: {selectedEntry.manualPacks} | U: {selectedEntry.manualUnits}</p>
+              <p><strong>Current Value:</strong> {selectedEntry.manualPacks} packs</p>
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4">
-            <Input
-              label="New Pallets"
-              type="number"
-              {...registerEdit('newManualPallets', { valueAsNumber: true })}
-              error={editErrors.newManualPallets?.message}
-            />
-            <Input
-              label="New Packs"
-              type="number"
-              {...registerEdit('newManualPacks', { valueAsNumber: true })}
-              error={editErrors.newManualPacks?.message}
-            />
-            <Input
-              label="New Units"
-              type="number"
-              {...registerEdit('newManualUnits', { valueAsNumber: true })}
-              error={editErrors.newManualUnits?.message}
-            />
-          </div>
+          <Input
+            label="New Pack Count *"
+            type="number"
+            {...registerEdit('newManualPacks', { valueAsNumber: true })}
+            error={editErrors.newManualPacks?.message}
+            placeholder="Enter corrected pack count"
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -975,18 +939,18 @@ const ManualDailyOpeningStock: React.FC = () => {
                         </td>
                         <td className="px-3 py-2 text-right text-sm">
                           {item.manual ? (
-                            `P:${item.manual.pallets} K:${item.manual.packs} U:${item.manual.units}`
+                            `${item.manual.packs} packs`
                           ) : (
                             <span className="text-gray-400">Not submitted</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right text-sm">
-                          P:{item.system.pallets} K:{item.system.packs} U:{item.system.units}
+                          {item.system.packs} packs
                         </td>
                         <td className="px-3 py-2 text-right text-sm">
                           {item.variance ? (
-                            <span className={item.variance.pallets !== 0 || item.variance.packs !== 0 || item.variance.units !== 0 ? 'text-red-600' : 'text-green-600'}>
-                              P:{item.variance.pallets} K:{item.variance.packs} U:{item.variance.units}
+                            <span className={item.variance.packs !== 0 ? 'text-red-600' : 'text-green-600'}>
+                              {item.variance.packs > 0 ? '+' : ''}{item.variance.packs}
                             </span>
                           ) : (
                             <span className="text-gray-400">-</span>
