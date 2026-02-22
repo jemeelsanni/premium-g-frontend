@@ -315,13 +315,13 @@ const ManualDailyOpeningStock: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      {stats && (
+      {stats?.today && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Today's Submissions</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.today.submitted}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.today.submitted ?? 0}</p>
               </div>
               <Package className="h-8 w-8 text-blue-500" />
             </div>
@@ -331,7 +331,7 @@ const ManualDailyOpeningStock: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Pending Approval</p>
-                <p className="text-2xl font-bold text-yellow-600 mt-1">{stats.today.pending}</p>
+                <p className="text-2xl font-bold text-yellow-600 mt-1">{stats.today.pending ?? 0}</p>
               </div>
               <Clock className="h-8 w-8 text-yellow-500" />
             </div>
@@ -341,7 +341,7 @@ const ManualDailyOpeningStock: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Approved Today</p>
-                <p className="text-2xl font-bold text-green-600 mt-1">{stats.today.approved}</p>
+                <p className="text-2xl font-bold text-green-600 mt-1">{stats.today.approved ?? 0}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
@@ -351,7 +351,7 @@ const ManualDailyOpeningStock: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Pending Edit Requests</p>
-                <p className="text-2xl font-bold text-purple-600 mt-1">{stats.pendingEditRequests}</p>
+                <p className="text-2xl font-bold text-purple-600 mt-1">{stats.pendingEditRequests ?? 0}</p>
               </div>
               <Edit3 className="h-8 w-8 text-purple-500" />
             </div>
