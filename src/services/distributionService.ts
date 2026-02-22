@@ -277,7 +277,7 @@ export class DistributionService extends BaseApiService {
     driverNumber: string;
     truckNumber?: string;
   }): Promise<DistributionOrder> {
-    return this.post<DistributionOrder>(data, `/orders/${orderId}/assign-transport`);
+    return this.post<DistributionOrder>({ orderId, ...data }, '/delivery/assign-transport');
   }
 
   async recordDelivery(data: {
