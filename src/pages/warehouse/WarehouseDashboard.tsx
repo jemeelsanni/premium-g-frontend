@@ -18,6 +18,7 @@ import {
     Calendar,
     X,
     TrendingUp,
+    ClipboardCheck,
     // FileText
 } from 'lucide-react';
 import { warehouseService } from '../../services/warehouseService';
@@ -975,7 +976,32 @@ export const WarehouseDashboard: React.FC = () => {
                                         Daily Opening Stock
                                     </h3>
                                     <p className="mt-2 text-sm text-gray-500">
-                                        Record daily opening stock
+                                        View system opening stock
+                                    </p>
+                                </div>
+                                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                    <ArrowRight className="h-6 w-6" />
+                                </span>
+                            </Link>
+                        )}
+
+                        {/* Manual Daily Stock - Always visible */}
+                        {canAccessWarehouseFeature(WarehouseFeature.OPENING_STOCK) && (
+                            <Link
+                                to="/warehouse/manual-daily-stock"
+                                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                                <div>
+                                    <span className="rounded-lg inline-flex p-3 bg-teal-50 text-teal-600 group-hover:bg-teal-100">
+                                        <ClipboardCheck className="h-6 w-6" />
+                                    </span>
+                                </div>
+                                <div className="mt-4">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Manual Stock Count
+                                    </h3>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Submit daily manual counts
                                     </p>
                                 </div>
                                 <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
