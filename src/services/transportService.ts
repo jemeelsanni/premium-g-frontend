@@ -10,7 +10,7 @@ import {
   ProfitAnalysis,
   ExpenseSummary
 } from '../types/transport';
-import { PaginatedResponse, Location } from '../types/common';
+import { PaginatedResponse } from '../types/common';
 
 export interface TransportLocation {
   id: string;
