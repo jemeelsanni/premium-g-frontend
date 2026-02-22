@@ -9,6 +9,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { toast } from 'react-hot-toast';
+import { distributionService } from '../../services/distributionService';
 
 const deliverySchema = z.object({
     deliveryStatus: z.enum(['FULLY_DELIVERED', 'PARTIALLY_DELIVERED', 'FAILED']),
@@ -62,24 +63,7 @@ export const RecordDeliveryModal: React.FC<RecordDeliveryModalProps> = ({
 
     const recordDeliveryMutation = useMutation({
         mutationFn: async (data: DeliveryFormData) => {
-            const response = await fetch(`/api/v1/distribution/delivery/record`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
-                body: JSON.stringify({
-                    orderId,
-                    ...data,
-                }),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to record delivery');
-            }
-
-            return response.json();
+            return distributionService.recordDelivery({ orderId, ...data });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });

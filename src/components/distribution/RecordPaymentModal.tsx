@@ -9,6 +9,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { toast } from 'react-hot-toast';
+import { distributionService } from '../../services/distributionService';
 
 const paymentSchema = z.object({
     amount: z.number().min(0.01, 'Amount must be greater than 0'),
@@ -55,24 +56,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
     const recordPaymentMutation = useMutation({
         mutationFn: async (data: PaymentFormData) => {
-            const response = await fetch(`/api/v1/distribution/payments/record`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
-                body: JSON.stringify({
-                    orderId,
-                    ...data,
-                }),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to record payment');
-            }
-
-            return response.json();
+            return distributionService.recordPayment({ orderId, ...data });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });

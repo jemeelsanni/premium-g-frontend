@@ -9,6 +9,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { toast } from 'react-hot-toast';
+import { distributionService } from '../../services/distributionService';
 
 const transportSchema = z.object({
     transporterCompany: z.string().min(1, 'Transporter company is required'),
@@ -42,24 +43,7 @@ export const AssignTransportModal: React.FC<AssignTransportModalProps> = ({
 
     const assignTransportMutation = useMutation({
         mutationFn: async (data: TransportFormData) => {
-            const response = await fetch(`/api/v1/distribution/delivery/assign-transport`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
-                body: JSON.stringify({
-                    orderId,
-                    ...data,
-                }),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to assign transport');
-            }
-
-            return response.json();
+            return distributionService.assignTransport(orderId, data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });

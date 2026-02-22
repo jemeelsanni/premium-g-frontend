@@ -9,6 +9,7 @@ import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { toast } from 'react-hot-toast';
+import { distributionService } from '../../services/distributionService';
 
 const confirmSchema = z.object({
     notes: z.string().optional(),
@@ -42,24 +43,7 @@ export const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({
 
     const confirmPaymentMutation = useMutation({
         mutationFn: async (data: ConfirmFormData) => {
-            const response = await fetch(`/api/v1/distribution/payments/confirm`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
-                body: JSON.stringify({
-                    orderId,
-                    ...data,
-                }),
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to confirm payment');
-            }
-
-            return response.json();
+            return distributionService.confirmPayment(orderId, data.notes);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });

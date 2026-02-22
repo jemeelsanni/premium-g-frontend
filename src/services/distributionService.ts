@@ -82,7 +82,7 @@ export interface RecordPaymentData {
   amount: number;
   paymentMethod: string;
   reference?: string;
-  paidBy: string;
+  paidBy?: string;
   receivedBy: string;
   notes?: string;
 }
@@ -275,17 +275,22 @@ export class DistributionService extends BaseApiService {
   async assignTransport(orderId: string, data: {
     transporterCompany: string;
     driverNumber: string;
-    truckNumber: string;
+    truckNumber?: string;
   }): Promise<DistributionOrder> {
     return this.post<DistributionOrder>(data, `/orders/${orderId}/assign-transport`);
   }
 
-  async recordDelivery(orderId: string, data: {
-    palletsDelivered: number;
-    packsDelivered: number;
+  async recordDelivery(data: {
+    orderId: string;
+    deliveryStatus: 'FULLY_DELIVERED' | 'PARTIALLY_DELIVERED' | 'FAILED';
+    deliveredPallets?: number;
+    deliveredPacks?: number;
+    deliveredBy: string;
     deliveryNotes?: string;
+    nonDeliveryReason?: string;
+    partialDeliveryReason?: string;
   }): Promise<DistributionOrder> {
-    return this.post<DistributionOrder>(data, `/orders/${orderId}/record-delivery`);
+    return this.post<DistributionOrder>(data, '/delivery/record');
   }
 
   // Products & Locations

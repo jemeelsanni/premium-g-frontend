@@ -18,6 +18,7 @@ import {
     Building2
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
+import { apiClient } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { UpdateSupplierStatusModal } from '../../components/distribution/UpdateSupplierStatusModal';
@@ -104,19 +105,11 @@ export const OrderDetails: React.FC = () => {
         setIsExportingPDF(true);
 
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`/api/v1/distribution/orders/${id}/export/pdf`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
+            const response = await apiClient.get(`/distribution/orders/${id}/export/pdf`, {
+                responseType: 'blob',
             });
 
-            if (!response.ok) {
-                throw new Error('Export failed');
-            }
-
-            const blob = await response.blob();
+            const blob = response.data;
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = downloadUrl;
