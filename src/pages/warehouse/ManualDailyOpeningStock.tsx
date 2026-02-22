@@ -905,18 +905,21 @@ const ManualDailyOpeningStock: React.FC = () => {
           ) : comparisonData?.data ? (
             <>
               {/* Summary */}
-              <div className="bg-gray-50 p-4 rounded-md">
-                <h4 className="font-medium text-gray-900 mb-2">Summary for {format(new Date(selectedDate), 'dd MMM yyyy')}</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <p>Total Products: {comparisonData.data.summary.totalProducts}</p>
-                  <p>Submitted: {comparisonData.data.summary.submittedCount}</p>
-                  <p>Pending: {comparisonData.data.summary.pendingCount}</p>
-                  <p>Approved: {comparisonData.data.summary.approvedCount}</p>
-                  <p>With Variance: {comparisonData.data.summary.productsWithVariance}</p>
+              {comparisonData.data.summary && (
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <h4 className="font-medium text-gray-900 mb-2">Summary for {format(new Date(selectedDate), 'dd MMM yyyy')}</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <p>Total Products: {comparisonData.data.summary.totalProducts ?? 0}</p>
+                    <p>Submitted: {comparisonData.data.summary.submittedCount ?? 0}</p>
+                    <p>Pending: {comparisonData.data.summary.pendingCount ?? 0}</p>
+                    <p>Approved: {comparisonData.data.summary.approvedCount ?? 0}</p>
+                    <p>With Variance: {comparisonData.data.summary.productsWithVariance ?? 0}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Comparison Table */}
+              {comparisonData.data.comparison && comparisonData.data.comparison.length > 0 ? (
               <div className="max-h-96 overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0">
@@ -945,7 +948,7 @@ const ManualDailyOpeningStock: React.FC = () => {
                           )}
                         </td>
                         <td className="px-3 py-2 text-right text-sm">
-                          {item.system.packs} packs
+                          {item.system?.packs ?? 0} packs
                         </td>
                         <td className="px-3 py-2 text-right text-sm">
                           {item.variance ? (
@@ -964,6 +967,9 @@ const ManualDailyOpeningStock: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              ) : (
+                <p className="text-center text-gray-500 py-4">No comparison data available</p>
+              )}
             </>
           ) : null}
 
