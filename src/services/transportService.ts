@@ -12,23 +12,39 @@ import {
 } from '../types/transport';
 import { PaginatedResponse, Location } from '../types/common';
 
+export interface TransportLocation {
+  id: string;
+  name: string;
+  address?: string;
+  fuelRequired: number;
+  fuelCostPerLitre: number;
+  driverWages: number;
+  deliveryNotes?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateTransportLocationData {
+  name: string;
+  fuelRequired: number;
+  driverWages: number;
+  address?: string;
+  deliveryNotes?: string;
+}
+
 export interface CreateTransportOrderData {
   orderNumber: string;
   clientName: string;
   clientPhone?: string;
-  pickupLocation: string;
-  deliveryAddress: string;
+  pickupLocation?: string;
   locationId: string;
   totalOrderAmount: number;
-  fuelRequired: number;
-  fuelPricePerLiter: number;
-  driverWages: number;
-  tripAllowance: number;
-  motorBoyWages: number;
+  fuelCostPerLitre: number;
+  tripAllowance?: number;
   truckId?: string;
   driverDetails?: string;
   invoiceNumber?: string;
-  paymentMethod?: 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY'; // ✨ ADD THIS
+  paymentMethod?: 'CASH' | 'BANK_TRANSFER' | 'CHECK' | 'CARD' | 'MOBILE_MONEY';
 }
 
 export interface CreateTruckData {
@@ -175,9 +191,19 @@ export class TransportService extends BaseApiService {
   // LOCATIONS
   // ================================
 
-  async getLocations(): Promise<Location[]> {
-    const response = await this.get<{ success: boolean; data: { locations: Location[] } }>('/locations');
+  async getLocations(): Promise<TransportLocation[]> {
+    const response = await this.get<{ success: boolean; data: { locations: TransportLocation[] } }>('/locations');
     return response.data.locations;
+  }
+
+  async createLocation(data: CreateTransportLocationData): Promise<TransportLocation> {
+    const response = await this.post<{ success: boolean; data: { location: TransportLocation } }>(data, '/locations');
+    return response.data.location;
+  }
+
+  async updateLocation(id: string, data: Partial<CreateTransportLocationData> & { isActive?: boolean }): Promise<TransportLocation> {
+    const response = await this.put<{ success: boolean; data: { location: TransportLocation } }>(data, `/locations/${id}`);
+    return response.data.location;
   }
 
   async deleteLocation(id: string): Promise<void> {
@@ -264,8 +290,12 @@ export class TransportService extends BaseApiService {
   // ANALYTICS
   // ================================
 
-  async getDashboardStats(): Promise<any> {
-    const response = await apiClient.get('/analytics/transport/dashboard');
+  async getDashboardStats(params?: { startDate?: string; endDate?: string }): Promise<any> {
+    const query = new URLSearchParams();
+    if (params?.startDate) query.append('startDate', params.startDate);
+    if (params?.endDate) query.append('endDate', params.endDate);
+    const qs = query.toString();
+    const response = await apiClient.get(`/analytics/transport/dashboard${qs ? `?${qs}` : ''}`);
     return response.data;
   }
 

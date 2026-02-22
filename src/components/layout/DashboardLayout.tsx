@@ -75,7 +75,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             roles: [UserRole.SUPER_ADMIN], // Only SUPER_ADMIN has access to main dashboard
         },
         {
-            name: 'Distribution',
+            name: 'Distributorship',
             href: '/distribution',
             icon: Package,
             roles: [

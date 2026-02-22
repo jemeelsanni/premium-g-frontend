@@ -10,6 +10,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { toast } from 'react-hot-toast';
 import { distributionService } from '../../services/distributionService';
+import { apiClient } from '../../services/api';
 
 const orderItemSchema = z.object({
     productId: z.string().min(1, 'Product is required'),
@@ -154,29 +155,17 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
                 paymentStatus = 'PARTIAL';
             }
 
-            const response = await fetch(`/api/v1/distribution/orders/${orderId}/items`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
-                body: JSON.stringify({
-                    orderItems,
-                    totalPallets,
-                    totalPacks,
-                    originalAmount: totalAmount,
-                    finalAmount: totalAmount,
-                    balance,
-                    paymentStatus,
-                }),
+            const response = await apiClient.patch(`/distribution/orders/${orderId}/items`, {
+                orderItems,
+                totalPallets,
+                totalPacks,
+                originalAmount: totalAmount,
+                finalAmount: totalAmount,
+                balance,
+                paymentStatus,
             });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to update order');
-            }
-
-            return response.json();
+            return response.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -13,16 +13,44 @@ import {
     AlertCircle,
     Target,
     Building2,
+    Calendar,
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 
+type FilterType = 'all' | 'month' | 'range';
+
+function getMonthRange() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    return {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+    };
+}
+
 export const DistributionDashboard: React.FC = () => {
+    const [filterType, setFilterType] = useState<FilterType>('month');
+    const [rangeStart, setRangeStart] = useState('');
+    const [rangeEnd, setRangeEnd] = useState('');
+
+    function buildDateParams() {
+        if (filterType === 'all') return {};
+        if (filterType === 'month') return getMonthRange();
+        if (filterType === 'range' && rangeStart && rangeEnd) {
+            return { startDate: rangeStart, endDate: rangeEnd };
+        }
+        return {};
+    }
+
+    const dateParams = buildDateParams();
+
     const { data: statsResponse, isLoading, error } = useQuery({
-        queryKey: ['distribution-dashboard'],
-        queryFn: () => distributionService.getDashboardStats(),
+        queryKey: ['distribution-dashboard', filterType, rangeStart, rangeEnd],
+        queryFn: () => distributionService.getDashboardStats(dateParams),
         refetchInterval: 30000, // Refresh every 30 seconds
     });
 
@@ -180,18 +208,69 @@ export const DistributionDashboard: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-start gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Distribution Dashboard</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Distributorship Dashboard</h1>
                     <p className="text-gray-600">Manage your B2B distribution operations and track performance</p>
                 </div>
-                <Link to="/distribution/orders/create">
-                    <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        New Order
-                    </Button>
-                </Link>
+                <div className="flex items-center gap-3 flex-wrap">
+                    {/* Filter controls */}
+                    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                        <button
+                            onClick={() => setFilterType('all')}
+                            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${filterType === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            All Time
+                        </button>
+                        <button
+                            onClick={() => setFilterType('month')}
+                            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${filterType === 'month' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            This Month
+                        </button>
+                        <button
+                            onClick={() => setFilterType('range')}
+                            className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${filterType === 'range' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Calendar className="h-3.5 w-3.5" />
+                            Date Range
+                        </button>
+                    </div>
+                    <Link to="/distribution/orders/create">
+                        <Button>
+                            <Plus className="h-4 w-4 mr-2" />
+                            New Order
+                        </Button>
+                    </Link>
+                </div>
             </div>
+
+            {/* Date range pickers (shown only when range filter is active) */}
+            {filterType === 'range' && (
+                <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <label className="text-sm text-gray-600">From</label>
+                        <input
+                            type="date"
+                            value={rangeStart}
+                            onChange={(e) => setRangeStart(e.target.value)}
+                            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <label className="text-sm text-gray-600">To</label>
+                        <input
+                            type="date"
+                            value={rangeEnd}
+                            onChange={(e) => setRangeEnd(e.target.value)}
+                            min={rangeStart}
+                            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {(!rangeStart || !rangeEnd) && (
+                            <span className="text-xs text-amber-600">Select both dates to apply filter</span>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

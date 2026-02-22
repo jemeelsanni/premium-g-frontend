@@ -612,6 +612,89 @@ export interface PurchaseFilters {
   endDate?: string;
 }
 
+// Manual Daily Opening Stock Types
+export type DailyOpeningStockStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type EditRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ManualDailyOpeningStock {
+  id: string;
+  productId: string;
+  stockDate: string;
+  manualPallets: number;
+  manualPacks: number;
+  manualUnits: number;
+  systemPallets: number;
+  systemPacks: number;
+  systemUnits: number;
+  variancePallets: number;
+  variancePacks: number;
+  varianceUnits: number;
+  varianceValue: number | null;
+  status: DailyOpeningStockStatus;
+  submittedBy: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  product: {
+    id: string;
+    name: string;
+    productNo: string;
+  };
+  submittedByUser: {
+    id: string;
+    username: string;
+  };
+  approvedByUser?: {
+    id: string;
+    username: string;
+  };
+}
+
+export interface DailyOpeningStockEditRequest {
+  id: string;
+  dailyOpeningStockId: string;
+  newManualPallets: number;
+  newManualPacks: number;
+  newManualUnits: number;
+  oldManualPallets: number;
+  oldManualPacks: number;
+  oldManualUnits: number;
+  editReason: string;
+  requestedBy: string;
+  status: EditRequestStatus;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  dailyOpeningStock: ManualDailyOpeningStock;
+  requestedByUser: {
+    id: string;
+    username: string;
+  };
+}
+
+export interface SubmitManualStockData {
+  productId: string;
+  stockDate: string;
+  manualPallets: number;
+  manualPacks: number;
+  manualUnits: number;
+  notes?: string;
+}
+
+export interface ManualStockFilters {
+  page?: number;
+  limit?: number;
+  status?: DailyOpeningStockStatus;
+  productId?: string;
+  stockDate?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface ExpiringPurchase extends WarehousePurchase {
   daysUntilExpiry: number;
   urgency: 'critical' | 'high' | 'medium';
@@ -1332,6 +1415,172 @@ export class WarehouseService extends BaseApiService {
     }
     const query = params.toString();
     return this.get(query ? `/purchases/analytics?${query}` : '/purchases/analytics');
+  }
+
+  // Manual Daily Opening Stock
+  async getManualDailyOpeningStock(filters?: ManualStockFilters): Promise<{
+    success: boolean;
+    data: {
+      entries: ManualDailyOpeningStock[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    const query = params.toString();
+    return this.get(query ? `/daily-opening-stock?${query}` : '/daily-opening-stock');
+  }
+
+  async submitManualDailyOpeningStock(data: SubmitManualStockData): Promise<{
+    success: boolean;
+    message: string;
+    data: { entry: ManualDailyOpeningStock };
+  }> {
+    return this.post(data, '/daily-opening-stock');
+  }
+
+  async submitBulkManualDailyOpeningStock(entries: SubmitManualStockData[]): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      submitted: number;
+      failed: number;
+      entries: ManualDailyOpeningStock[];
+    };
+  }> {
+    return this.post({ entries }, '/daily-opening-stock/bulk');
+  }
+
+  async approveManualDailyOpeningStock(id: string, adminNotes?: string): Promise<{
+    success: boolean;
+    message: string;
+    data: { entry: ManualDailyOpeningStock };
+  }> {
+    return this.put({ adminNotes }, `/daily-opening-stock/${id}/approve`);
+  }
+
+  async rejectManualDailyOpeningStock(id: string, rejectionReason: string): Promise<{
+    success: boolean;
+    message: string;
+    data: { entry: ManualDailyOpeningStock };
+  }> {
+    return this.put({ rejectionReason }, `/daily-opening-stock/${id}/reject`);
+  }
+
+  async requestManualStockEdit(id: string, data: {
+    newManualPallets: number;
+    newManualPacks: number;
+    newManualUnits: number;
+    editReason: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: { editRequest: DailyOpeningStockEditRequest };
+  }> {
+    return this.post(data, `/daily-opening-stock/${id}/edit-request`);
+  }
+
+  async getManualStockEditRequests(filters?: {
+    page?: number;
+    limit?: number;
+    status?: EditRequestStatus;
+  }): Promise<{
+    success: boolean;
+    data: {
+      editRequests: DailyOpeningStockEditRequest[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+    }
+    const query = params.toString();
+    return this.get(query ? `/daily-opening-stock/edit-requests/list?${query}` : '/daily-opening-stock/edit-requests/list');
+  }
+
+  async approveManualStockEditRequest(id: string): Promise<{
+    success: boolean;
+    message: string;
+    data: { editRequest: DailyOpeningStockEditRequest };
+  }> {
+    return this.put({}, `/daily-opening-stock/edit-requests/${id}/approve`);
+  }
+
+  async rejectManualStockEditRequest(id: string, rejectionReason: string): Promise<{
+    success: boolean;
+    message: string;
+    data: { editRequest: DailyOpeningStockEditRequest };
+  }> {
+    return this.put({ rejectionReason }, `/daily-opening-stock/edit-requests/${id}/reject`);
+  }
+
+  async getManualStockComparison(date: string): Promise<{
+    success: boolean;
+    data: {
+      date: string;
+      comparison: Array<{
+        productId: string;
+        productName: string;
+        productNo: string;
+        manual: { pallets: number; packs: number; units: number } | null;
+        system: { pallets: number; packs: number; units: number };
+        variance: { pallets: number; packs: number; units: number } | null;
+        status: DailyOpeningStockStatus | null;
+        entryId: string | null;
+      }>;
+      summary: {
+        totalProducts: number;
+        submittedCount: number;
+        pendingCount: number;
+        approvedCount: number;
+        rejectedCount: number;
+        productsWithVariance: number;
+      };
+    };
+  }> {
+    return this.get(`/daily-opening-stock/comparison/${date}`);
+  }
+
+  async getManualStockSummaryStats(): Promise<{
+    success: boolean;
+    data: {
+      today: {
+        submitted: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+      };
+      thisWeek: {
+        submitted: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+      };
+      pendingEditRequests: number;
+    };
+  }> {
+    return this.get('/daily-opening-stock/summary/stats');
   }
 }
 

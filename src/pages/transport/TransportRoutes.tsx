@@ -12,12 +12,14 @@ import { ExpenseApprovals } from './ExpenseApprovals';
 import { ExpenseDetails } from './ExpenseDetails';  // ✅ ADD THIS
 import { TransportCashFlowList } from './CashFlowList'; // ✨ ADD THIS
 import { TransportAnalytics } from './TransportAnalytics';
+import { TransportLocations } from './TransportLocations';
 
 export const TransportRoutes = () => {
     return (
         <Routes>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<TransportDashboard />} />
+            <Route path="locations" element={<TransportLocations />} />
 
             {/* Orders */}
             <Route path="orders" element={<TransportOrdersList />} />

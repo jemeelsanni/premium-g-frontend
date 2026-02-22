@@ -569,9 +569,16 @@ export const OrderDetails: React.FC = () => {
                                 </span>
                             </p>
                             {order.paidToSupplier && (
-                                <p className="text-xs text-gray-500">
-                                    Supplier Status: <span className="font-medium">{order.supplierStatus}</span>
-                                </p>
+                                <>
+                                    <p className="text-xs text-gray-500">
+                                        Supplier Status: <span className="font-medium">{order.supplierStatus}</span>
+                                    </p>
+                                    {order.supplierOrderNumber && (
+                                        <p className="text-xs text-gray-500">
+                                            Reference #: <span className="font-medium">{order.supplierOrderNumber}</span>
+                                        </p>
+                                    )}
+                                </>
                             )}
                         </div>
 
@@ -616,7 +623,7 @@ export const OrderDetails: React.FC = () => {
                             </p>
                             {order.supplierOrderNumber && (
                                 <p className="text-green-800 mt-1">
-                                    Order #: {order.supplierOrderNumber}
+                                    Supplier Reference #: <span className="font-semibold">{order.supplierOrderNumber}</span>
                                 </p>
                             )}
                         </div>

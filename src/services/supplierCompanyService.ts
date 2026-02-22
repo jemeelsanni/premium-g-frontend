@@ -1,5 +1,15 @@
 import api from './api';
-import { SupplierCompany } from '../types/distribution';
+import { SupplierCompany, SupplierCategory } from '../types/distribution';
+
+export interface SkuInput {
+  skuValue: string | number;
+  skuUnit: 'CL' | 'L';
+}
+
+export interface CategoryInput {
+  categoryType: 'CSD' | 'ED' | 'WATER' | 'JUICE';
+  skus: SkuInput[];
+}
 
 export interface CreateSupplierCompanyData {
   name: string;
@@ -10,6 +20,7 @@ export interface CreateSupplierCompanyData {
   contactPerson?: string;
   paymentTerms?: string;
   notes?: string;
+  productCategories?: CategoryInput[];
 }
 
 export interface UpdateSupplierCompanyData extends Partial<CreateSupplierCompanyData> {
@@ -43,7 +54,7 @@ export interface SupplierCompanyStats {
 
 class SupplierCompanyService {
   /**
-   * Get all supplier companies
+   * Get all supplier companies (includes productCategories + skus)
    */
   async getAllSupplierCompanies(isActive?: boolean): Promise<SupplierCompany[]> {
     const params = new URLSearchParams();
@@ -56,10 +67,18 @@ class SupplierCompanyService {
   }
 
   /**
-   * Get supplier company by ID
+   * Get supplier company by ID (includes productCategories + skus)
    */
   async getSupplierCompanyById(id: string): Promise<SupplierCompany> {
     const response = await api.get(`/supplier-companies/${id}`);
+    return response.data.data;
+  }
+
+  /**
+   * Get product categories + SKUs for a supplier
+   */
+  async getSupplierCategories(id: string): Promise<SupplierCategory[]> {
+    const response = await api.get(`/supplier-companies/${id}/categories`);
     return response.data.data;
   }
 
@@ -72,7 +91,7 @@ class SupplierCompanyService {
   }
 
   /**
-   * Create new supplier company
+   * Create new supplier company (with optional productCategories)
    */
   async createSupplierCompany(data: CreateSupplierCompanyData): Promise<SupplierCompany> {
     const response = await api.post('/supplier-companies', data);
@@ -80,7 +99,7 @@ class SupplierCompanyService {
   }
 
   /**
-   * Update supplier company
+   * Update supplier company (with optional productCategories)
    */
   async updateSupplierCompany(id: string, data: UpdateSupplierCompanyData): Promise<SupplierCompany> {
     const response = await api.put(`/supplier-companies/${id}`, data);

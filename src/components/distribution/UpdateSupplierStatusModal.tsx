@@ -13,8 +13,17 @@ import { distributionService } from '../../services/distributionService';
 
 const supplierStatusSchema = z.object({
     supplierStatus: z.enum(['ORDER_RAISED', 'PROCESSING', 'LOADED', 'DISPATCHED']),
+    supplierReferenceNumber: z.string().optional(),
     orderRaisedAt: z.string().optional(),
     loadedDate: z.string().optional(),
+}).refine((data) => {
+    if (data.supplierStatus === 'ORDER_RAISED' && !data.supplierReferenceNumber?.trim()) {
+        return false;
+    }
+    return true;
+}, {
+    message: 'Supplier reference number is required for Order Raised status',
+    path: ['supplierReferenceNumber'],
 });
 
 type SupplierStatusFormData = z.infer<typeof supplierStatusSchema>;
@@ -53,6 +62,7 @@ export const UpdateSupplierStatusModal: React.FC<UpdateSupplierStatusModalProps>
             return distributionService.updateSupplierStatus({
                 orderId,
                 supplierStatus: data.supplierStatus,
+                supplierReferenceNumber: data.supplierReferenceNumber,
                 orderRaisedAt: data.orderRaisedAt,
                 loadedDate: data.loadedDate
             });
@@ -102,15 +112,30 @@ export const UpdateSupplierStatusModal: React.FC<UpdateSupplierStatusModalProps>
                 </div>
 
                 {selectedStatus === 'ORDER_RAISED' && (
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Order Raised Date
-                        </label>
-                        <Input type="datetime-local" {...register('orderRaisedAt')} />
-                        <p className="mt-1 text-xs text-gray-500">
-                            When this status is set, price adjustments will be permanently locked
-                        </p>
-                    </div>
+                    <>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Supplier Reference Number <span className="text-red-500">*</span>
+                            </label>
+                            <Input
+                                type="text"
+                                {...register('supplierReferenceNumber')}
+                                placeholder="Enter reference number from supplier"
+                            />
+                            {errors.supplierReferenceNumber && (
+                                <p className="mt-1 text-sm text-red-600">{errors.supplierReferenceNumber.message}</p>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Order Raised Date
+                            </label>
+                            <Input type="datetime-local" {...register('orderRaisedAt')} />
+                            <p className="mt-1 text-xs text-gray-500">
+                                When this status is set, price adjustments will be permanently locked
+                            </p>
+                        </div>
+                    </>
                 )}
 
                 {selectedStatus === 'LOADED' && (

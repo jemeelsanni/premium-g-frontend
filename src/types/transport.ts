@@ -60,7 +60,6 @@ export interface TransportOrder {
   serviceChargeExpense: number;
   driverWages: number;
   tripAllowance: number;
-  motorBoyWages: number;
   truckExpenses: number;
   totalTripExpenses: number;
   

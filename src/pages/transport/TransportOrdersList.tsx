@@ -199,10 +199,10 @@ export const TransportOrdersList: React.FC = () => {
             }
         },
         {
-            key: 'deliveryAddress',
-            title: 'Delivery',
+            key: 'deliveryLocation',
+            title: 'Delivery Location',
             render: (value: string, record: any) => {
-                const delivery = value || record.deliveryLocation || 'N/A';
+                const delivery = value || record.location?.name || 'N/A';
                 return (
                     <div className="flex items-center text-sm">
                         <MapPin className="h-3 w-3 mr-1 text-blue-400" />
@@ -364,8 +364,8 @@ export const TransportOrdersList: React.FC = () => {
         clientName: order.name || order.clientName || 'Unknown',
         phone: order.phone || order.clientPhone || '',
         clientPhone: order.phone || order.clientPhone || '',
-        pickupLocation: order.pickupLocation || order.location?.name || '',
-        deliveryAddress: order.deliveryAddress || order.deliveryLocation || '',
+        pickupLocation: order.pickupLocation || '',
+        deliveryLocation: order.location?.name || '',
         totalOrderAmount: Number(order.totalOrderAmount || order.amount || 0),
         deliveryStatus: order.deliveryStatus || order.status || 'PENDING'
     }));

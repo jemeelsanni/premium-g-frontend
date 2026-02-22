@@ -352,7 +352,7 @@ export const TruckManagement: React.FC = () => {
                     />
 
                     <Input
-                        label="Capacity (kg) *"
+                        label="Capacity*"
                         type="number"
                         {...register('capacity', { valueAsNumber: true })}
                         error={errors.capacity?.message}

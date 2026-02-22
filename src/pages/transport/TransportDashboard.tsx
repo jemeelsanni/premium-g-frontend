@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/transport/TransportDashboard.tsx - FIXED VERSION
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -12,6 +12,8 @@ import {
     ArrowRight,
     AlertCircle,
     ClipboardCheck,
+    MapPin,
+    Calendar,
 } from 'lucide-react';
 import { transportService } from '../../services/transportService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -20,15 +22,41 @@ import { Table } from '../../components/ui/Table';
 // import { TransportOrder } from '../../types/transport';
 import { useAuthStore } from '@/store/authStore';
 
+type FilterType = 'all' | 'month' | 'range';
+
+function getMonthRange() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    return {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+    };
+}
+
 export const TransportDashboard: React.FC = () => {
 
     const { user } = useAuthStore();
     const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'TRANSPORT_ADMIN';
 
+    const [filterType, setFilterType] = useState<FilterType>('month');
+    const [rangeStart, setRangeStart] = useState('');
+    const [rangeEnd, setRangeEnd] = useState('');
+
+    function buildDateParams() {
+        if (filterType === 'all') return {};
+        if (filterType === 'month') return getMonthRange();
+        if (filterType === 'range' && rangeStart && rangeEnd) {
+            return { startDate: rangeStart, endDate: rangeEnd };
+        }
+        return {};
+    }
+
+    const dateParams = buildDateParams();
 
     const { data: stats, isLoading, error } = useQuery({
-        queryKey: ['transport-dashboard'],
-        queryFn: () => transportService.getDashboardStats(),
+        queryKey: ['transport-dashboard', filterType, rangeStart, rangeEnd],
+        queryFn: () => transportService.getDashboardStats(dateParams),
     });
 
     const { data: recentOrders } = useQuery({
@@ -159,10 +187,10 @@ export const TransportDashboard: React.FC = () => {
             }
         },
         {
-            key: 'deliveryAddress', // ✅ Using correct field name
-            title: 'Delivery',
+            key: 'deliveryLocation',
+            title: 'Delivery Location',
             render: (value: string, record: any) => {
-                const delivery = value || record.deliveryLocation || 'N/A';
+                const delivery = value || record.location?.name || 'N/A';
                 return (
                     <div className="max-w-32 truncate" title={delivery}>
                         {delivery}
@@ -204,8 +232,8 @@ export const TransportDashboard: React.FC = () => {
             // Map both old and new field names
             name: order.name || order.clientName || 'Unknown Client',
             clientName: order.clientName || order.name || 'Unknown Client',
-            pickupLocation: order.pickupLocation || order.location?.name || order.location || '',
-            deliveryAddress: order.deliveryAddress || order.deliveryLocation || '',
+            pickupLocation: order.pickupLocation || '',
+            deliveryLocation: order.location?.name || '',
             totalOrderAmount: Number(order.totalOrderAmount || order.amount || 0),
             deliveryStatus: order.deliveryStatus || order.status || 'PENDING'
         };
@@ -220,20 +248,71 @@ export const TransportDashboard: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-start gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Transport Dashboard</h1>
                     <p className="mt-1 text-sm text-gray-500">
                         Manage transport operations and track performance
                     </p>
                 </div>
-                <Link to="/transport/orders/create">
-                    <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        New Transport Order
-                    </Button>
-                </Link>
+                <div className="flex items-center gap-3 flex-wrap">
+                    {/* Filter controls */}
+                    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                        <button
+                            onClick={() => setFilterType('all')}
+                            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${filterType === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            All Time
+                        </button>
+                        <button
+                            onClick={() => setFilterType('month')}
+                            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${filterType === 'month' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            This Month
+                        </button>
+                        <button
+                            onClick={() => setFilterType('range')}
+                            className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${filterType === 'range' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Calendar className="h-3.5 w-3.5" />
+                            Date Range
+                        </button>
+                    </div>
+                    <Link to="/transport/orders/create">
+                        <Button>
+                            <Plus className="h-4 w-4 mr-2" />
+                            New Transport Order
+                        </Button>
+                    </Link>
+                </div>
             </div>
+
+            {/* Date range pickers */}
+            {filterType === 'range' && (
+                <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <label className="text-sm text-gray-600">From</label>
+                        <input
+                            type="date"
+                            value={rangeStart}
+                            onChange={(e) => setRangeStart(e.target.value)}
+                            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <label className="text-sm text-gray-600">To</label>
+                        <input
+                            type="date"
+                            value={rangeEnd}
+                            onChange={(e) => setRangeEnd(e.target.value)}
+                            min={rangeStart}
+                            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {(!rangeStart || !rangeEnd) && (
+                            <span className="text-xs text-amber-600">Select both dates to apply filter</span>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ✅ ADD: Data Status Alert */}
             {!hasData && (
@@ -335,6 +414,29 @@ export const TransportDashboard: React.FC = () => {
                             </div>
                         </div>
                     </Link>
+
+                    {isAdmin && (
+                        <Link
+                            to="/transport/locations"
+                            className="relative group bg-blue-50 hover:bg-blue-100 rounded-lg p-6 transition-colors"
+                        >
+                            <div className="flex flex-col">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <div className="p-2 bg-blue-500 rounded-lg">
+                                            <MapPin className="h-5 w-5 text-white" />
+                                        </div>
+                                        <p className="ml-3 text-sm font-medium text-gray-900">
+                                            Manage Locations
+                                        </p>
+                                    </div>
+                                    <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
+                                        <ArrowRight className="h-6 w-6" />
+                                    </span>
+                                </div>
+                            </div>
+                        </Link>
+                    )}
 
                     <Link
                         to="/transport/expenses"

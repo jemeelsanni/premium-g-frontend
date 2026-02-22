@@ -48,6 +48,57 @@ export enum DeliveryStatus {
   FAILED = 'FAILED'
 }
 
+export enum ProductCategoryType {
+  CSD = 'CSD',
+  ED = 'ED',
+  WATER = 'WATER',
+  JUICE = 'JUICE'
+}
+
+export enum SkuUnit {
+  CL = 'CL',
+  L = 'L'
+}
+
+export const CATEGORY_DISPLAY_NAMES: Record<ProductCategoryType, string> = {
+  [ProductCategoryType.CSD]: 'Carbonated Soda Drink',
+  [ProductCategoryType.ED]: 'Energy Drink',
+  [ProductCategoryType.WATER]: 'Water',
+  [ProductCategoryType.JUICE]: 'Juice'
+};
+
+export interface SupplierCategorySKU {
+  id: string;
+  supplierCategoryId: string;
+  skuValue: number;
+  skuUnit: SkuUnit;
+  createdAt: string;
+}
+
+export interface SupplierCategory {
+  id: string;
+  supplierCompanyId: string;
+  categoryType: ProductCategoryType;
+  categoryName?: string;
+  skus: SupplierCategorySKU[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Returns display label e.g. "Carbonated Soda Drink (50cl)" */
+export function formatSkuLabel(category: SupplierCategory, sku: SupplierCategorySKU): string {
+  const catName = CATEGORY_DISPLAY_NAMES[category.categoryType] ?? category.categoryType;
+  const unit = sku.skuUnit === SkuUnit.CL ? 'cl' : 'L';
+  return `${catName} (${sku.skuValue}${unit})`;
+}
+
+/** Returns short product name e.g. "Carbonated Soda Drink 50cl" */
+export function formatSkuProductName(category: SupplierCategory, sku: SupplierCategorySKU): string {
+  const catName = CATEGORY_DISPLAY_NAMES[category.categoryType] ?? category.categoryType;
+  const unit = sku.skuUnit === SkuUnit.CL ? 'cl' : 'L';
+  return `${catName} ${sku.skuValue}${unit}`;
+}
+
 export interface SupplierCompany {
   id: string;
   name: string;
@@ -58,6 +109,7 @@ export interface SupplierCompany {
   contactPerson?: string;
   notes?: string;
   isActive: boolean;
+  productCategories?: SupplierCategory[];
   createdAt: string;
   updatedAt: string;
 }

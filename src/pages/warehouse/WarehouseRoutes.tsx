@@ -12,6 +12,7 @@ import { CustomerDetail } from './CustomerDetail';
 import DebtorsDashboard from './DebtorsDashboard';
 import OffloadPurchase from './OffloadPurchase';
 import DailyOpeningStock from './DailyOpeningStock';
+import ManualDailyOpeningStock from './ManualDailyOpeningStock';
 import ExpiringProducts from './ExpiringProducts';
 import AuditLogs from './AuditLogs';
 import { canAccessWarehouseFeature, WarehouseFeature } from '../../utils/warehousePermissions';
@@ -161,6 +162,17 @@ export const WarehouseRoutes = () => {
                 element={
                     <ProtectedWarehouseRoute
                         element={<DailyOpeningStock />}
+                        feature={WarehouseFeature.OPENING_STOCK}
+                    />
+                }
+            />
+
+            {/* Manual Daily Opening Stock - Sales reps submit, admin approves */}
+            <Route
+                path="manual-daily-stock"
+                element={
+                    <ProtectedWarehouseRoute
+                        element={<ManualDailyOpeningStock />}
                         feature={WarehouseFeature.OPENING_STOCK}
                     />
                 }

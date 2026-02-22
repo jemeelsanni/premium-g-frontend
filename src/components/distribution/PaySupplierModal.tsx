@@ -35,9 +35,9 @@ export const PaySupplierModal: React.FC<PaySupplierModalProps> = ({
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });
 
             // Show success with generated numbers
-            const { paymentReference, supplierOrderNumber, supplierInvoiceNumber } = response.data;
+            const { paymentReference, supplierInvoiceNumber } = response.data;
             toast.success(
-                `Payment recorded!\nRef: ${paymentReference}\nOrder: ${supplierOrderNumber}\nInvoice: ${supplierInvoiceNumber}`,
+                `Payment recorded!\nRef: ${paymentReference}\nInvoice: ${supplierInvoiceNumber}`,
                 { duration: 5000 }
             );
             onClose();
@@ -75,7 +75,7 @@ export const PaySupplierModal: React.FC<PaySupplierModalProps> = ({
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <p className="text-sm text-blue-800">
-                        Payment reference, order number, and invoice number will be auto-generated
+                        Payment reference and invoice number will be auto-generated
                     </p>
                 </div>
 

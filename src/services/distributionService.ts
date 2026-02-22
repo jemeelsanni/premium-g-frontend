@@ -119,8 +119,12 @@ export class DistributionService extends BaseApiService {
   }
 
   // Analytics
-  async getDashboardStats(): Promise<any> {
-    return this.get('/analytics/summary');
+  async getDashboardStats(params?: { startDate?: string; endDate?: string }): Promise<any> {
+    const query = new URLSearchParams();
+    if (params?.startDate) query.append('startDate', params.startDate);
+    if (params?.endDate) query.append('endDate', params.endDate);
+    const qs = query.toString();
+    return this.get(`/analytics/summary${qs ? `?${qs}` : ''}`);
   }
 
   // Orders with proper filtering
@@ -255,11 +259,12 @@ export class DistributionService extends BaseApiService {
   }
 
   // Supplier Status & Delivery
-  async updateSupplierStatus(data: { orderId: string; supplierStatus: string; orderRaisedAt?: string; loadedDate?: string }): Promise<DistributionOrder> {
+  async updateSupplierStatus(data: { orderId: string; supplierStatus: string; supplierReferenceNumber?: string; orderRaisedAt?: string; loadedDate?: string }): Promise<DistributionOrder> {
     return this.put<DistributionOrder>(
       {
         orderId: data.orderId,
         supplierStatus: data.supplierStatus,
+        supplierReferenceNumber: data.supplierReferenceNumber,
         orderRaisedAt: data.orderRaisedAt,
         loadedDate: data.loadedDate
       },
@@ -380,6 +385,7 @@ export class DistributionService extends BaseApiService {
   async createSupplierProduct(data: {
     supplierCompanyId: string;
     productId: string;
+    supplierCategorySkuId?: string;
     supplierCostPerPack: number;
     isAvailable?: boolean;
     minimumOrderPacks?: number;

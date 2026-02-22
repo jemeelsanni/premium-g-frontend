@@ -299,7 +299,7 @@ export const TransportOrderDetails: React.FC = () => {
                             <div className="pl-6">
                                 <p className="text-sm text-gray-600 flex items-start">
                                     <MapPin className="h-4 w-4 mr-2 mt-0.5 text-red-500" />
-                                    {order.deliveryLocation}
+                                    {order.location?.name || 'N/A'}
                                 </p>
                             </div>
                         </div>

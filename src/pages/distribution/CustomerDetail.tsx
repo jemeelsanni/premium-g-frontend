@@ -46,7 +46,8 @@ export const CustomerDetail: React.FC = () => {
 
     // Unwrap the response - API might return { data: customer } or just customer
     const customer = (customerResponse as any)?.data || customerResponse;
-    const orders = (ordersResponse as any)?.data || ordersResponse;
+    // Orders endpoint returns { data: { orders: [...], customer: {...}, pagination: {...} } }
+    const orders = (ordersResponse as any)?.data?.orders || (ordersResponse as any)?.orders || [];
 
     if (isLoadingCustomer) {
         return (
@@ -155,7 +156,7 @@ export const CustomerDetail: React.FC = () => {
         {
             key: 'actions',
             title: 'Actions',
-            render: (record: any) => (
+            render: (_value: any, record: any) => (
                 <Button
                     variant="outline"
                     size="sm"

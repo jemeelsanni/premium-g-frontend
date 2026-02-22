@@ -130,6 +130,15 @@ export const canEditDebtors = (): boolean => {
   return [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role);
 };
 
+// Check if user can approve/reject manual daily opening stock entries
+export const canApproveManualStock = (): boolean => {
+  const { user } = useAuthStore.getState();
+  if (!user) return false;
+
+  // Only super admin and warehouse admin can approve/reject manual stock entries
+  return [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role);
+};
+
 // Check if user has restricted warehouse access (warehouse admin or cashier)
 export const hasRestrictedWarehouseAccess = (): boolean => {
   const { user } = useAuthStore.getState();
