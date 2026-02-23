@@ -238,11 +238,10 @@ export const MainDashboard = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                   ? `border-${tab.color}-600 text-${tab.color}-600`
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
@@ -531,20 +530,18 @@ const DistributionTab: React.FC<TabProps> = ({ data, formatCurrency, formatNumbe
           </div>
           <div className="w-full bg-gray-200 rounded-full h-4">
             <div
-              className={`h-4 rounded-full transition-all ${
-                targetPercentage >= 100 ? 'bg-green-500' :
-                targetPercentage >= 75 ? 'bg-blue-500' :
-                targetPercentage >= 50 ? 'bg-amber-500' : 'bg-red-500'
-              }`}
+              className={`h-4 rounded-full transition-all ${targetPercentage >= 100 ? 'bg-green-500' :
+                  targetPercentage >= 75 ? 'bg-blue-500' :
+                    targetPercentage >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                }`}
               style={{ width: `${Math.min(targetPercentage, 100)}%` }}
             />
           </div>
           <div className="flex items-center justify-between">
-            <span className={`text-2xl font-bold ${
-              targetPercentage >= 100 ? 'text-green-600' :
-              targetPercentage >= 75 ? 'text-blue-600' :
-              targetPercentage >= 50 ? 'text-amber-600' : 'text-red-600'
-            }`}>
+            <span className={`text-2xl font-bold ${targetPercentage >= 100 ? 'text-green-600' :
+                targetPercentage >= 75 ? 'text-blue-600' :
+                  targetPercentage >= 50 ? 'text-amber-600' : 'text-red-600'
+              }`}>
               {targetPercentage.toFixed(1)}% Achieved
             </span>
             <span className="text-gray-500">
@@ -570,9 +567,8 @@ const DistributionTab: React.FC<TabProps> = ({ data, formatCurrency, formatNumbe
             {data.topCustomers.map((customer, index) => (
               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold ${
-                    index === 0 ? 'bg-amber-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-700' : 'bg-gray-300'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold ${index === 0 ? 'bg-amber-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-700' : 'bg-gray-300'
+                    }`}>
                     {index + 1}
                   </div>
                   <div>
@@ -650,7 +646,7 @@ const TransportTab: React.FC<TabProps> = ({ data, formatCurrency, formatNumber, 
             <p className="text-xl font-bold text-green-700">{formatCurrency(data.transport.totalRevenue)}</p>
           </div>
           <div className="p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-600 font-medium">Total Trips</p>
+            <p className="text-sm text-blue-600 font-medium">Active Trips</p>
             <p className="text-xl font-bold text-blue-700">{formatNumber(data.transport.totalTrips || 0)}</p>
           </div>
           <div className="p-4 bg-purple-50 rounded-lg">
