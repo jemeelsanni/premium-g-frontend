@@ -422,6 +422,7 @@ export const TargetsPage: React.FC = () => {
                                 const workingDays = getWorkingDaysInMonth(selectedTarget.year, selectedTarget.month);
                                 const totalTarget = selectedTarget.totalPacksTarget || 0;
                                 const dailyTarget = workingDays.length > 0 ? Math.round(totalTarget / workingDays.length) : 0;
+                                const dailyActuals = selectedTarget.dailyActuals || {};
 
                                 return (
                                     <div className="border border-gray-200 rounded-lg p-3">
@@ -430,26 +431,45 @@ export const TargetsPage: React.FC = () => {
                                                 {workingDays.length} working days (excludes Sundays)
                                             </span>
                                             <span className="text-xs font-medium text-blue-600">
-                                                ~{dailyTarget.toLocaleString()} packs/day
+                                                Target: ~{dailyTarget.toLocaleString()} packs/day
                                             </span>
                                         </div>
                                         <div className="grid grid-cols-6 gap-1 max-h-56 overflow-y-auto">
-                                            {workingDays.map(({ date, dayName }) => (
-                                                <div
-                                                    key={date}
-                                                    className={`text-center p-2 rounded text-xs ${
-                                                        dayName === 'Sat'
-                                                            ? 'bg-amber-50 text-amber-700'
-                                                            : 'bg-gray-50 text-gray-700'
-                                                    }`}
-                                                >
-                                                    <div className="font-medium">{date}</div>
-                                                    <div className="text-[10px] opacity-75">{dayName}</div>
-                                                    <div className="text-[10px] font-semibold text-blue-600 mt-0.5">
-                                                        {dailyTarget.toLocaleString()}
+                                            {workingDays.map(({ date, dayName }) => {
+                                                const actualPacks = dailyActuals[date] || 0;
+                                                const percentage = dailyTarget > 0 ? Math.round((actualPacks / dailyTarget) * 100) : 0;
+
+                                                return (
+                                                    <div
+                                                        key={date}
+                                                        className={`text-center p-2 rounded text-xs ${
+                                                            percentage >= 100
+                                                                ? 'bg-green-50 text-green-700'
+                                                                : percentage >= 75
+                                                                ? 'bg-blue-50 text-blue-700'
+                                                                : percentage >= 50
+                                                                ? 'bg-yellow-50 text-yellow-700'
+                                                                : percentage > 0
+                                                                ? 'bg-red-50 text-red-700'
+                                                                : dayName === 'Sat'
+                                                                ? 'bg-amber-50 text-amber-700'
+                                                                : 'bg-gray-50 text-gray-700'
+                                                        }`}
+                                                    >
+                                                        <div className="font-medium">{date}</div>
+                                                        <div className="text-[10px] opacity-75">{dayName}</div>
+                                                        <div className={`text-[10px] font-semibold mt-0.5 ${
+                                                            percentage >= 100 ? 'text-green-600' :
+                                                            percentage >= 75 ? 'text-blue-600' :
+                                                            percentage >= 50 ? 'text-yellow-600' :
+                                                            percentage > 0 ? 'text-red-600' :
+                                                            'text-gray-400'
+                                                        }`}>
+                                                            {percentage}%
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 );
