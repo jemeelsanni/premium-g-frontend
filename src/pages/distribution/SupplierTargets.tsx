@@ -487,11 +487,11 @@ const TargetModal: React.FC<TargetModalProps> = ({ target, suppliers, onClose, o
                     ~{dailyTarget.toLocaleString()} packs/day
                   </span>
                 </div>
-                <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-6 gap-1 max-h-56 overflow-y-auto">
                   {workingDays.map(({ date, dayName }) => (
                     <div
                       key={date}
-                      className={`text-center p-1.5 rounded text-xs ${
+                      className={`text-center p-2 rounded text-xs ${
                         dayName === 'Sat'
                           ? 'bg-amber-50 text-amber-700'
                           : 'bg-gray-50 text-gray-700'
@@ -499,6 +499,9 @@ const TargetModal: React.FC<TargetModalProps> = ({ target, suppliers, onClose, o
                     >
                       <div className="font-medium">{date}</div>
                       <div className="text-[10px] opacity-75">{dayName}</div>
+                      <div className="text-[10px] font-semibold text-blue-600 mt-0.5">
+                        {dailyTarget.toLocaleString()}
+                      </div>
                     </div>
                   ))}
                 </div>
