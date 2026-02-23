@@ -1005,6 +1005,22 @@ const TARGET_CATEGORIES = [
   { key: 'JUICE', label: 'Juice', stateKey: 'catJUICE' },
 ] as const;
 
+// Helper function to get working days (Mon-Sat) for a given month
+const getWorkingDaysInMonth = (year: number, month: number) => {
+  const days: { date: number; dayName: string }[] = [];
+  const daysInMonth = new Date(year, month, 0).getDate(); // month is 1-indexed
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month - 1, day);
+    const dayOfWeek = date.getDay(); // 0 = Sunday
+    if (dayOfWeek !== 0) { // Exclude Sundays
+      days.push({ date: day, dayName: dayNames[dayOfWeek] });
+    }
+  }
+  return days;
+};
+
 const TargetModal: React.FC<TargetModalProps> = ({
   target,
   supplierId,
@@ -1164,6 +1180,46 @@ const TargetModal: React.FC<TargetModalProps> = ({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Daily Breakdown (Mon-Sat, excluding Sundays) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Daily Breakdown (Mon-Sat)
+          </label>
+          {(() => {
+            const workingDays = getWorkingDaysInMonth(Number(formData.year), Number(formData.month));
+            const totalTarget = Number(formData.totalPacksTarget);
+            const dailyTarget = workingDays.length > 0 ? Math.round(totalTarget / workingDays.length) : 0;
+
+            return (
+              <div className="border border-gray-200 rounded-lg p-3">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-xs text-gray-500">
+                    {workingDays.length} working days (excludes Sundays)
+                  </span>
+                  <span className="text-xs font-medium text-blue-600">
+                    ~{dailyTarget.toLocaleString()} packs/day
+                  </span>
+                </div>
+                <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto">
+                  {workingDays.map(({ date, dayName }) => (
+                    <div
+                      key={date}
+                      className={`text-center p-1.5 rounded text-xs ${
+                        dayName === 'Sat'
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      <div className="font-medium">{date}</div>
+                      <div className="text-[10px] opacity-75">{dayName}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Category Targets toggle */}
