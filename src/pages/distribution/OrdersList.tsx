@@ -11,6 +11,7 @@ import { Table } from '../../components/ui/Table';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { formatDate } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
+import { apiClient } from '../../services/api';
 import { ExportOptionsModal, ExportOptions } from '../../components/distribution/ExportOptionsModal';
 
 
@@ -21,6 +22,7 @@ export const OrdersList: React.FC = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [isExportingCSV, setIsExportingCSV] = useState(false);
 
     // Get filters from URL
     const paymentStatusFilter = searchParams.get('paymentStatus') || '';
@@ -72,34 +74,26 @@ export const OrdersList: React.FC = () => {
         setIsExporting(true);
 
         try {
-            let url = '/api/v1/distribution/orders/export/pdf?';
+            const params: Record<string, string> = {};
 
             // Build query parameters based on export type
             if (options.type === 'duration') {
-                url += `startDate=${options.startDate}&endDate=${options.endDate}`;
+                params.startDate = options.startDate!;
+                params.endDate = options.endDate!;
             } else if (options.type === 'count') {
-                url += `limit=${options.count}`;
+                params.limit = String(options.count);
             } else if (options.type === 'all') {
-                url += `all=true`;
+                params.all = 'true';
             }
 
-            // Get token for authorization
-            const token = localStorage.getItem('token');
-
-            // Fetch the PDF
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
+            // Use apiClient for consistent auth handling
+            const response = await apiClient.get('/distribution/orders/export/pdf', {
+                params,
+                responseType: 'blob',
             });
 
-            if (!response.ok) {
-                throw new Error('Export failed');
-            }
-
             // Create blob from response
-            const blob = await response.blob();
+            const blob = new Blob([response.data], { type: 'application/pdf' });
 
             // Create download link
             const downloadUrl = window.URL.createObjectURL(blob);
@@ -130,6 +124,38 @@ export const OrdersList: React.FC = () => {
             toast.error('Failed to export orders');
         } finally {
             setIsExporting(false);
+        }
+    };
+
+    const handleExportCSV = async () => {
+        setIsExportingCSV(true);
+        try {
+            const response = await apiClient.get('/distribution/orders/export/csv', {
+                params: {
+                    search: searchTerm || undefined,
+                    paymentStatus: paymentStatusFilter || undefined,
+                    supplierStatus: supplierStatusFilter || undefined,
+                    deliveryStatus: deliveryStatusFilter || undefined,
+                },
+                responseType: 'blob',
+            });
+
+            const blob = new Blob([response.data], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `distribution-orders-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Orders exported to CSV successfully!');
+        } catch (error) {
+            console.error('CSV export error:', error);
+            toast.error('Failed to export orders to CSV');
+        } finally {
+            setIsExportingCSV(false);
         }
     };
 
@@ -377,11 +403,12 @@ export const OrdersList: React.FC = () => {
                 <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
                     <Button
                         variant="outline"
-                        onClick={() => {/* CSV export logic */ }}
+                        onClick={handleExportCSV}
+                        disabled={isExportingCSV}
                         className="flex items-center"
                     >
                         <FileText className="h-4 w-4 mr-2" />
-                        Export CSV
+                        {isExportingCSV ? 'Exporting...' : 'Export CSV'}
                     </Button>
 
                     {/* Export PDF Button */}
