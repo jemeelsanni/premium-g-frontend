@@ -87,15 +87,19 @@ export const CreateTransportOrder: React.FC = () => {
         enabled: isEditing
     });
 
-    // When location changes, find the location data to auto-populate costs
+    // When location changes, find the location data to auto-populate costs and order amount
     useEffect(() => {
         if (locationId && locations) {
             const loc = locations.find((l: any) => l.id === locationId);
             setSelectedLocationData(loc || null);
+            // Auto-populate order amount from location if set
+            if (loc?.orderAmount && Number(loc.orderAmount) > 0) {
+                setValue('totalOrderAmount', Number(loc.orderAmount));
+            }
         } else {
             setSelectedLocationData(null);
         }
-    }, [locationId, locations]);
+    }, [locationId, locations, setValue]);
 
     // Pre-fill form when editing
     useEffect(() => {
@@ -296,6 +300,17 @@ export const CreateTransportOrder: React.FC = () => {
                                                     </p>
                                                 </div>
                                             </div>
+                                            {selectedLocationData.orderAmount && Number(selectedLocationData.orderAmount) > 0 && (
+                                                <div className="col-span-2 flex items-center gap-1.5 pt-2 border-t border-green-200">
+                                                    <MapPin className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Fixed order amount</p>
+                                                        <p className="font-semibold text-green-700">
+                                                            ₦{Number(selectedLocationData.orderAmount).toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -306,14 +321,23 @@ export const CreateTransportOrder: React.FC = () => {
                         <div className="bg-white shadow rounded-lg p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">Financial Details</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Input
-                                    label="Total Order Amount (₦) *"
-                                    type="number"
-                                    step="0.01"
-                                    {...register('totalOrderAmount', { valueAsNumber: true })}
-                                    error={errors.totalOrderAmount?.message}
-                                    placeholder="500000"
-                                />
+                                <div>
+                                    <Input
+                                        label="Total Order Amount (₦) *"
+                                        type="number"
+                                        step="0.01"
+                                        {...register('totalOrderAmount', { valueAsNumber: true })}
+                                        error={errors.totalOrderAmount?.message}
+                                        placeholder="500000"
+                                        readOnly={!!(selectedLocationData?.orderAmount && Number(selectedLocationData.orderAmount) > 0)}
+                                        className={selectedLocationData?.orderAmount && Number(selectedLocationData.orderAmount) > 0 ? 'bg-green-50' : ''}
+                                    />
+                                    {selectedLocationData?.orderAmount && Number(selectedLocationData.orderAmount) > 0 && (
+                                        <p className="mt-1 text-xs text-green-600 font-medium">
+                                            Auto-populated from {selectedLocationData.name} location
+                                        </p>
+                                    )}
+                                </div>
                                 <Input
                                     label="Fuel Cost per Litre (₦) *"
                                     type="number"

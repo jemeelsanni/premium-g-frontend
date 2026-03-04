@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, MapPin, Fuel, User } from 'lucide-react';
+import { Plus, Pencil, Trash2, MapPin, Fuel, User, Banknote } from 'lucide-react';
 import { transportService, TransportLocation, CreateTransportLocationData } from '../../services/transportService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -22,6 +22,7 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSucc
     name: location?.name || '',
     fuelRequired: location?.fuelRequired ?? 0,
     driverWages: location?.driverWages ?? 0,
+    orderAmount: location?.orderAmount ?? 0,
     address: location?.address || '',
     deliveryNotes: location?.deliveryNotes || '',
   });
@@ -115,6 +116,21 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSucc
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Order Amount (₦)
+          </label>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.orderAmount || 0}
+            onChange={(e) => setFormData({ ...formData, orderAmount: parseFloat(e.target.value) || 0 })}
+            placeholder="e.g. 500000"
+          />
+          <p className="mt-1 text-xs text-gray-500">Fixed order amount auto-populated when creating orders</p>
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
           <Input
             type="text"
@@ -136,7 +152,7 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSucc
         </div>
 
         {/* Cost preview */}
-        {(formData.fuelRequired > 0 || formData.driverWages > 0) && (
+        {(formData.fuelRequired > 0 || formData.driverWages > 0 || (formData.orderAmount && formData.orderAmount > 0)) && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
             <p className="font-medium text-blue-800 mb-1">Per-trip base costs</p>
             <div className="space-y-1 text-blue-700">
@@ -148,6 +164,12 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSucc
                 <span>Driver wages</span>
                 <span>₦{Number(formData.driverWages).toLocaleString()}</span>
               </div>
+              {formData.orderAmount && formData.orderAmount > 0 && (
+                <div className="flex justify-between font-semibold">
+                  <span>Order amount</span>
+                  <span>₦{Number(formData.orderAmount).toLocaleString()}</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -305,6 +327,17 @@ export const TransportLocations: React.FC = () => {
                     ₦{Number(loc.driverWages).toLocaleString()}
                   </span>
                 </div>
+                {loc.orderAmount && Number(loc.orderAmount) > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-gray-500">
+                      <Banknote className="h-3.5 w-3.5 text-green-500" />
+                      Order amount
+                    </span>
+                    <span className="font-semibold text-green-700">
+                      ₦{Number(loc.orderAmount).toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {loc.deliveryNotes && (

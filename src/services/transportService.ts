@@ -19,6 +19,7 @@ export interface TransportLocation {
   fuelRequired: number;
   fuelCostPerLitre: number;
   driverWages: number;
+  orderAmount?: number;
   deliveryNotes?: string;
   isActive: boolean;
   createdAt: string;
@@ -28,6 +29,7 @@ export interface CreateTransportLocationData {
   name: string;
   fuelRequired: number;
   driverWages: number;
+  orderAmount?: number;
   address?: string;
   deliveryNotes?: string;
 }
