@@ -263,21 +263,6 @@ export const CreateOrder: React.FC = () => {
         }
     };
 
-    // Calculate totals
-    const watchedItems = watch('orderItems');
-    const itemsTotal = watchedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-    const totalPacks = watchedItems.reduce((sum, item) => sum + (Number(item.packs) || 0), 0);
-    const totalPallets = watchedItems.reduce((sum, item) => sum + (Number(item.pallets) || 0), 0);
-
-    // Use location's fixed order amount if available, otherwise use items total
-    const selectedLocation = watch('deliveryLocation');
-    const locationData = locations.find((l: any) => l.name === selectedLocation);
-    const locationOrderAmount = locationData?.orderAmount ? parseFloat(locationData.orderAmount) : 0;
-    const totalAmount = locationOrderAmount > 0 ? locationOrderAmount : itemsTotal;
-
-    const amountPaid = watch('amountPaid') || 0;
-    const orderBalance = totalAmount - amountPaid; // Positive = customer owes us, Negative = we owe customer
-
     // Extract data from nested API responses
     let customers: any[] = [];
 
@@ -344,6 +329,21 @@ export const CreateOrder: React.FC = () => {
         }
         return [];
     }, [locationsResponse]);
+
+    // Calculate totals
+    const watchedItems = watch('orderItems');
+    const itemsTotal = watchedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const totalPacks = watchedItems.reduce((sum, item) => sum + (Number(item.packs) || 0), 0);
+    const totalPallets = watchedItems.reduce((sum, item) => sum + (Number(item.pallets) || 0), 0);
+
+    // Use location's fixed order amount if available, otherwise use items total
+    const selectedLocation = watch('deliveryLocation');
+    const locationData = locations.find((l: any) => l.name === selectedLocation);
+    const locationOrderAmount = locationData?.orderAmount ? parseFloat(locationData.orderAmount) : 0;
+    const totalAmount = locationOrderAmount > 0 ? locationOrderAmount : itemsTotal;
+
+    const amountPaid = watch('amountPaid') || 0;
+    const orderBalance = totalAmount - amountPaid;
 
     useEffect(() => {
         const subscription = watch((value, { name }) => {
