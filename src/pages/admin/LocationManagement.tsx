@@ -14,6 +14,7 @@ import { globalToast } from '../../components/ui/Toast';
 interface LocationFormData {
     name: string;
     address: string;
+    orderAmount: string;
 }
 
 export const LocationManagement: React.FC = () => {
@@ -24,6 +25,7 @@ export const LocationManagement: React.FC = () => {
     const [formData, setFormData] = useState<LocationFormData>({
         name: '',
         address: '',
+        orderAmount: '',
     });
 
     const queryClient = useQueryClient();
@@ -95,6 +97,7 @@ export const LocationManagement: React.FC = () => {
         setFormData({
             name: location.name || '',
             address: location.address || '',
+            orderAmount: location.orderAmount ? String(location.orderAmount) : '',
         });
         setIsModalOpen(true);
     };
@@ -111,6 +114,7 @@ export const LocationManagement: React.FC = () => {
         setFormData({
             name: '',
             address: '',
+            orderAmount: '',
         });
     };
 
@@ -132,7 +136,15 @@ export const LocationManagement: React.FC = () => {
                 <span className="text-gray-600">{value || 'N/A'}</span>
             ),
         },
-
+        {
+            key: 'orderAmount',
+            title: 'Order Amount',
+            render: (value: any) => (
+                <span className="font-medium text-gray-900">
+                    {value ? `\u20A6${parseFloat(value).toLocaleString()}` : 'N/A'}
+                </span>
+            ),
+        },
         {
             key: 'isActive',
             title: 'Status',
@@ -296,8 +308,22 @@ export const LocationManagement: React.FC = () => {
                         />
                     </div>
 
-
-
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Order Amount *
+                        </label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="e.g. 500000"
+                            value={formData.orderAmount}
+                            onChange={(e) =>
+                                setFormData({ ...formData, orderAmount: e.target.value })
+                            }
+                            required
+                        />
+                    </div>
 
 
                     <div className="flex justify-end gap-3 pt-4">

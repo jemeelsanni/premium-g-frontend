@@ -265,9 +265,15 @@ export const CreateOrder: React.FC = () => {
 
     // Calculate totals
     const watchedItems = watch('orderItems');
-    const totalAmount = watchedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const itemsTotal = watchedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     const totalPacks = watchedItems.reduce((sum, item) => sum + (Number(item.packs) || 0), 0);
     const totalPallets = watchedItems.reduce((sum, item) => sum + (Number(item.pallets) || 0), 0);
+
+    // Use location's fixed order amount if available, otherwise use items total
+    const selectedLocation = watch('deliveryLocation');
+    const locationData = locations.find((l: any) => l.name === selectedLocation);
+    const locationOrderAmount = locationData?.orderAmount ? parseFloat(locationData.orderAmount) : 0;
+    const totalAmount = locationOrderAmount > 0 ? locationOrderAmount : itemsTotal;
 
     const amountPaid = watch('amountPaid') || 0;
     const orderBalance = totalAmount - amountPaid; // Positive = customer owes us, Negative = we owe customer
@@ -326,7 +332,18 @@ export const CreateOrder: React.FC = () => {
         return [];
     }, [selectedSupplierId, supplierProductsResponse, productsResponse]);
 
-    let locations: any[] = [];
+    const locations: any[] = React.useMemo(() => {
+        if (locationsResponse) {
+            if ((locationsResponse as any).data?.locations) {
+                return (locationsResponse as any).data.locations;
+            } else if ((locationsResponse as any).locations) {
+                return (locationsResponse as any).locations;
+            } else if (Array.isArray(locationsResponse)) {
+                return locationsResponse;
+            }
+        }
+        return [];
+    }, [locationsResponse]);
 
     useEffect(() => {
         const subscription = watch((value, { name }) => {
@@ -403,15 +420,7 @@ export const CreateOrder: React.FC = () => {
         }
     }
 
-    if (locationsResponse) {
-        if ((locationsResponse as any).data?.locations) {
-            locations = (locationsResponse as any).data.locations;
-        } else if ((locationsResponse as any).locations) {
-            locations = (locationsResponse as any).locations;
-        } else if (Array.isArray(locationsResponse)) {
-            locations = locationsResponse;
-        }
-    }
+    // locations already extracted via useMemo above
 
     console.log('Extracted customers:', customers.length);
     console.log('Extracted products:', products.length);
@@ -598,29 +607,27 @@ export const CreateOrder: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Delivery Location - Text Input with Suggestions */}
+                        {/* Delivery Location - Dropdown */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700">
                                 Delivery Location *
                             </label>
-                            <Input
-                                type="text"
+                            <select
                                 {...register('deliveryLocation')}
-                                placeholder="Enter delivery location"
-                                className="mt-1"
-                                list="locations-datalist"
-                            />
-                            {/* Optional: Provide suggestions from locations table */}
-                            {locations.length > 0 && (
-                                <datalist id="locations-datalist">
-                                    {locations.map((location: any) => (
-                                        <option key={location.id} value={location.name} />
-                                    ))}
-                                </datalist>
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            >
+                                <option value="">Select Location</option>
+                                {locations.map((location: any) => (
+                                    <option key={location.id} value={location.name}>
+                                        {location.name} {location.orderAmount && parseFloat(location.orderAmount) > 0 ? `- ₦${parseFloat(location.orderAmount).toLocaleString()}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            {locationOrderAmount > 0 && (
+                                <p className="mt-1 text-xs text-green-600 font-medium">
+                                    Fixed order amount: ₦{locationOrderAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </p>
                             )}
-                            <p className="mt-1 text-xs text-gray-500">
-                                Type the delivery location address
-                            </p>
                             {errors.deliveryLocation && (
                                 <p className="mt-1 text-sm text-red-600">{errors.deliveryLocation.message}</p>
                             )}
@@ -836,8 +843,14 @@ export const CreateOrder: React.FC = () => {
                             <span className="text-gray-600">Total Packs:</span>
                             <span className="font-medium">{totalPacks}</span>
                         </div>
+                        {locationOrderAmount > 0 && (
+                            <div className="flex justify-between text-sm text-gray-500">
+                                <span>Items Total:</span>
+                                <span>₦{itemsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between text-base font-semibold pt-2 border-t">
-                            <span>Total Amount:</span>
+                            <span>Order Amount{locationOrderAmount > 0 ? ' (Location Fixed)' : ''}:</span>
                             <span>₦{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                     </div>
