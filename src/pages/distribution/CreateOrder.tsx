@@ -203,8 +203,8 @@ export const CreateOrder: React.FC = () => {
             }
 
             const selectedCustomer = customersArray.find((c: any) => c.id === selectedCustomerId);
-            if (selectedCustomer && selectedCustomer.address) {
-                setValue('deliveryLocation', selectedCustomer.address);
+            if (selectedCustomer && selectedCustomer.territory) {
+                setValue('deliveryLocation', selectedCustomer.territory);
             }
         }
     }, [selectedCustomerId, customersResponse, setValue, isEditing]);
@@ -263,9 +263,9 @@ export const CreateOrder: React.FC = () => {
 
             // Try multiple possible response structures
             const supplierProducts = (supplierProductsResponse as any).data?.data?.products ||
-                                     (supplierProductsResponse as any).data?.products ||
-                                     (supplierProductsResponse as any).products ||
-                                     [];
+                (supplierProductsResponse as any).data?.products ||
+                (supplierProductsResponse as any).products ||
+                [];
 
             console.log('Extracted supplier products:', supplierProducts);
 
@@ -438,7 +438,7 @@ export const CreateOrder: React.FC = () => {
             </div>
 
             {/* Debug Info */}
-            {process.env.NODE_ENV === 'development' && (
+            {/* {process.env.NODE_ENV === 'development' && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs">
                     <p className="font-semibold text-blue-800 mb-2">📊 Debug Info:</p>
                     <p className="text-blue-600">✓ Customers: {customers.length}</p>
@@ -450,7 +450,7 @@ export const CreateOrder: React.FC = () => {
                     {products.length === 0 && !selectedSupplierId && <p className="text-red-600 mt-2">⚠️ No products found</p>}
                     {(!suppliersResponse || suppliersResponse.length === 0) && <p className="text-red-600 mt-2">⚠️ No suppliers found</p>}
                 </div>
-            )}
+            )} */}
 
             {/* Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -505,21 +505,18 @@ export const CreateOrder: React.FC = () => {
                                 const isDebt = customerBalance > 0;
 
                                 return (
-                                    <div className={`mt-2 p-3 rounded-lg border ${
-                                        isDebt
+                                    <div className={`mt-2 p-3 rounded-lg border ${isDebt
                                             ? 'bg-red-50 border-red-200'
                                             : 'bg-green-50 border-green-200'
-                                    }`}>
+                                        }`}>
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className={`text-sm font-semibold ${
-                                                    isDebt ? 'text-red-800' : 'text-green-800'
-                                                }`}>
+                                                <p className={`text-sm font-semibold ${isDebt ? 'text-red-800' : 'text-green-800'
+                                                    }`}>
                                                     {isDebt ? '⚠️ Customer has outstanding balance' : '✓ Customer has credit'}
                                                 </p>
-                                                <p className={`text-xs ${
-                                                    isDebt ? 'text-red-600' : 'text-green-600'
-                                                }`}>
+                                                <p className={`text-xs ${isDebt ? 'text-red-600' : 'text-green-600'
+                                                    }`}>
                                                     {isDebt
                                                         ? `Customer owes: ₦${Math.abs(customerBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                                                         : `Customer credit: ₦${Math.abs(customerBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
@@ -823,34 +820,31 @@ export const CreateOrder: React.FC = () => {
 
                             {/* Balance Display */}
                             {amountPaid > 0 && (
-                                <div className={`p-3 rounded-lg ${
-                                    orderBalance > 0
+                                <div className={`p-3 rounded-lg ${orderBalance > 0
                                         ? 'bg-red-50 border border-red-200'
                                         : orderBalance < 0
-                                        ? 'bg-green-50 border border-green-200'
-                                        : 'bg-gray-50 border border-gray-200'
-                                }`}>
+                                            ? 'bg-green-50 border border-green-200'
+                                            : 'bg-gray-50 border border-gray-200'
+                                    }`}>
                                     <div className="flex justify-between items-center">
-                                        <span className={`text-sm font-medium ${
-                                            orderBalance > 0
+                                        <span className={`text-sm font-medium ${orderBalance > 0
                                                 ? 'text-red-700'
                                                 : orderBalance < 0
-                                                ? 'text-green-700'
-                                                : 'text-gray-700'
-                                        }`}>
+                                                    ? 'text-green-700'
+                                                    : 'text-gray-700'
+                                            }`}>
                                             {orderBalance > 0
                                                 ? 'Customer Balance (Owes):'
                                                 : orderBalance < 0
-                                                ? 'Customer Overpaid (Credit):'
-                                                : 'Fully Paid'}
+                                                    ? 'Customer Overpaid (Credit):'
+                                                    : 'Fully Paid'}
                                         </span>
-                                        <span className={`text-base font-bold ${
-                                            orderBalance > 0
+                                        <span className={`text-base font-bold ${orderBalance > 0
                                                 ? 'text-red-700'
                                                 : orderBalance < 0
-                                                ? 'text-green-700'
-                                                : 'text-gray-700'
-                                        }`}>
+                                                    ? 'text-green-700'
+                                                    : 'text-gray-700'
+                                            }`}>
                                             ₦{Math.abs(orderBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
                                     </div>
