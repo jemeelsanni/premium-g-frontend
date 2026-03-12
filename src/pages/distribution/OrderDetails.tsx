@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
 import {
     ArrowLeft,
     Package,
@@ -54,6 +55,9 @@ export const OrderDetails: React.FC = () => {
         queryFn: () => distributionService.getPaymentHistory(id!),
         enabled: !!id,
     });
+
+    const { user } = useAuthStore();
+    const userRole = user?.role || '';
 
     // Mutations
     const confirmPaymentMutation = useMutation({
@@ -127,10 +131,6 @@ export const OrderDetails: React.FC = () => {
             setIsExportingPDF(false);
         }
     };
-
-    // ✅ FIXED: Use correct role value that matches your enum
-    // TODO: Replace with actual user role from auth context/state
-    const userRole = 'SUPER_ADMIN'; // or 'DISTRIBUTION_ADMIN'
 
     return (
         <div className="space-y-6">
@@ -384,7 +384,7 @@ export const OrderDetails: React.FC = () => {
                     )}
 
                     {/* ✨ Adjust Price Button - Only before order is loaded */}
-                    {(['SUPER_ADMIN', 'DISTRIBUTION_ADMIN'].includes(userRole)) &&
+                    {(['SUPER_ADMIN', 'DISTRIBUTION_ADMIN', 'DISTRIBUTION_SALES_REP'].includes(userRole)) &&
                         order?.paymentStatus === 'CONFIRMED' && (
                             <>
                                 {(() => {

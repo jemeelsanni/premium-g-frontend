@@ -143,7 +143,8 @@ function App() {
               <ProtectedRoute
                 allowedRoles={[
                   UserRole.SUPER_ADMIN,
-                  UserRole.DISTRIBUTION_ADMIN
+                  UserRole.DISTRIBUTION_ADMIN,
+                  UserRole.DISTRIBUTION_SALES_REP
                 ]}
               >
                 <DashboardLayout>
