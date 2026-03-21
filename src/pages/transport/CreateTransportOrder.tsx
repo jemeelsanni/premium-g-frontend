@@ -119,6 +119,7 @@ export const CreateTransportOrder: React.FC = () => {
     // Pre-fill form when editing
     useEffect(() => {
         if (existingOrder && isEditing) {
+            console.log('📋 Pre-filling form with existing order:', existingOrder);
             setValue('orderNumber', existingOrder.orderNumber);
             setValue('clientName', existingOrder.clientName);
             setValue('clientPhone', existingOrder.clientPhone || '');
@@ -130,6 +131,7 @@ export const CreateTransportOrder: React.FC = () => {
             setValue('truckId', existingOrder.truckId || '');
             setValue('driverDetails', existingOrder.driverDetails || '');
             setValue('invoiceNumber', existingOrder.invoiceNumber || '');
+            console.log('✅ Form pre-filled successfully');
         }
     }, [existingOrder, isEditing, setValue]);
 
@@ -175,8 +177,10 @@ export const CreateTransportOrder: React.FC = () => {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: string; data: TransportOrderFormData }) =>
-            transportService.updateOrder(id, data as any),
+        mutationFn: ({ id, data }: { id: string; data: TransportOrderFormData }) => {
+            console.log('🔄 Updating transport order with data:', data);
+            return transportService.updateOrder(id, data as any);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['transport-orders'] });
             queryClient.invalidateQueries({ queryKey: ['transport-order', id] });
@@ -184,11 +188,22 @@ export const CreateTransportOrder: React.FC = () => {
             navigate('/transport/orders');
         },
         onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to update shipment');
+            console.error('❌ Update error:', error);
+            console.error('❌ Error response:', error.response?.data);
+            const errorMessage = error.response?.data?.message || 'Failed to update shipment';
+            const validationErrors = error.response?.data?.errors;
+            if (validationErrors) {
+                console.error('❌ Validation errors:', validationErrors);
+                const errorDetails = validationErrors.map((e: any) => `${e.path}: ${e.msg}`).join(', ');
+                globalToast.error(`${errorMessage}: ${errorDetails}`);
+            } else {
+                globalToast.error(errorMessage);
+            }
         }
     });
 
     const onSubmit = (data: TransportOrderFormData) => {
+        console.log('📝 Form data received:', data);
         const submitData = {
             ...data,
             truckId: data.truckId?.trim() || undefined,
@@ -197,6 +212,8 @@ export const CreateTransportOrder: React.FC = () => {
             invoiceNumber: data.invoiceNumber?.trim() || undefined,
             tripAllowance: data.tripAllowance || 0,
         };
+        console.log('📤 Prepared submit data:', submitData);
+        console.log('🔍 Is editing?', isEditing, 'Order ID:', id);
         if (isEditing) {
             updateMutation.mutate({ id: id!, data: submitData });
         } else {
