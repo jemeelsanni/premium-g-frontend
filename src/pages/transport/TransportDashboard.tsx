@@ -281,7 +281,7 @@ export const TransportDashboard: React.FC = () => {
                     <Link to="/transport/orders/create">
                         <Button>
                             <Plus className="h-4 w-4 mr-2" />
-                            New Transport Order
+                            New Shipment
                         </Button>
                     </Link>
                 </div>
@@ -384,7 +384,7 @@ export const TransportDashboard: React.FC = () => {
                                         <Plus className="h-5 w-5 text-white" />
                                     </div>
                                     <p className="ml-3 text-sm font-medium text-gray-900">
-                                        Create Order
+                                        Create Shipment
                                     </p>
                                 </div>
                                 <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400">
@@ -535,7 +535,7 @@ export const TransportDashboard: React.FC = () => {
                         emptyMessage={
                             hasOrders
                                 ? "No recent orders found"
-                                : "No transport orders yet. Create your first order to get started!"
+                                : "No transport orders yet. Create your first shipment to get started!"
                         }
                     />
                 </div>

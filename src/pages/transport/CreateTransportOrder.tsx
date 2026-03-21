@@ -151,11 +151,11 @@ export const CreateTransportOrder: React.FC = () => {
         mutationFn: (data: TransportOrderFormData) => transportService.createOrder(data as any),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['transport-orders'] });
-            globalToast.success('Transport order created successfully!');
+            globalToast.success('Transport shipment created successfully!');
             navigate('/transport/orders');
         },
         onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to create order');
+            globalToast.error(error.response?.data?.message || 'Failed to create shipment');
         }
     });
 
@@ -165,11 +165,11 @@ export const CreateTransportOrder: React.FC = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['transport-orders'] });
             queryClient.invalidateQueries({ queryKey: ['transport-order', id] });
-            globalToast.success('Transport order updated successfully!');
+            globalToast.success('Transport shipment updated successfully!');
             navigate('/transport/orders');
         },
         onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to update order');
+            globalToast.error(error.response?.data?.message || 'Failed to update shipment');
         }
     });
 
@@ -207,7 +207,7 @@ export const CreateTransportOrder: React.FC = () => {
                     </Button>
                     <div>
                         <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
-                            {isEditing ? 'Edit Transport Order' : 'Create Transport Order'}
+                            {isEditing ? 'Edit Shipment' : 'Create Shipment'}
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
                             Select a location to auto-populate cost rates
@@ -523,7 +523,7 @@ export const CreateTransportOrder: React.FC = () => {
                                     loading={isSubmitting || createMutation.isPending || updateMutation.isPending}
                                 >
                                     <Save className="h-4 w-4 mr-2" />
-                                    {isEditing ? 'Update Order' : 'Create Order'}
+                                    {isEditing ? 'Update Shipment' : 'Create Shipment'}
                                 </Button>
                                 <Button
                                     type="button"

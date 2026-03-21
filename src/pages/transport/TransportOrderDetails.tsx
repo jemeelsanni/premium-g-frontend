@@ -68,11 +68,11 @@ export const TransportOrderDetails: React.FC = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['transport-order', id] });
             queryClient.invalidateQueries({ queryKey: ['transport-orders'] });
-            globalToast.success('Order status updated successfully!');
+            globalToast.success('Shipment status updated successfully!');
             setIsStatusModalOpen(false);
         },
         onError: (error: any) => {
-            globalToast.error(error.response?.data?.message || 'Failed to update order status');
+            globalToast.error(error.response?.data?.message || 'Failed to update shipment status');
         }
     });
 
@@ -136,7 +136,7 @@ export const TransportOrderDetails: React.FC = () => {
                 <div className="flex items-center space-x-3">
                     <div>
                         <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
-                            Transport Order #{order.orderNumber}
+                            Transport Shipment #{order.orderNumber}
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
                             Created on {new Date(order.createdAt).toLocaleDateString()}
@@ -348,7 +348,7 @@ export const TransportOrderDetails: React.FC = () => {
                                         <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                                             <div>
                                                 <p className="text-sm text-gray-500">
-                                                    Order created by{' '}
+                                                    Shipment created by{' '}
                                                     <span className="font-medium text-gray-900">
                                                         {order.createdBy || 'System'}
                                                     </span>
@@ -424,7 +424,7 @@ export const TransportOrderDetails: React.FC = () => {
             <Modal
                 isOpen={isStatusModalOpen}
                 onClose={() => setIsStatusModalOpen(false)}
-                title="Update Order Status"
+                title="Update Shipment Status"
             >
                 <div className="space-y-4">
                     <div>

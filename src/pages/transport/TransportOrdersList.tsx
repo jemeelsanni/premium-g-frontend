@@ -401,7 +401,7 @@ export const TransportOrdersList: React.FC = () => {
                     <Link to="/transport/orders/create">
                         <Button>
                             <Plus className="h-4 w-4 mr-2" />
-                            New Order
+                            New Shipment
                         </Button>
                     </Link>
                 </div>
@@ -576,7 +576,7 @@ export const TransportOrdersList: React.FC = () => {
                         emptyMessage={
                             searchTerm || statusFilter
                                 ? "No orders found matching your filters"
-                                : "No transport orders yet. Create your first order to get started!"
+                                : "No transport orders yet. Create your first shipment to get started!"
                         }
                     />
                 </div>
