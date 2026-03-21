@@ -56,6 +56,8 @@ export interface CreateTruckData {
   model?: string;
   year?: number;
   notes?: string;
+  driverName?: string;
+  driverPhone?: string;
 }
 
 export interface CreateExpenseData {
@@ -166,7 +168,9 @@ export class TransportService extends BaseApiService {
       make: data.make,
       model: data.model,
       year: data.year,
-      notes: data.notes
+      notes: data.notes,
+      driverName: data.driverName,
+      driverPhone: data.driverPhone
     };
     const response = await this.post<{ success: boolean; data: { truck: Truck } }>(payload, '/trucks');
     return response.data.truck;
@@ -180,7 +184,9 @@ export class TransportService extends BaseApiService {
     if (data.model) payload.model = data.model;
     if (data.year) payload.year = data.year;
     if (data.notes) payload.notes = data.notes;
-    
+    if (data.driverName !== undefined) payload.driverName = data.driverName;
+    if (data.driverPhone !== undefined) payload.driverPhone = data.driverPhone;
+
     const response = await this.put<{ success: boolean; data: { truck: Truck } }>(payload, `/trucks/${id}`);
     return response.data.truck;
   }

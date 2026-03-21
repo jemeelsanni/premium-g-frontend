@@ -19,6 +19,8 @@ import { TruckPerformanceModal } from '../../components/transport/TruckPerforman
 const truckSchema = z.object({
     plateNumber: z.string().min(1, 'Plate number is required'),
     capacity: z.number().min(1, 'Capacity must be greater than 0'),
+    driverName: z.string().optional(),
+    driverPhone: z.string().optional(),
 });
 
 type TruckFormData = z.infer<typeof truckSchema>;
@@ -41,6 +43,8 @@ export const TruckManagement: React.FC = () => {
         defaultValues: {
             plateNumber: '',
             capacity: 0,
+            driverName: '',
+            driverPhone: '',
         }
     });
 
@@ -91,12 +95,16 @@ export const TruckManagement: React.FC = () => {
             reset({
                 plateNumber: truck.registrationNumber || '',
                 capacity: truck.maxPallets || 0,  // ✅ Map maxPallets to capacity
+                driverName: truck.driverName || '',
+                driverPhone: truck.driverPhone || '',
             });
         } else {
             setEditingTruck(null);
             reset({
                 plateNumber: '',
                 capacity: 0,
+                driverName: '',
+                driverPhone: '',
             });
         }
         setIsModalOpen(true);
@@ -357,6 +365,20 @@ export const TruckManagement: React.FC = () => {
                         {...register('capacity', { valueAsNumber: true })}
                         error={errors.capacity?.message}
                         placeholder="e.g., 5000"
+                    />
+
+                    <Input
+                        label="Driver Name"
+                        {...register('driverName')}
+                        error={errors.driverName?.message}
+                        placeholder="e.g., John Doe"
+                    />
+
+                    <Input
+                        label="Driver Phone"
+                        {...register('driverPhone')}
+                        error={errors.driverPhone?.message}
+                        placeholder="e.g., 08012345678"
                     />
 
                     <div className="flex justify-end space-x-3 pt-4">

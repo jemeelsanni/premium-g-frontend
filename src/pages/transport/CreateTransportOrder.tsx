@@ -67,6 +67,7 @@ export const CreateTransportOrder: React.FC = () => {
     const totalOrderAmount = watch('totalOrderAmount') || 0;
     const locationId = watch('locationId');
     const tripAllowance = watch('tripAllowance') || 0;
+    const truckId = watch('truckId');
 
     // Fetch locations (includes per-trip cost data)
     const { data: locations } = useQuery({
@@ -100,6 +101,20 @@ export const CreateTransportOrder: React.FC = () => {
             setSelectedLocationData(null);
         }
     }, [locationId, locations, setValue]);
+
+    // When truck changes, auto-populate driver details
+    useEffect(() => {
+        if (truckId && trucks && !isEditing) {
+            const selectedTruck = trucks.find((t: any) => t.truckId === truckId);
+            if (selectedTruck?.driverName || selectedTruck?.driverPhone) {
+                const driverInfo = [
+                    selectedTruck.driverName,
+                    selectedTruck.driverPhone
+                ].filter(Boolean).join(' - ');
+                setValue('driverDetails', driverInfo);
+            }
+        }
+    }, [truckId, trucks, isEditing, setValue]);
 
     // Pre-fill form when editing
     useEffect(() => {

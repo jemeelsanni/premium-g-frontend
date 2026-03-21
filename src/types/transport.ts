@@ -93,6 +93,8 @@ export interface Truck {
   model?: string;
   year?: number;
   notes?: string;
+  driverName?: string;
+  driverPhone?: string;
   createdAt: string;
   updatedAt?: string;
 }
