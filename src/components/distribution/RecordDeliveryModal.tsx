@@ -8,7 +8,7 @@ import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../ui/Toast';
 import { distributionService } from '../../services/distributionService';
 
 const deliverySchema = z.object({
@@ -68,12 +68,12 @@ export const RecordDeliveryModal: React.FC<RecordDeliveryModalProps> = ({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
-            toast.success('Delivery recorded successfully!');
+            globalToast.success('Delivery recorded successfully!');
             reset();
             onClose();
         },
         onError: (error: Error) => {
-            toast.error(error.message || 'Failed to record delivery');
+            globalToast.error(error.message || 'Failed to record delivery');
         },
     });
 

@@ -7,7 +7,7 @@ import { Plus, User, DollarSign, TrendingUp, Package, ChevronLeft, ChevronRight,
 import { warehouseService } from '../../services/warehouseService';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 import dayjs from 'dayjs';
 
 
@@ -242,9 +242,9 @@ export const SalesList: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            toast.success('Sales exported to CSV successfully');
+            globalToast.success('Sales exported to CSV successfully');
         } catch (error) {
-            toast.error('Failed to export sales to CSV');
+            globalToast.error('Failed to export sales to CSV');
             console.error('Export error:', error);
         } finally {
             setIsExportingCSV(false);
@@ -270,9 +270,9 @@ export const SalesList: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            toast.success('Sales exported to PDF successfully');
+            globalToast.success('Sales exported to PDF successfully');
         } catch (error) {
-            toast.error('Failed to export sales to PDF');
+            globalToast.error('Failed to export sales to PDF');
             console.error('Export error:', error);
         } finally {
             setIsExportingPDF(false);

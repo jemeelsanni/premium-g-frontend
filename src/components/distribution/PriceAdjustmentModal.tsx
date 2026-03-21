@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../ui/Toast';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -104,13 +104,13 @@ export const PriceAdjustmentModal = ({
             return response.data;
         },
         onSuccess: () => {
-            toast.success('Price adjustment created successfully');
+            globalToast.success('Price adjustment created successfully');
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });
             onClose();
         },
         onError: (error: any) => {
             const errorMessage = error.response?.data?.message || 'Failed to create price adjustment';
-            toast.error(errorMessage);
+            globalToast.error(errorMessage);
         },
     });
 
@@ -118,12 +118,12 @@ export const PriceAdjustmentModal = ({
         e.preventDefault();
 
         if (!hasChanges) {
-            toast.error('No price changes detected');
+            globalToast.error('No price changes detected');
             return;
         }
 
         if (!reason.trim()) {
-            toast.error('Please provide a reason for the price adjustment');
+            globalToast.error('Please provide a reason for the price adjustment');
             return;
         }
 

@@ -10,7 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { TransportOrderStatus } from '../../types/transport';
 import { StatusUpdateDropdown } from '../../components/transport/StatusUpdateDropdown';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 
 type PeriodFilter = 'day' | 'week' | 'month' | 'year' | 'custom' | '';
 
@@ -76,9 +76,9 @@ export const TransportOrdersList: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            toast.success('Orders exported to CSV successfully');
+            globalToast.success('Orders exported to CSV successfully');
         } catch (error) {
-            toast.error('Failed to export orders to CSV');
+            globalToast.error('Failed to export orders to CSV');
             console.error('Export error:', error);
         } finally {
             setIsExportingCSV(false);
@@ -105,9 +105,9 @@ export const TransportOrdersList: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            toast.success('Sales exported to CSV successfully');
+            globalToast.success('Sales exported to CSV successfully');
         } catch (error) {
-            toast.error('Failed to export sales to CSV');
+            globalToast.error('Failed to export sales to CSV');
             console.error('Export error:', error);
         } finally {
             setIsExportingCSV(false);
@@ -135,9 +135,9 @@ export const TransportOrdersList: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            toast.success('Sales exported to PDF successfully');
+            globalToast.success('Sales exported to PDF successfully');
         } catch (error) {
-            toast.error('Failed to export sales to PDF');
+            globalToast.error('Failed to export sales to PDF');
             console.error('Export error:', error);
         } finally {
             setIsExportingPDF(false);

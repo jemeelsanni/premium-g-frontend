@@ -10,7 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { formatDate } from '../../utils/dateUtils';
-import toast from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 import { apiClient } from '../../services/api';
 import { ExportOptionsModal, ExportOptions } from '../../components/distribution/ExportOptionsModal';
 
@@ -118,10 +118,10 @@ export const OrdersList: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(downloadUrl);
 
-            toast.success('Orders exported successfully!');
+            globalToast.success('Orders exported successfully!');
         } catch (error) {
             console.error('Export error:', error);
-            toast.error('Failed to export orders');
+            globalToast.error('Failed to export orders');
         } finally {
             setIsExporting(false);
         }
@@ -150,10 +150,10 @@ export const OrdersList: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            toast.success('Orders exported to CSV successfully!');
+            globalToast.success('Orders exported to CSV successfully!');
         } catch (error) {
             console.error('CSV export error:', error);
-            toast.error('Failed to export orders to CSV');
+            globalToast.error('Failed to export orders to CSV');
         } finally {
             setIsExportingCSV(false);
         }

@@ -3,7 +3,7 @@ import { Plus, Edit, Trash2, CheckCircle, XCircle, Building2, Mail, Phone, User,
 import { useNavigate } from 'react-router-dom';
 import supplierCompanyService, { CategoryInput, SkuInput } from '../../services/supplierCompanyService';
 import { SupplierCompany, CATEGORY_DISPLAY_NAMES, ProductCategoryType } from '../../types/distribution';
-import toast from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 
 const ALL_CATEGORIES: ProductCategoryType[] = [
   ProductCategoryType.CSD,
@@ -52,7 +52,7 @@ const SupplierCompanies: React.FC = () => {
       setSuppliers(data);
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to load suppliers');
+      globalToast.error(err.response?.data?.message || 'Failed to load suppliers');
     } finally {
       setLoading(false);
     }
@@ -128,7 +128,7 @@ const SupplierCompanies: React.FC = () => {
       for (const sku of cat.skus) {
         const val = parseFloat(String(sku.skuValue));
         if (!sku.skuValue || isNaN(val) || val <= 0) {
-          toast.error(`All SKU values must be positive numbers in "${CATEGORY_DISPLAY_NAMES[cat.categoryType]}"`);
+          globalToast.error(`All SKU values must be positive numbers in "${CATEGORY_DISPLAY_NAMES[cat.categoryType]}"`);
           return;
         }
       }
@@ -151,16 +151,16 @@ const SupplierCompanies: React.FC = () => {
     try {
       if (editingSupplier) {
         await supplierCompanyService.updateSupplierCompany(editingSupplier.id, payload);
-        toast.success('Supplier updated successfully');
+        globalToast.success('Supplier updated successfully');
       } else {
         await supplierCompanyService.createSupplierCompany(payload);
-        toast.success('Supplier created successfully');
+        globalToast.success('Supplier created successfully');
       }
       resetForm();
       loadSuppliers();
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to save supplier');
+      globalToast.error(err.response?.data?.message || 'Failed to save supplier');
     }
   };
 
@@ -191,11 +191,11 @@ const SupplierCompanies: React.FC = () => {
   const handleToggleStatus = async (supplier: SupplierCompany) => {
     try {
       await supplierCompanyService.updateSupplierCompany(supplier.id, { isActive: !supplier.isActive });
-      toast.success(`Supplier ${supplier.isActive ? 'deactivated' : 'activated'} successfully`);
+      globalToast.success(`Supplier ${supplier.isActive ? 'deactivated' : 'activated'} successfully`);
       loadSuppliers();
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to update supplier status');
+      globalToast.error(err.response?.data?.message || 'Failed to update supplier status');
     }
   };
 
@@ -203,11 +203,11 @@ const SupplierCompanies: React.FC = () => {
     if (!window.confirm(`Are you sure you want to delete ${supplier.name}?`)) return;
     try {
       await supplierCompanyService.deleteSupplierCompany(supplier.id);
-      toast.success('Supplier deleted successfully');
+      globalToast.success('Supplier deleted successfully');
       loadSuppliers();
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to delete supplier');
+      globalToast.error(err.response?.data?.message || 'Failed to delete supplier');
     }
   };
 

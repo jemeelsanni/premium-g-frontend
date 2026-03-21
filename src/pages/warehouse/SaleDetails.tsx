@@ -17,7 +17,7 @@ import {
 import { warehouseService } from '../../services/warehouseService';
 import PrintableReceipt from './PrintableReceipt';
 import { Button } from '../../components/ui/Button';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 import { canAccessWarehouseFeature, WarehouseFeature } from '@/utils/warehousePermissions';
 import { EditSaleModal } from './EditSaleModal';
 
@@ -51,9 +51,9 @@ export const SaleDetails: React.FC = () => {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
-            toast.success('Sale exported to PDF successfully');
+            globalToast.success('Sale exported to PDF successfully');
         } catch (error) {
-            toast.error('Failed to export sale to PDF');
+            globalToast.error('Failed to export sale to PDF');
             console.error('Export error:', error);
         } finally {
             setIsExportingPDF(false);
@@ -85,10 +85,10 @@ export const SaleDetails: React.FC = () => {
             for (const saleId of saleData.data.saleIds) {
                 await warehouseService.deleteSale(saleId);
             }
-            toast.success('Sale deleted successfully');
+            globalToast.success('Sale deleted successfully');
             navigate('/warehouse/sales');
         } catch (error) {
-            toast.error('Failed to delete sale');
+            globalToast.error('Failed to delete sale');
             console.error('Delete error:', error);
         }
     };

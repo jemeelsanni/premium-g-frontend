@@ -29,7 +29,7 @@ import { Table } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { useAuthStore } from '../../store/authStore';
-import toast from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 
 const MONTHS = [
   { value: 1, label: 'January' },
@@ -135,10 +135,10 @@ export const SupplierDetail: React.FC = () => {
     mutationFn: (targetId: string) => supplierTargetService.deleteSupplierTarget(targetId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['supplier-targets'] });
-      toast.success('Target deleted successfully');
+      globalToast.success('Target deleted successfully');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete target');
+      globalToast.error(error.response?.data?.message || 'Failed to delete target');
     },
   });
 
@@ -163,10 +163,10 @@ export const SupplierDetail: React.FC = () => {
     mutationFn: (incentiveId: string) => supplierIncentiveService.deleteSupplierIncentive(incentiveId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['supplier-incentives'] });
-      toast.success('Incentive deleted successfully');
+      globalToast.success('Incentive deleted successfully');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete incentive');
+      globalToast.error(error.response?.data?.message || 'Failed to delete incentive');
     },
   });
 
@@ -1052,22 +1052,22 @@ const TargetModal: React.FC<TargetModalProps> = ({
   const createMutation = useMutation({
     mutationFn: (data: any) => supplierTargetService.createSupplierTarget(data),
     onSuccess: () => {
-      toast.success('Target created successfully');
+      globalToast.success('Target created successfully');
       onSuccess();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create target');
+      globalToast.error(error.response?.data?.message || 'Failed to create target');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => supplierTargetService.updateSupplierTarget(target.id, data),
     onSuccess: () => {
-      toast.success('Target updated successfully');
+      globalToast.success('Target updated successfully');
       onSuccess();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update target');
+      globalToast.error(error.response?.data?.message || 'Failed to update target');
     },
   });
 
@@ -1356,22 +1356,22 @@ const IncentiveModal: React.FC<IncentiveModalProps> = ({
   const createMutation = useMutation({
     mutationFn: (data: any) => supplierIncentiveService.createSupplierIncentive(data),
     onSuccess: () => {
-      toast.success('Incentive record created successfully');
+      globalToast.success('Incentive record created successfully');
       onSuccess();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create incentive');
+      globalToast.error(error.response?.data?.message || 'Failed to create incentive');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => supplierIncentiveService.updateSupplierIncentive(incentive.id, data),
     onSuccess: () => {
-      toast.success('Incentive record updated successfully');
+      globalToast.success('Incentive record updated successfully');
       onSuccess();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update incentive');
+      globalToast.error(error.response?.data?.message || 'Failed to update incentive');
     },
   });
 

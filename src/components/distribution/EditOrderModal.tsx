@@ -8,7 +8,7 @@ import { Edit, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../ui/Toast';
 import { distributionService } from '../../services/distributionService';
 import { apiClient } from '../../services/api';
 
@@ -170,11 +170,11 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
-            toast.success('Order updated successfully!');
+            globalToast.success('Order updated successfully!');
             onClose();
         },
         onError: (error: any) => {
-            toast.error(error.message || 'Failed to update order');
+            globalToast.error(error.message || 'Failed to update order');
         },
     });
 

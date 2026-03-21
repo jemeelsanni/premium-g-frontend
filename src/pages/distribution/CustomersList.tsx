@@ -10,7 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import { Modal } from '../../components/ui/Modal';
 import { CustomerForm, CustomerFormData } from './CustomerForm';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 
 export const CustomersList: React.FC = () => {
     const navigate = useNavigate();
@@ -28,11 +28,11 @@ export const CustomersList: React.FC = () => {
         mutationFn: (data: CustomerFormData) => distributionService.createCustomer(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-customers'] });
-            toast.success('Customer created successfully!');
+            globalToast.success('Customer created successfully!');
             handleCloseModal();
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to create customer');
+            globalToast.error(error.response?.data?.message || 'Failed to create customer');
         }
     });
 
@@ -41,11 +41,11 @@ export const CustomersList: React.FC = () => {
             distributionService.updateCustomer(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-customers'] });
-            toast.success('Customer updated successfully!');
+            globalToast.success('Customer updated successfully!');
             handleCloseModal();
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to update customer');
+            globalToast.error(error.response?.data?.message || 'Failed to update customer');
         }
     });
 

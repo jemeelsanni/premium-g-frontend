@@ -8,7 +8,7 @@ import { FileText } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../ui/Toast';
 import { distributionService } from '../../services/distributionService';
 
 const supplierStatusSchema = z.object({
@@ -70,12 +70,12 @@ export const UpdateSupplierStatusModal: React.FC<UpdateSupplierStatusModalProps>
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
-            toast.success(`${supplierName} status updated successfully!`);
+            globalToast.success(`${supplierName} status updated successfully!`);
             reset();
             onClose();
         },
         onError: (error: Error) => {
-            toast.error(error.message || 'Failed to update status');
+            globalToast.error(error.message || 'Failed to update status');
         },
     });
 

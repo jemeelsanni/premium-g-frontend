@@ -8,7 +8,7 @@ import { Truck } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../ui/Toast';
 import { distributionService } from '../../services/distributionService';
 
 const transportSchema = z.object({
@@ -48,12 +48,12 @@ export const AssignTransportModal: React.FC<AssignTransportModalProps> = ({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
-            toast.success('Transport assigned successfully! Order is now in transit.');
+            globalToast.success('Transport assigned successfully! Order is now in transit.');
             reset();
             onClose();
         },
         onError: (error: Error) => {
-            toast.error(error.message || 'Failed to assign transport');
+            globalToast.error(error.message || 'Failed to assign transport');
         },
     });
 

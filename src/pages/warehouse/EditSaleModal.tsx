@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 import { warehouseService } from '../../services/warehouseService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { WarehouseSale } from '../../types/warehouse';
@@ -92,14 +92,14 @@ export const EditSaleModal: React.FC<EditSaleModalProps> = ({
             return warehouseService.updateSale(saleId, data);
         },
         onSuccess: () => {
-            toast.success('Sale updated successfully');
+            globalToast.success('Sale updated successfully');
             queryClient.invalidateQueries({ queryKey: ['warehouse-sale'] });
             queryClient.invalidateQueries({ queryKey: ['warehouse-sales'] });
             onSuccess?.();
             onClose();
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to update sale');
+            globalToast.error(error.response?.data?.message || 'Failed to update sale');
         },
     });
 

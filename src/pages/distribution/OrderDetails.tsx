@@ -27,7 +27,7 @@ import { RecordDeliveryModal } from '../../components/distribution/RecordDeliver
 import { PaySupplierModal } from '../../components/distribution/PaySupplierModal';
 import { AssignTransportModal } from '../../components/distribution/AssignTransportModal';
 import { EditOrderModal } from '../../components/distribution/EditOrderModal';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 import { formatDate } from '@/utils/dateUtils';
 
 export const OrderDetails: React.FC = () => {
@@ -64,10 +64,10 @@ export const OrderDetails: React.FC = () => {
         mutationFn: () => distributionService.confirmPayment(id!, 'Payment confirmed by accountant'),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', id] });
-            toast.success('Payment confirmed successfully!');
+            globalToast.success('Payment confirmed successfully!');
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to confirm payment');
+            globalToast.error(error.response?.data?.message || 'Failed to confirm payment');
         }
     });
 
@@ -123,10 +123,10 @@ export const OrderDetails: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(downloadUrl);
 
-            toast.success('Order exported successfully!');
+            globalToast.success('Order exported successfully!');
         } catch (error) {
             console.error('Export error:', error);
-            toast.error('Failed to export order');
+            globalToast.error('Failed to export order');
         } finally {
             setIsExportingPDF(false);
         }

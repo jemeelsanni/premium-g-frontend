@@ -330,7 +330,7 @@ export const LocationManagement: React.FC = () => {
                         <Button type="button" variant="outline" onClick={handleCloseModal}>
                             Cancel
                         </Button>
-                        <Button type="submit">
+                        <Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
                             {editingLocation ? 'Update' : 'Create'} Location
                         </Button>
                     </div>

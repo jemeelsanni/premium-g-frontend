@@ -8,7 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../ui/Toast';
 import { distributionService } from '../../services/distributionService';
 
 const confirmSchema = z.object({
@@ -48,12 +48,12 @@ export const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['distribution-order', orderId] });
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
-            toast.success('Payment confirmed successfully! Ready to send to Rite Foods.');
+            globalToast.success('Payment confirmed successfully! Ready to send to Rite Foods.');
             reset();
             onClose();
         },
         onError: (error: Error) => {
-            toast.error(error.message || 'Failed to confirm payment');
+            globalToast.error(error.message || 'Failed to confirm payment');
         },
     });
 

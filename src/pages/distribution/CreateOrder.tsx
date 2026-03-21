@@ -11,7 +11,7 @@ import supplierCompanyService from '../../services/supplierCompanyService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 
 const orderItemSchema = z.object({
     productId: z.string().min(1, 'Product is required'),
@@ -133,7 +133,7 @@ export const CreateOrder: React.FC = () => {
         },
         onSuccess: (response) => {
             console.log('Order created successfully:', response);
-            toast.success('Order created successfully!');
+            globalToast.success('Order created successfully!');
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
             navigate('/distribution/orders');
         },
@@ -144,14 +144,14 @@ export const CreateOrder: React.FC = () => {
                 || error.response?.data?.error
                 || error.message
                 || 'Failed to create order';
-            toast.error(errorMessage);
+            globalToast.error(errorMessage);
         },
     });
 
     const updateMutation = useMutation({
         mutationFn: (data: any) => distributionService.updateOrder(id!, data),
         onSuccess: () => {
-            toast.success('Order updated successfully!');
+            globalToast.success('Order updated successfully!');
             queryClient.invalidateQueries({ queryKey: ['distribution-orders'] });
             queryClient.invalidateQueries({ queryKey: ['distribution-order', id] });
             navigate('/distribution/orders');
@@ -159,7 +159,7 @@ export const CreateOrder: React.FC = () => {
         onError: (error: any) => {
             console.error('Update order error:', error);
             const errorMessage = error.response?.data?.message || 'Failed to update order';
-            toast.error(errorMessage);
+            globalToast.error(errorMessage);
         },
     });
 
@@ -244,7 +244,7 @@ export const CreateOrder: React.FC = () => {
         if (fields.length > 1) {
             remove(index);
         } else {
-            toast.error('Order must have at least one item');
+            globalToast.error('Order must have at least one item');
         }
     };
 
@@ -346,7 +346,7 @@ export const CreateOrder: React.FC = () => {
             // Validate maximum pallets
             if (pallets > 12) {
                 setValue(`orderItems.${index}.pallets`, 12, { shouldValidate: false });
-                toast.error('Maximum 12 pallets allowed per product');
+                globalToast.error('Maximum 12 pallets allowed per product');
                 return;
             }
 
@@ -677,7 +677,7 @@ export const CreateOrder: React.FC = () => {
                                             const val = parseInt(e.target.value);
                                             if (val > 12) {
                                                 setValue(`orderItems.${index}.pallets`, 12);
-                                                toast.error('Maximum 12 pallets allowed');
+                                                globalToast.error('Maximum 12 pallets allowed');
                                             }
                                         }}
                                     />

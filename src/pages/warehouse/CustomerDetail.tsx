@@ -26,7 +26,7 @@ import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { generateCustomerDetailPDF } from '../../services/pdf/customerDetailPDF';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 
 type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom';
 
@@ -151,7 +151,7 @@ export const CustomerDetail: React.FC = () => {
 
         try {
             setIsExporting(true);
-            toast.loading('Generating PDF...', { id: 'pdf-export' });
+            globalToast.loading('Generating PDF...', { id: 'pdf-export' });
 
             // Fetch all purchases for export
             const allPurchases = await warehouseService.getCustomerPurchaseHistory(id!, {
@@ -193,10 +193,10 @@ export const CustomerDetail: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            toast.success('PDF exported successfully!', { id: 'pdf-export' });
+            globalToast.success('PDF exported successfully!', { id: 'pdf-export' });
         } catch (error) {
             console.error('PDF Export Error:', error);
-            toast.error('Failed to export PDF', { id: 'pdf-export' });
+            globalToast.error('Failed to export PDF', { id: 'pdf-export' });
         } finally {
             setIsExporting(false);
         }

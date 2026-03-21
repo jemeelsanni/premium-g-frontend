@@ -4,7 +4,7 @@ import { Plus, Edit, Trash2, Package, DollarSign, Clock, CheckCircle, XCircle, H
 import { useLocation } from 'react-router-dom';
 import { distributionService } from '../../services/distributionService';
 import supplierCompanyService from '../../services/supplierCompanyService';
-import toast from 'react-hot-toast';
+import { globalToast } from '../../components/ui/Toast';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import {
@@ -113,7 +113,7 @@ const SupplierProducts: React.FC = () => {
       setSuppliers(suppliersData);
       await loadAllSupplierProducts();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load data');
+      globalToast.error(error.response?.data?.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -124,7 +124,7 @@ const SupplierProducts: React.FC = () => {
       const response = await distributionService.getSupplierProducts();
       setSupplierProducts(response.data?.data || []);
     } catch {
-      toast.error('Failed to load supplier products');
+      globalToast.error('Failed to load supplier products');
     }
   };
 
@@ -133,7 +133,7 @@ const SupplierProducts: React.FC = () => {
       const response = await distributionService.getSupplierProductsBySupplier(supplierId);
       setSupplierProducts(response.data?.data?.products || []);
     } catch {
-      toast.error('Failed to load supplier products');
+      globalToast.error('Failed to load supplier products');
     }
   };
 
@@ -202,22 +202,22 @@ const SupplierProducts: React.FC = () => {
     try {
       if (!editingItem) {
         // ── CREATE ──
-        if (!formData.supplierCompanyId) { toast.error('Please select a supplier'); return; }
-        if (!formData.productBaseName.trim()) { toast.error('Please enter a product name'); return; }
-        if (!formData.supplierCategorySkuId) { toast.error('Please select a product category & SKU'); return; }
+        if (!formData.supplierCompanyId) { globalToast.error('Please select a supplier'); return; }
+        if (!formData.productBaseName.trim()) { globalToast.error('Please enter a product name'); return; }
+        if (!formData.supplierCategorySkuId) { globalToast.error('Please select a product category & SKU'); return; }
         if (!formData.packsPerPallet || parseInt(formData.packsPerPallet) < 1) {
-          toast.error('Packs per pallet must be at least 1'); return;
+          globalToast.error('Packs per pallet must be at least 1'); return;
         }
         if (!formData.supplierCostPerPack || parseFloat(formData.supplierCostPerPack) <= 0) {
-          toast.error('Supplier cost per pack must be greater than 0'); return;
+          globalToast.error('Supplier cost per pack must be greater than 0'); return;
         }
 
         // Find supplier + SKU option
         const selectedSupplierData = suppliers.find(s => s.id === formData.supplierCompanyId);
-        if (!selectedSupplierData) { toast.error('Supplier not found'); return; }
+        if (!selectedSupplierData) { globalToast.error('Supplier not found'); return; }
 
         const skuOption = skuOptions.find(o => o.skuId === formData.supplierCategorySkuId);
-        if (!skuOption) { toast.error('Category/SKU not found'); return; }
+        if (!skuOption) { globalToast.error('Category/SKU not found'); return; }
 
         const supplierCode = selectedSupplierData.code;
 
@@ -251,7 +251,7 @@ const SupplierProducts: React.FC = () => {
           createdProduct.data?.product?.id ||
           createdProduct.data?.id;
 
-        if (!productId) { toast.error('Failed to create product'); return; }
+        if (!productId) { globalToast.error('Failed to create product'); return; }
 
         // Link product to supplier with category SKU
         await distributionService.createSupplierProduct({
@@ -265,11 +265,11 @@ const SupplierProducts: React.FC = () => {
           notes: formData.notes || undefined,
         });
 
-        toast.success('Supplier product added successfully');
+        globalToast.success('Supplier product added successfully');
       } else {
         // ── UPDATE ──
         if (!formData.supplierCostPerPack || parseFloat(formData.supplierCostPerPack) <= 0) {
-          toast.error('Supplier cost per pack must be greater than 0'); return;
+          globalToast.error('Supplier cost per pack must be greater than 0'); return;
         }
         await distributionService.updateSupplierProduct(editingItem.id, {
           supplierCostPerPack: parseFloat(formData.supplierCostPerPack),
@@ -279,14 +279,14 @@ const SupplierProducts: React.FC = () => {
           notes: formData.notes || undefined,
           priceChangeReason: formData.priceChangeReason || undefined,
         });
-        toast.success('Supplier product updated successfully');
+        globalToast.success('Supplier product updated successfully');
       }
 
       handleCloseModal();
       if (selectedSupplier) loadSupplierProducts(selectedSupplier);
       else loadAllSupplierProducts();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save supplier product');
+      globalToast.error(error.response?.data?.message || 'Failed to save supplier product');
     }
   };
 
@@ -294,21 +294,21 @@ const SupplierProducts: React.FC = () => {
     if (!window.confirm('Remove this product from the supplier catalog?')) return;
     try {
       await distributionService.deleteSupplierProduct(id);
-      toast.success('Supplier product removed successfully');
+      globalToast.success('Supplier product removed successfully');
       if (selectedSupplier) loadSupplierProducts(selectedSupplier);
       else loadAllSupplierProducts();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete supplier product');
+      globalToast.error(error.response?.data?.message || 'Failed to delete supplier product');
     }
   };
 
   const toggleAvailability = async (item: SupplierProduct) => {
     try {
       await distributionService.updateSupplierProduct(item.id, { isAvailable: !item.isAvailable });
-      toast.success(`Product ${item.isAvailable ? 'disabled' : 'enabled'} successfully`);
+      globalToast.success(`Product ${item.isAvailable ? 'disabled' : 'enabled'} successfully`);
       if (selectedSupplier) loadSupplierProducts(selectedSupplier);
       else loadAllSupplierProducts();
-    } catch { toast.error('Failed to update availability'); }
+    } catch { globalToast.error('Failed to update availability'); }
   };
 
   const handleViewPriceHistory = async (item: SupplierProduct) => {
@@ -318,7 +318,7 @@ const SupplierProducts: React.FC = () => {
     try {
       const response = await distributionService.getSupplierProductPriceHistory(item.id);
       setPriceHistory(response.data?.data || response.data || []);
-    } catch { toast.error('Failed to load price history'); setPriceHistory([]); }
+    } catch { globalToast.error('Failed to load price history'); setPriceHistory([]); }
     finally { setLoadingHistory(false); }
   };
 

@@ -6,7 +6,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { distributionService } from '../../services/distributionService';
-import { toast } from 'react-hot-toast';
+import { globalToast } from '../ui/Toast';
 
 interface PaySupplierModalProps {
     isOpen: boolean;
@@ -36,7 +36,7 @@ export const PaySupplierModal: React.FC<PaySupplierModalProps> = ({
 
             // Show success with generated numbers
             const { paymentReference, supplierInvoiceNumber } = response.data;
-            toast.success(
+            globalToast.success(
                 `Payment recorded!\nRef: ${paymentReference}\nInvoice: ${supplierInvoiceNumber}`,
                 { duration: 5000 }
             );
@@ -44,7 +44,7 @@ export const PaySupplierModal: React.FC<PaySupplierModalProps> = ({
             resetForm();
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Failed to record payment');
+            globalToast.error(error.response?.data?.message || 'Failed to record payment');
         }
     });
 
