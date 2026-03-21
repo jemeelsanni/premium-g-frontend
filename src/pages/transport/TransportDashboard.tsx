@@ -369,6 +369,113 @@ export const TransportDashboard: React.FC = () => {
                 })}
             </div>
 
+            {/* Profitability Overview */}
+            {hasData && (
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                            <TrendingUp className="h-6 w-6 mr-2 text-green-600" />
+                            Profitability Analysis
+                        </h3>
+                        <span className="text-sm text-gray-600">
+                            {filterType === 'all' ? 'All Time' : filterType === 'month' ? 'This Month' : 'Custom Range'}
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Net Profit Card */}
+                        <div className="bg-white rounded-lg p-4 shadow">
+                            <div className="text-sm text-gray-600 mb-1">Net Profit</div>
+                            <div className="text-2xl font-bold text-green-600">
+                                ₦{(dashboardData.summary?.netProfit || 0).toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                                {(dashboardData.summary?.profitMargin || 0).toFixed(2)}% margin
+                            </div>
+                            <div className="text-xs text-gray-400 mt-2">
+                                ₦{((dashboardData.summary?.netProfit || 0) / (dashboardData.summary?.totalTrips || 1)).toLocaleString()} per trip
+                            </div>
+                        </div>
+
+                        {/* Gross Profit Card */}
+                        <div className="bg-white rounded-lg p-4 shadow">
+                            <div className="text-sm text-gray-600 mb-1">Gross Profit</div>
+                            <div className="text-2xl font-bold text-emerald-600">
+                                ₦{(dashboardData.summary?.grossProfit || 0).toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                                Before non-trip expenses
+                            </div>
+                            <div className="text-xs text-gray-400 mt-2">
+                                Trip expenses: ₦{(dashboardData.summary?.tripExpenses?.total || 0).toLocaleString()}
+                            </div>
+                        </div>
+
+                        {/* P&L Summary */}
+                        <div className="bg-white rounded-lg p-4 shadow">
+                            <div className="text-sm text-gray-600 mb-3">P&L Summary</div>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Revenue</span>
+                                    <span className="font-semibold">
+                                        ₦{(dashboardData.summary?.totalRevenue || 0).toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Trip Expenses</span>
+                                    <span className="text-red-600">
+                                        -₦{(dashboardData.summary?.tripExpenses?.total || 0).toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between border-t border-gray-200 pt-2">
+                                    <span className="text-gray-600">Gross Profit</span>
+                                    <span className="font-semibold">
+                                        ₦{(dashboardData.summary?.grossProfit || 0).toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Non-Trip Expenses</span>
+                                    <span className="text-orange-600">
+                                        -₦{(dashboardData.summary?.nonTripExpenses || 0).toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between border-t-2 border-green-500 pt-2 font-bold">
+                                    <span className="text-gray-900">Net Profit</span>
+                                    <span className="text-green-600">
+                                        ₦{(dashboardData.summary?.netProfit || 0).toLocaleString()}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Expense Breakdown */}
+                    <div className="mt-6 bg-white rounded-lg p-4 shadow">
+                        <div className="text-sm font-medium text-gray-600 mb-3">Trip Expense Breakdown</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Fuel Costs</span>
+                                <span className="text-sm font-semibold text-gray-900">
+                                    ₦{(dashboardData.summary?.tripExpenses?.fuel || 0).toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Driver Wages</span>
+                                <span className="text-sm font-semibold text-gray-900">
+                                    ₦{(dashboardData.summary?.tripExpenses?.wages || 0).toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Service Charges</span>
+                                <span className="text-sm font-semibold text-gray-900">
+                                    ₦{(dashboardData.summary?.tripExpenses?.serviceCharges || 0).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Quick Actions */}
             <div className="bg-white shadow rounded-lg p-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
