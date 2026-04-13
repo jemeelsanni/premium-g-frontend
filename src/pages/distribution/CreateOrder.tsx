@@ -404,7 +404,7 @@ export const CreateOrder: React.FC = () => {
                     <h3 className="text-red-800 font-semibold mb-2">Error Loading Data</h3>
                     {customersError && <p className="text-red-600 text-sm">Failed to load customers</p>}
                     {productsError && <p className="text-red-600 text-sm">Failed to load products</p>}
-                    <Button onClick={() => navigate('/distribution/orders')} className="mt-4">
+                    <Button onClick={() => navigate(-1)} className="mt-4">
                         Back to Orders
                     </Button>
                 </div>
@@ -420,7 +420,7 @@ export const CreateOrder: React.FC = () => {
                     <div className="flex items-center">
                         <button
                             type="button"
-                            onClick={() => navigate('/distribution/orders')}
+                            onClick={() => navigate(-1)}
                             className="mr-4 p-2 text-gray-400 hover:text-gray-600"
                         >
                             <ArrowLeft className="h-5 w-5" />
@@ -859,7 +859,7 @@ export const CreateOrder: React.FC = () => {
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => navigate('/distribution/orders')}
+                        onClick={() => navigate(-1)}
                     >
                         Cancel
                     </Button>

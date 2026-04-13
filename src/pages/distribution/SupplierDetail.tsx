@@ -198,7 +198,7 @@ export const SupplierDetail: React.FC = () => {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">Supplier not found</p>
-        <Button onClick={() => navigate('/distribution/suppliers')} className="mt-4">
+        <Button onClick={() => navigate(-1)} className="mt-4">
           Back to Suppliers
         </Button>
       </div>
@@ -213,7 +213,7 @@ export const SupplierDetail: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate('/distribution/suppliers')}
+                onClick={() => navigate(-1)}
                 className="text-white hover:text-gray-200"
               >
                 <ArrowLeft className="h-6 w-6" />

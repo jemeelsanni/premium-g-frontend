@@ -83,7 +83,7 @@ export const CreateExpense: React.FC = () => {
                 <div className="flex items-center space-x-3">
                     <Button
                         variant="outline"
-                        onClick={() => navigate('/transport/expenses')}
+                        onClick={() => navigate(-1)}
                         className="p-2"
                     >
                         <ArrowLeft className="h-4 w-4" />
@@ -236,7 +236,7 @@ export const CreateExpense: React.FC = () => {
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => navigate('/transport/expenses')}
+                            onClick={() => navigate(-1)}
                         >
                             Cancel
                         </Button>

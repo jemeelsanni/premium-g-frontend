@@ -61,7 +61,7 @@ export const CustomerDetail: React.FC = () => {
         return (
             <div className="text-center py-12">
                 <p className="text-gray-500">Customer not found</p>
-                <Button onClick={() => navigate('/distribution/customers')} className="mt-4">
+                <Button onClick={() => navigate(-1)} className="mt-4">
                     Back to Customers
                 </Button>
             </div>
@@ -175,7 +175,7 @@ export const CustomerDetail: React.FC = () => {
                 <div className="flex items-center space-x-4">
                     <Button
                         variant="outline"
-                        onClick={() => navigate('/distribution/customers')}
+                        onClick={() => navigate(-1)}
                         className="flex items-center"
                     >
                         <ArrowLeft className="h-4 w-4 mr-2" />

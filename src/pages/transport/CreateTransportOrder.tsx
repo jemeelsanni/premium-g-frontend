@@ -234,7 +234,7 @@ export const CreateTransportOrder: React.FC = () => {
             {/* Header */}
             <div className="md:flex md:items-center md:justify-between">
                 <div className="flex items-center space-x-3">
-                    <Button variant="outline" onClick={() => navigate('/transport/orders')} className="p-2">
+                    <Button variant="outline" onClick={() => navigate(-1)} className="p-2">
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div>
@@ -560,7 +560,7 @@ export const CreateTransportOrder: React.FC = () => {
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => navigate('/transport/orders')}
+                                    onClick={() => navigate(-1)}
                                     className="w-full"
                                 >
                                     Cancel

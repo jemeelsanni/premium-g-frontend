@@ -75,28 +75,33 @@ const warehousePermissions: Record<WarehouseFeature, UserRole[]> = {
     UserRole.WAREHOUSE_SALES_OFFICER,
     UserRole.CASHIER,
   ],
-  // Restricted features - only super admin and sales officer
+  // Restricted features - cashier can view, not admin
   [WarehouseFeature.MANAGE_INVENTORY]: [
     UserRole.SUPER_ADMIN,
     UserRole.WAREHOUSE_ADMIN,
+    UserRole.CASHIER,
   ],
   [WarehouseFeature.CASH_FLOW]: [
     UserRole.SUPER_ADMIN,
     UserRole.WAREHOUSE_ADMIN,
+    UserRole.CASHIER,
   ],
   [WarehouseFeature.EXPENSES]: [
     UserRole.SUPER_ADMIN,
     UserRole.WAREHOUSE_ADMIN,
+    UserRole.CASHIER,
   ],
   [WarehouseFeature.PURCHASES]: [
     UserRole.SUPER_ADMIN,
     UserRole.WAREHOUSE_ADMIN,
+    UserRole.CASHIER,
   ],
 
-  // NEW: Edit permissions - only admin roles
+  // Edit permissions - cashier can edit sales, not purchases
   [WarehouseFeature.EDIT_SALES]: [
     UserRole.SUPER_ADMIN,
     UserRole.WAREHOUSE_ADMIN,
+    UserRole.CASHIER,
   ],
   [WarehouseFeature.DELETE_SALES]: [
     UserRole.SUPER_ADMIN,
@@ -126,8 +131,8 @@ export const canEditDebtors = (): boolean => {
   const { user } = useAuthStore.getState();
   if (!user) return false;
 
-  // Only super admin and warehouse sales officer can edit/clear debtors
-  return [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role);
+  // Super admin, warehouse admin, and cashier can edit/clear debtors
+  return [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN, UserRole.CASHIER].includes(user.role);
 };
 
 // Check if user can approve/reject manual daily opening stock entries

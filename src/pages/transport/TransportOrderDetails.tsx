@@ -120,7 +120,7 @@ export const TransportOrderDetails: React.FC = () => {
         return (
             <div className="text-center py-12">
                 <p className="text-red-600">Failed to load order details</p>
-                <Button onClick={() => navigate('/transport/orders')} className="mt-4">
+                <Button onClick={() => navigate(-1)} className="mt-4">
                     Back to Orders
                 </Button>
             </div>
@@ -190,7 +190,7 @@ export const TransportOrderDetails: React.FC = () => {
                     </Button>
                     <Button
                         variant="outline"
-                        onClick={() => navigate('/transport/orders')}
+                        onClick={() => navigate(-1)}
                     >
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back

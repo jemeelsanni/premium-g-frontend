@@ -31,7 +31,7 @@ export const ExpenseDetails: React.FC = () => {
             <div className="flex items-center justify-center h-64">
                 <div className="text-center">
                     <p className="text-red-600">Failed to load expense details</p>
-                    <Button onClick={() => navigate('/transport/expenses')} className="mt-4">
+                    <Button onClick={() => navigate(-1)} className="mt-4">
                         Back to Expenses
                     </Button>
                 </div>
@@ -69,7 +69,7 @@ export const ExpenseDetails: React.FC = () => {
                 <div className="flex items-center space-x-4">
                     <Button
                         variant="outline"
-                        onClick={() => navigate('/transport/expenses')}
+                        onClick={() => navigate(-1)}
                         className="flex items-center"
                     >
                         <ArrowLeft className="h-4 w-4 mr-2" />

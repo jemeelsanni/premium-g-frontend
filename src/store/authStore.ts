@@ -130,11 +130,13 @@ export const canAccessModule = (module: 'distribution' | 'transport' | 'warehous
       UserRole.SUPER_ADMIN,
       UserRole.DISTRIBUTION_ADMIN,
       UserRole.DISTRIBUTION_SALES_REP,
+      UserRole.CASHIER,
     ],
     transport: [
       UserRole.SUPER_ADMIN,
       UserRole.TRANSPORT_ADMIN,
       UserRole.TRANSPORT_STAFF,
+      UserRole.CASHIER,
     ],
     warehouse: [
       UserRole.SUPER_ADMIN,

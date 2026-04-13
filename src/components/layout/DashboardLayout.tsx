@@ -81,7 +81,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             roles: [
                 UserRole.SUPER_ADMIN,
                 UserRole.DISTRIBUTION_ADMIN,
-                UserRole.DISTRIBUTION_SALES_REP
+                UserRole.DISTRIBUTION_SALES_REP,
+                UserRole.CASHIER
             ],
         },
         {
@@ -91,7 +92,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             roles: [
                 UserRole.SUPER_ADMIN,
                 UserRole.TRANSPORT_ADMIN,
-                UserRole.TRANSPORT_STAFF
+                UserRole.TRANSPORT_STAFF,
+                UserRole.CASHIER
             ],
         },
         // {
@@ -150,6 +152,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             href: '/admin',
             icon: Settings,
             roles: [UserRole.SUPER_ADMIN],
+        },
+        {
+            name: 'Products',
+            href: '/admin/products',
+            icon: Settings,
+            roles: [UserRole.WAREHOUSE_ADMIN],
         },
     ];
 

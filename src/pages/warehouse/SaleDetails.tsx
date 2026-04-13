@@ -108,7 +108,7 @@ export const SaleDetails: React.FC = () => {
         return (
             <div className="text-center py-12">
                 <p className="text-gray-500">Sale not found</p>
-                <Button onClick={() => navigate('/warehouse/sales')} className="mt-4">
+                <Button onClick={() => navigate(-1)} className="mt-4">
                     Back to Sales
                 </Button>
             </div>
@@ -152,7 +152,7 @@ export const SaleDetails: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between space-x-3">
                 <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => navigate('/warehouse/sales')}>
+                    <Button variant="outline" onClick={() => navigate(-1)}>
                         Back to Sales List
                     </Button>
                     <Button

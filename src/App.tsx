@@ -76,7 +76,8 @@ function App() {
                 allowedRoles={[
                   UserRole.SUPER_ADMIN,
                   UserRole.DISTRIBUTION_ADMIN,
-                  UserRole.DISTRIBUTION_SALES_REP
+                  UserRole.DISTRIBUTION_SALES_REP,
+                  UserRole.CASHIER
                 ]}
               >
                 <DashboardLayout>
@@ -94,7 +95,8 @@ function App() {
                 allowedRoles={[
                   UserRole.SUPER_ADMIN,
                   UserRole.TRANSPORT_ADMIN,
-                  UserRole.TRANSPORT_STAFF
+                  UserRole.TRANSPORT_STAFF,
+                  UserRole.CASHIER
                 ]}
               >
                 <DashboardLayout>
@@ -127,7 +129,7 @@ function App() {
             path="/admin/*"
             element={
               <ProtectedRoute
-                allowedRoles={[UserRole.SUPER_ADMIN]}
+                allowedRoles={[UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN]}
               >
                 <DashboardLayout>
                   <AdminRoutes />

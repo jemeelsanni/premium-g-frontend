@@ -487,7 +487,7 @@ export const CreateSale: React.FC = () => {
                 </div>
                 <Button
                     variant="outline"
-                    onClick={() => navigate('/warehouse/sales')}
+                    onClick={() => navigate(-1)}
                     className="flex items-center space-x-2"
                 >
                     <ArrowLeft className="h-4 w-4" />
@@ -1013,7 +1013,7 @@ export const CreateSale: React.FC = () => {
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => navigate('/warehouse/sales')}
+                                onClick={() => navigate(-1)}
                             >
                                 Cancel
                             </Button>

@@ -216,7 +216,7 @@ export const CustomerDetail: React.FC = () => {
                 <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">Customer not found</h3>
                 <div className="mt-6">
-                    <Button onClick={() => navigate('/warehouse/customers')}>
+                    <Button onClick={() => navigate(-1)}>
                         Back to Customers
                     </Button>
                 </div>
@@ -468,7 +468,7 @@ export const CustomerDetail: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button variant="outline" onClick={() => navigate('/warehouse/customers')}>
+                    <Button variant="outline" onClick={() => navigate(-1)}>
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back
                     </Button>

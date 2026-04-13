@@ -43,7 +43,7 @@ const OffloadPurchase: React.FC = () => {
         expiryDate: '',
         quantity: 1,
         unitType: 'PACKS',
-        costPerUnit: 0,
+        costPerUnit: '' as unknown as number,
         paymentMethod: 'CASH',
         paymentStatus: 'PAID',
         amountPaid: 0,
@@ -140,7 +140,7 @@ const OffloadPurchase: React.FC = () => {
             expiryDate: '',
             quantity: 1,
             unitType: 'PACKS',
-            costPerUnit: 0,
+            costPerUnit: '' as unknown as number,
             paymentMethod: 'CASH',
             paymentStatus: 'PAID',
             amountPaid: 0,
@@ -154,7 +154,7 @@ const OffloadPurchase: React.FC = () => {
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: ['quantity', 'costPerUnit', 'amountPaid'].includes(name) ? parseFloat(value) || 0 : value
+            [name]: ['quantity', 'amountPaid'].includes(name) ? parseFloat(value) || 0 : name === 'costPerUnit' ? (value === '' ? '' : parseFloat(value) || '') : value
         }));
     };
 
@@ -167,6 +167,10 @@ const OffloadPurchase: React.FC = () => {
         }
         if (!formData.vendorName) {
             globalToast.error('Please enter vendor name');
+            return;
+        }
+        if (!formData.costPerUnit || Number(formData.costPerUnit) <= 0) {
+            globalToast.error('Cost per unit must be greater than 0');
             return;
         }
 
@@ -558,10 +562,11 @@ const OffloadPurchase: React.FC = () => {
                             <Input
                                 name="costPerUnit"
                                 type="number"
-                                min="0"
+                                min="0.01"
                                 step="0.01"
                                 value={formData.costPerUnit}
                                 onChange={handleInputChange}
+                                placeholder="Enter cost greater than 0"
                                 required
                             />
                         </div>
