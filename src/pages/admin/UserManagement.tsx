@@ -2,7 +2,7 @@
 // src/pages/admin/UserManagement.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, User, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, User, Trash2, ChevronLeft, ChevronRight, KeyRound } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -11,6 +11,7 @@ import { Modal } from '../../components/ui/Modal';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { globalToast } from '../../components/ui/Toast';
 import { UserRole } from '../../types';
+import { useAuthStore } from '../../store/authStore';
 
 interface UserFormData {
     username: string;
@@ -19,16 +20,29 @@ interface UserFormData {
     role: UserRole;
 }
 
+interface PasswordResetTarget {
+    id: string;
+    username: string;
+}
+
 export const UserManagement: React.FC = () => {
+    const { user: currentUser } = useAuthStore();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [passwordResetTarget, setPasswordResetTarget] = useState<PasswordResetTarget | null>(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordError, setPasswordError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [formData, setFormData] = useState<UserFormData>({
         username: '',
         email: '',
         password: '',
-        role: UserRole.DISTRIBUTION_SALES_REP,
+        role: UserRole.DISTRIBUTORSHIP_SALES_REP,
     });
+
+    const canChangePassword = currentUser?.role === UserRole.MANAGING_DIRECTOR || currentUser?.role === UserRole.GENERAL_MANAGER;
 
     const queryClient = useQueryClient();
     const pageSize = 10;
@@ -72,6 +86,18 @@ export const UserManagement: React.FC = () => {
         },
     });
 
+    const resetPasswordMutation = useMutation({
+        mutationFn: ({ id, newPassword }: { id: string; newPassword: string }) =>
+            adminService.resetUserPassword(id, newPassword),
+        onSuccess: () => {
+            globalToast.success('Password reset successfully!');
+            handleClosePasswordModal();
+        },
+        onError: (error: any) => {
+            globalToast.error(error.response?.data?.message || 'Failed to reset password');
+        },
+    });
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         createMutation.mutate(formData);
@@ -89,8 +115,52 @@ export const UserManagement: React.FC = () => {
             username: '',
             email: '',
             password: '',
-            role: UserRole.DISTRIBUTION_SALES_REP,
+            role: UserRole.DISTRIBUTORSHIP_SALES_REP,
         });
+    };
+
+    const handleOpenPasswordModal = (user: PasswordResetTarget) => {
+        setPasswordResetTarget(user);
+        setNewPassword('');
+        setConfirmPassword('');
+        setPasswordError('');
+        setIsPasswordModalOpen(true);
+    };
+
+    const handleClosePasswordModal = () => {
+        setIsPasswordModalOpen(false);
+        setPasswordResetTarget(null);
+        setNewPassword('');
+        setConfirmPassword('');
+        setPasswordError('');
+    };
+
+    const handlePasswordReset = (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordError('');
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError('Passwords do not match');
+            return;
+        }
+        if (newPassword.length < 8) {
+            setPasswordError('Password must be at least 8 characters');
+            return;
+        }
+        if (!/[A-Z]/.test(newPassword)) {
+            setPasswordError('Password must contain at least one uppercase letter');
+            return;
+        }
+        if (!/[a-z]/.test(newPassword)) {
+            setPasswordError('Password must contain at least one lowercase letter');
+            return;
+        }
+        if (!/[0-9]/.test(newPassword)) {
+            setPasswordError('Password must contain at least one number');
+            return;
+        }
+
+        resetPasswordMutation.mutate({ id: passwordResetTarget!.id, newPassword });
     };
 
     const formatLastLogin = (lastLoginAt?: string) => {
@@ -171,9 +241,19 @@ export const UserManagement: React.FC = () => {
             title: 'Actions',
             render: (_: any, user: any) => (
                 <div className="flex gap-2">
+                    {canChangePassword && (
+                        <button
+                            onClick={() => handleOpenPasswordModal({ id: user.id, username: user.username })}
+                            className="p-1 text-indigo-600 hover:text-indigo-800"
+                            title="Change Password"
+                        >
+                            <KeyRound className="h-4 w-4" />
+                        </button>
+                    )}
                     <button
                         onClick={() => handleDelete(user.id)}
                         className="p-1 text-red-600 hover:text-red-800"
+                        title="Delete User"
                     >
                         <Trash2 className="h-4 w-4" />
                     </button>
@@ -276,6 +356,59 @@ export const UserManagement: React.FC = () => {
                 </div>
             </div>
 
+            {/* Change Password Modal */}
+            <Modal
+                isOpen={isPasswordModalOpen}
+                onClose={handleClosePasswordModal}
+                title={`Reset Password — ${passwordResetTarget?.username}`}
+            >
+                <form onSubmit={handlePasswordReset} className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                        Set a new password for <span className="font-semibold">{passwordResetTarget?.username}</span>.
+                        The user will be logged out of all active sessions.
+                    </p>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            New Password *
+                        </label>
+                        <Input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Min 8 chars, uppercase, lowercase, number"
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Confirm Password *
+                        </label>
+                        <Input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    {passwordError && (
+                        <p className="text-sm text-red-600">{passwordError}</p>
+                    )}
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <Button type="button" variant="outline" onClick={handleClosePasswordModal}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={resetPasswordMutation.isPending}>
+                            {resetPasswordMutation.isPending ? 'Resetting...' : 'Reset Password'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Add User Modal */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
@@ -336,14 +469,11 @@ export const UserManagement: React.FC = () => {
                             }
                             required
                         >
-                            <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
-                            <option value={UserRole.DISTRIBUTION_ADMIN}>Distribution Admin</option>
-                            <option value={UserRole.DISTRIBUTION_SALES_REP}>Distribution Sales Rep</option>
-                            <option value={UserRole.TRANSPORT_ADMIN}>Transport Admin</option>
-                            <option value={UserRole.TRANSPORT_STAFF}>Transport Staff</option>
-                            <option value={UserRole.WAREHOUSE_ADMIN}>Warehouse Admin</option>
-                            <option value={UserRole.WAREHOUSE_SALES_OFFICER}>Warehouse Sales Officer</option>
+                            <option value={UserRole.MANAGING_DIRECTOR}>Managing Director</option>
+                            <option value={UserRole.GENERAL_MANAGER}>General Manager</option>
+                            <option value={UserRole.ACCOUNTANT}>Accountant</option>
                             <option value={UserRole.CASHIER}>Cashier</option>
+                            <option value={UserRole.DISTRIBUTORSHIP_SALES_REP}>Distributorship Sales Rep</option>
                         </select>
                     </div>
 

@@ -192,7 +192,7 @@ export const TransportLocations: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<TransportLocation | null>(null);
 
-  const canManage = ['SUPER_ADMIN', 'TRANSPORT_ADMIN'].includes(user?.role || '');
+  const canManage = ['MANAGING_DIRECTOR', 'ACCOUNTANT'].includes(user?.role || '');
 
   const { data: locations, isLoading } = useQuery({
     queryKey: ['transport-locations'],

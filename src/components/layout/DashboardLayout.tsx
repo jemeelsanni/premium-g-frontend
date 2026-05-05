@@ -13,9 +13,6 @@ import {
     Menu,
     X,
     User,
-    // Target,
-    // DollarSign,
-    // BarChart3
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -44,16 +41,13 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const getDefaultRoute = (): string => {
         const role = user?.role;
         switch (role) {
-            case UserRole.SUPER_ADMIN:
+            case UserRole.MANAGING_DIRECTOR:
+            case UserRole.GENERAL_MANAGER:
                 return '/dashboard';
-            case UserRole.DISTRIBUTION_ADMIN:
-            case UserRole.DISTRIBUTION_SALES_REP:
-                return '/distribution';
-            case UserRole.TRANSPORT_ADMIN:
-            case UserRole.TRANSPORT_STAFF:
+            case UserRole.ACCOUNTANT:
                 return '/transport';
-            case UserRole.WAREHOUSE_ADMIN:
-            case UserRole.WAREHOUSE_SALES_OFFICER:
+            case UserRole.DISTRIBUTORSHIP_SALES_REP:
+                return '/distribution';
             case UserRole.CASHIER:
                 return '/warehouse';
             default:
@@ -72,17 +66,17 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             name: 'Dashboard',
             href: '/dashboard',
             icon: LayoutDashboard,
-            roles: [UserRole.SUPER_ADMIN], // Only SUPER_ADMIN has access to main dashboard
+            roles: [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER],
         },
         {
             name: 'Distributorship',
             href: '/distribution',
             icon: Package,
             roles: [
-                UserRole.SUPER_ADMIN,
-                UserRole.DISTRIBUTION_ADMIN,
-                UserRole.DISTRIBUTION_SALES_REP,
-                UserRole.CASHIER
+                UserRole.MANAGING_DIRECTOR,
+                UserRole.GENERAL_MANAGER,
+                UserRole.ACCOUNTANT,
+                UserRole.DISTRIBUTORSHIP_SALES_REP,
             ],
         },
         {
@@ -90,74 +84,26 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             href: '/transport',
             icon: Truck,
             roles: [
-                UserRole.SUPER_ADMIN,
-                UserRole.TRANSPORT_ADMIN,
-                UserRole.TRANSPORT_STAFF,
-                UserRole.CASHIER
+                UserRole.MANAGING_DIRECTOR,
+                UserRole.ACCOUNTANT,
             ],
         },
-        // {
-        //     name: 'Trucks',
-        //     href: '/transport/trucks',
-        //     icon: Truck,
-        //     roles: [
-        //         UserRole.SUPER_ADMIN,
-        //         UserRole.TRANSPORT_ADMIN
-        //     ],
-        // },
         {
             name: 'Warehouse',
             href: '/warehouse',
             icon: Warehouse,
             roles: [
-                UserRole.SUPER_ADMIN,
-                UserRole.WAREHOUSE_ADMIN,
-                UserRole.WAREHOUSE_SALES_OFFICER,
-                UserRole.CASHIER
+                UserRole.MANAGING_DIRECTOR,
+                UserRole.GENERAL_MANAGER,
+                UserRole.ACCOUNTANT,
+                UserRole.CASHIER,
             ],
         },
-        // {
-        //     name: 'Targets',
-        //     href: '/targets',
-        //     icon: Target,
-        //     roles: [
-        //         UserRole.SUPER_ADMIN,
-        //         UserRole.DISTRIBUTION_ADMIN
-        //     ],
-        // },
-        // {
-        //     name: 'Expenses',
-        //     href: '/expenses',
-        //     icon: DollarSign,
-        //     roles: [
-        //         UserRole.SUPER_ADMIN,
-        //         UserRole.DISTRIBUTION_ADMIN,
-        //         UserRole.TRANSPORT_ADMIN,
-        //         UserRole.WAREHOUSE_ADMIN
-        //     ],
-        // },
-        // {
-        //     name: 'Analytics',
-        //     href: '/analytics',
-        //     icon: BarChart3,
-        //     roles: [
-        //         UserRole.SUPER_ADMIN,
-        //         UserRole.DISTRIBUTION_ADMIN,
-        //         UserRole.TRANSPORT_ADMIN,
-        //         UserRole.WAREHOUSE_ADMIN
-        //     ],
-        // },
         {
             name: 'Admin',
             href: '/admin',
             icon: Settings,
-            roles: [UserRole.SUPER_ADMIN],
-        },
-        {
-            name: 'Products',
-            href: '/admin/products',
-            icon: Settings,
-            roles: [UserRole.WAREHOUSE_ADMIN],
+            roles: [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER],
         },
     ];
 

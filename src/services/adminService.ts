@@ -187,6 +187,10 @@ export class AdminService extends BaseApiService {
     return this.delete<ApiResponse<null>>(`/users/${id}`);
   }
 
+  async resetUserPassword(id: string, newPassword: string): Promise<ApiResponse<null>> {
+    return this.post<ApiResponse<null>>({ newPassword }, `/users/${id}/reset-password`);
+  }
+
   // ✅ NEW: Get user activity
   async getUserActivity(id: string, days: number = 30): Promise<ApiResponse<{ activity: UserActivity }>> {
     return this.get<ApiResponse<{ activity: UserActivity }>>(`/users/${id}/activity?days=${days}`);

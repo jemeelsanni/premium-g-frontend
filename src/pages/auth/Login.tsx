@@ -32,16 +32,13 @@ export const Login = () => {
     // Get default route based on user role
     const getDefaultRoute = (userRole: UserRole): string => {
         switch (userRole) {
-            case UserRole.SUPER_ADMIN:
+            case UserRole.MANAGING_DIRECTOR:
+            case UserRole.GENERAL_MANAGER:
                 return '/dashboard';
-            case UserRole.DISTRIBUTION_ADMIN:
-            case UserRole.DISTRIBUTION_SALES_REP:
+            case UserRole.DISTRIBUTORSHIP_SALES_REP:
                 return '/distribution';
-            case UserRole.TRANSPORT_ADMIN:
-            case UserRole.TRANSPORT_STAFF:
+            case UserRole.ACCOUNTANT:
                 return '/transport';
-            case UserRole.WAREHOUSE_ADMIN:
-            case UserRole.WAREHOUSE_SALES_OFFICER:
             case UserRole.CASHIER:
                 return '/warehouse';
             default:

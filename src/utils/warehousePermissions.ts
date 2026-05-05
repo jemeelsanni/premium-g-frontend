@@ -26,94 +26,87 @@ export enum WarehouseFeature {
 
 // Define which roles can access which features
 const warehousePermissions: Record<WarehouseFeature, UserRole[]> = {
-  // Allowed features for warehouse admin and cashier
   [WarehouseFeature.RECORD_SALES]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.EXPIRED_PRODUCTS]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
+    UserRole.ACCOUNTANT,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.RECENT_SALES]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.DEBTORS]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
+    UserRole.ACCOUNTANT,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.OPENING_STOCK]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.DISCOUNT_REQUEST]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.LOW_STOCK]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
+    UserRole.ACCOUNTANT,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.CUSTOMER_DATABASE]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.WAREHOUSE_SALES_OFFICER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
     UserRole.CASHIER,
   ],
-  // Restricted features - cashier can view, not admin
+  // Restricted features
   [WarehouseFeature.MANAGE_INVENTORY]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.CASH_FLOW]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
+    UserRole.ACCOUNTANT,
     UserRole.CASHIER,
   ],
   [WarehouseFeature.EXPENSES]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.CASHIER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
+    UserRole.ACCOUNTANT,
   ],
   [WarehouseFeature.PURCHASES]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.CASHIER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
   ],
 
-  // Edit permissions - cashier can edit sales, not purchases
+  // Edit/Delete permissions
   [WarehouseFeature.EDIT_SALES]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
-    UserRole.CASHIER,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
   ],
   [WarehouseFeature.DELETE_SALES]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
   ],
   [WarehouseFeature.EDIT_PURCHASES]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
   ],
   [WarehouseFeature.DELETE_PURCHASES]: [
-    UserRole.SUPER_ADMIN,
-    UserRole.WAREHOUSE_ADMIN,
+    UserRole.MANAGING_DIRECTOR,
+    UserRole.GENERAL_MANAGER,
   ],
 };
 
@@ -131,8 +124,7 @@ export const canEditDebtors = (): boolean => {
   const { user } = useAuthStore.getState();
   if (!user) return false;
 
-  // Super admin, warehouse admin, and cashier can edit/clear debtors
-  return [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN, UserRole.CASHIER].includes(user.role);
+  return [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER, UserRole.CASHIER].includes(user.role);
 };
 
 // Check if user can approve/reject manual daily opening stock entries
@@ -140,8 +132,7 @@ export const canApproveManualStock = (): boolean => {
   const { user } = useAuthStore.getState();
   if (!user) return false;
 
-  // Only super admin and warehouse admin can approve/reject manual stock entries
-  return [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role);
+  return [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER].includes(user.role);
 };
 
 // Check if user has restricted warehouse access (warehouse admin or cashier)
@@ -149,7 +140,7 @@ export const hasRestrictedWarehouseAccess = (): boolean => {
   const { user } = useAuthStore.getState();
   if (!user) return false;
 
-  return [UserRole.WAREHOUSE_SALES_OFFICER, UserRole.CASHIER].includes(user.role);
+  return [UserRole.CASHIER].includes(user.role);
 };
 
 // Dashboard stats that should be visible
@@ -177,8 +168,7 @@ export const canViewDashboardStat = (stat: DashboardStat): boolean => {
   const { user } = useAuthStore.getState();
   if (!user) return false;
 
-  // Super admin and sales officer can see all stats
-  if ([UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_ADMIN].includes(user.role)) {
+  if ([UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT].includes(user.role)) {
     return true;
   }
 

@@ -42,7 +42,7 @@ export const DiscountRequests: React.FC = () => {
     const queryClient = useQueryClient();
     const pageSize = 20;
     const { user } = useAuthStore();
-    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    const isSuperAdmin = user?.role === 'MANAGING_DIRECTOR' || user?.role === 'GENERAL_MANAGER';
 
     const {
         register,

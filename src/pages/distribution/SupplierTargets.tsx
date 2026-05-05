@@ -36,7 +36,7 @@ export const SupplierTargets: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | ''>('');
 
-  const canManageTargets = ['SUPER_ADMIN', 'DISTRIBUTION_ADMIN'].includes(user?.role || '');
+  const canManageTargets = ['MANAGING_DIRECTOR', 'GENERAL_MANAGER', 'ACCOUNTANT'].includes(user?.role || '');
 
   // Fetch suppliers
   const { data: suppliers } = useQuery({

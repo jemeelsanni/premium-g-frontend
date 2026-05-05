@@ -42,8 +42,8 @@ const pageSize = 10;
 export const ExpensesList: React.FC = () => {
     const queryClient = useQueryClient();
     const { user } = useAuthStore();
-    const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
-    const isWarehouseAdmin = user?.role === UserRole.WAREHOUSE_ADMIN;
+    const isSuperAdmin = user?.role === UserRole.MANAGING_DIRECTOR;
+    const isWarehouseAdmin = user?.role === UserRole.GENERAL_MANAGER;
     const canApprove = isSuperAdmin || isWarehouseAdmin;
 
     const [statusFilter, setStatusFilter] = useState<'' | WarehouseExpense['status']>('');

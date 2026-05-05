@@ -352,7 +352,7 @@ export const canAdjustOrderPrice = (order: DistributionOrder): PriceAdjustmentEl
  * @returns Boolean indicating if user has permission
  */
 export const hasAdjustPricePermission = (userRole: string): boolean => {
-  const allowedRoles = ['SUPER_ADMIN', 'DISTRIBUTION_ADMIN'];
+  const allowedRoles = ['MANAGING_DIRECTOR', 'GENERAL_MANAGER', 'ACCOUNTANT'];
   return allowedRoles.includes(userRole);
 };
 

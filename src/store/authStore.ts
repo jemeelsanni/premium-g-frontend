@@ -127,21 +127,19 @@ export const canAccessModule = (module: 'distribution' | 'transport' | 'warehous
 
   const modulePermissions = {
     distribution: [
-      UserRole.SUPER_ADMIN,
-      UserRole.DISTRIBUTION_ADMIN,
-      UserRole.DISTRIBUTION_SALES_REP,
-      UserRole.CASHIER,
+      UserRole.MANAGING_DIRECTOR,
+      UserRole.GENERAL_MANAGER,
+      UserRole.ACCOUNTANT,
+      UserRole.DISTRIBUTORSHIP_SALES_REP,
     ],
     transport: [
-      UserRole.SUPER_ADMIN,
-      UserRole.TRANSPORT_ADMIN,
-      UserRole.TRANSPORT_STAFF,
-      UserRole.CASHIER,
+      UserRole.MANAGING_DIRECTOR,
+      UserRole.ACCOUNTANT,
     ],
     warehouse: [
-      UserRole.SUPER_ADMIN,
-      UserRole.WAREHOUSE_ADMIN,
-      UserRole.WAREHOUSE_SALES_OFFICER,
+      UserRole.MANAGING_DIRECTOR,
+      UserRole.GENERAL_MANAGER,
+      UserRole.ACCOUNTANT,
       UserRole.CASHIER,
     ],
   };

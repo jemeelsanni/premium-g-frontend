@@ -37,7 +37,7 @@ function getMonthRange() {
 export const TransportDashboard: React.FC = () => {
 
     const { user } = useAuthStore();
-    const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'TRANSPORT_ADMIN';
+    const isAdmin = user?.role === 'MANAGING_DIRECTOR' || user?.role === 'ACCOUNTANT';
 
     const [filterType, setFilterType] = useState<FilterType>('month');
     const [rangeStart, setRangeStart] = useState('');

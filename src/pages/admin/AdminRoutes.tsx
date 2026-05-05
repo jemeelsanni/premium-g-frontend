@@ -13,10 +13,10 @@ import { useAuthStore } from '../../store/authStore';
 import { UserRole } from '../../types';
 import { JSX } from 'react';
 
-// Only SUPER_ADMIN can access this route; WAREHOUSE_ADMIN is redirected to products
+// Only MANAGING_DIRECTOR and GENERAL_MANAGER can access this route
 const SuperAdminOnly = ({ element }: { element: JSX.Element }) => {
     const { user } = useAuthStore();
-    if (user?.role === UserRole.WAREHOUSE_ADMIN) {
+    if (user?.role !== UserRole.MANAGING_DIRECTOR && user?.role !== UserRole.GENERAL_MANAGER) {
         return <Navigate to="/admin/products" replace />;
     }
     return element;

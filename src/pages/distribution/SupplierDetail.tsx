@@ -66,7 +66,7 @@ export const SupplierDetail: React.FC = () => {
   const [revenueStartDate, setRevenueStartDate] = useState('');
   const [revenueEndDate, setRevenueEndDate] = useState('');
 
-  const canManageTargets = ['SUPER_ADMIN', 'DISTRIBUTION_ADMIN'].includes(user?.role || '');
+  const canManageTargets = ['MANAGING_DIRECTOR', 'GENERAL_MANAGER', 'ACCOUNTANT'].includes(user?.role || '');
 
   // Fetch supplier details
   const { data: supplier, isLoading: loadingSupplier } = useQuery({

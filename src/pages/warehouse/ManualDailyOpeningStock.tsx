@@ -59,7 +59,7 @@ const ManualDailyOpeningStock: React.FC = () => {
   const queryClient = useQueryClient();
   const pageSize = 20;
   const { user } = useAuthStore();
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'WAREHOUSE_ADMIN';
+  const isAdmin = user?.role === 'MANAGING_DIRECTOR' || user?.role === 'GENERAL_MANAGER';
 
   // Form for submitting manual stock
   const {

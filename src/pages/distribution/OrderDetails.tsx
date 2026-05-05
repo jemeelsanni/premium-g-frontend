@@ -384,7 +384,7 @@ export const OrderDetails: React.FC = () => {
                     )}
 
                     {/* ✨ Adjust Price Button - Only before order is loaded */}
-                    {(['SUPER_ADMIN', 'DISTRIBUTION_ADMIN', 'DISTRIBUTION_SALES_REP'].includes(userRole)) &&
+                    {(['MANAGING_DIRECTOR', 'GENERAL_MANAGER', 'ACCOUNTANT', 'DISTRIBUTORSHIP_SALES_REP'].includes(userRole)) &&
                         order?.paymentStatus === 'CONFIRMED' && (
                             <>
                                 {(() => {

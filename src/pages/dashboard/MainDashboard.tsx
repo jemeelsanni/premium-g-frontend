@@ -68,7 +68,7 @@ export const MainDashboard = () => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('30d');
 
-  const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
+  const isSuperAdmin = user?.role === UserRole.MANAGING_DIRECTOR;
 
   const fetchDashboardData = useCallback(async () => {
     try {
