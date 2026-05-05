@@ -310,12 +310,13 @@ export class AdminService extends BaseApiService {
   // ROLE PERMISSIONS
   // ================================
 
-  async getRolePermissions(): Promise<ApiResponse<{ permissions: Record<string, Record<string, string[]>> }>> {
-    return this.get<ApiResponse<{ permissions: Record<string, Record<string, string[]>> }>>('/admin/role-permissions');
+  // Feature permissions: { ROLE: { module: { feature: boolean } } }
+  async getRolePermissions(): Promise<ApiResponse<{ permissions: Record<string, Record<string, Record<string, boolean>>> }>> {
+    return this.get('/admin/role-permissions');
   }
 
-  async updateRolePermissions(permissions: Record<string, Record<string, string[]>>): Promise<ApiResponse<{ permissions: Record<string, Record<string, string[]>> }>> {
-    return this.put<ApiResponse<{ permissions: Record<string, Record<string, string[]>> }>>({ permissions }, '/admin/role-permissions');
+  async updateRolePermissions(permissions: Record<string, Record<string, Record<string, boolean>>>): Promise<ApiResponse<{ permissions: Record<string, Record<string, Record<string, boolean>>> }>> {
+    return this.put({ permissions }, '/admin/role-permissions');
   }
 
   // ================================

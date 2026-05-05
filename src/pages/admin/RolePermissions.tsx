@@ -1,55 +1,281 @@
 // src/pages/admin/RolePermissions.tsx
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Shield, Save, RotateCcw, Info } from 'lucide-react';
+import { Shield, Save, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { globalToast } from '../../components/ui/Toast';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissionsStore } from '../../store/permissionsStore';
 import { UserRole } from '../../types';
 
+// ─── Role definitions ─────────────────────────────────────────────────────────
+
 const ROLES = [
-    { key: 'MANAGING_DIRECTOR', label: 'Managing Director' },
-    { key: 'GENERAL_MANAGER', label: 'General Manager' },
-    { key: 'ACCOUNTANT', label: 'Accountant' },
-    { key: 'CASHIER', label: 'Cashier' },
+    { key: 'MANAGING_DIRECTOR',       label: 'Managing Director' },
+    { key: 'GENERAL_MANAGER',         label: 'General Manager' },
+    { key: 'ACCOUNTANT',              label: 'Accountant' },
+    { key: 'CASHIER',                 label: 'Cashier' },
     { key: 'DISTRIBUTORSHIP_SALES_REP', label: 'Sales Rep' },
 ];
 
-const MODULES = [
-    { key: 'distribution', label: 'Distribution' },
-    { key: 'transport', label: 'Transport' },
-    { key: 'warehouse', label: 'Warehouse' },
-    { key: 'admin', label: 'Admin' },
+// ─── Feature definitions grouped by module then category ─────────────────────
+
+interface Feature { key: string; label: string }
+interface Category { label: string; features: Feature[] }
+interface ModuleDef { key: string; label: string; color: string; categories: Category[] }
+
+const MODULES: ModuleDef[] = [
+    {
+        key: 'distribution',
+        label: 'Distribution',
+        color: 'indigo',
+        categories: [
+            {
+                label: 'Overview',
+                features: [
+                    { key: 'view_dashboard',  label: 'View Dashboard' },
+                    { key: 'view_analytics',  label: 'View Analytics' },
+                ],
+            },
+            {
+                label: 'Orders',
+                features: [
+                    { key: 'view_orders',    label: 'View Orders' },
+                    { key: 'create_order',   label: 'Create Order' },
+                    { key: 'edit_order',     label: 'Edit Order' },
+                    { key: 'delete_order',   label: 'Delete Order' },
+                ],
+            },
+            {
+                label: 'Payments',
+                features: [
+                    { key: 'record_payment',  label: 'Record Payment' },
+                    { key: 'confirm_payment', label: 'Confirm Payment' },
+                    { key: 'adjust_price',    label: 'Adjust Price' },
+                ],
+            },
+            {
+                label: 'Logistics',
+                features: [
+                    { key: 'assign_transport',       label: 'Assign Transport' },
+                    { key: 'record_delivery',        label: 'Record Delivery' },
+                    { key: 'update_supplier_status', label: 'Update Supplier Status' },
+                ],
+            },
+            {
+                label: 'Customers & Suppliers',
+                features: [
+                    { key: 'view_customers',  label: 'View Customers' },
+                    { key: 'view_suppliers',  label: 'View Suppliers' },
+                    { key: 'manage_suppliers', label: 'Manage Suppliers' },
+                ],
+            },
+            {
+                label: 'Targets',
+                features: [
+                    { key: 'view_targets',   label: 'View Targets' },
+                    { key: 'manage_targets', label: 'Manage Targets' },
+                ],
+            },
+        ],
+    },
+    {
+        key: 'transport',
+        label: 'Transport',
+        color: 'amber',
+        categories: [
+            {
+                label: 'Overview',
+                features: [
+                    { key: 'view_dashboard', label: 'View Dashboard' },
+                    { key: 'view_analytics', label: 'View Analytics' },
+                ],
+            },
+            {
+                label: 'Orders',
+                features: [
+                    { key: 'view_orders',  label: 'View Orders' },
+                    { key: 'create_order', label: 'Create Order' },
+                    { key: 'edit_order',   label: 'Edit Order' },
+                ],
+            },
+            {
+                label: 'Expenses',
+                features: [
+                    { key: 'view_expenses',   label: 'View Expenses' },
+                    { key: 'create_expense',  label: 'Create Expense' },
+                    { key: 'approve_expense', label: 'Approve / Reject Expense' },
+                ],
+            },
+            {
+                label: 'Fleet',
+                features: [
+                    { key: 'view_trucks',   label: 'View Trucks' },
+                    { key: 'manage_trucks', label: 'Manage Trucks' },
+                ],
+            },
+            {
+                label: 'Locations',
+                features: [
+                    { key: 'view_locations',   label: 'View Locations' },
+                    { key: 'manage_locations', label: 'Manage Locations' },
+                ],
+            },
+        ],
+    },
+    {
+        key: 'warehouse',
+        label: 'Warehouse',
+        color: 'green',
+        categories: [
+            {
+                label: 'Overview',
+                features: [
+                    { key: 'view_dashboard', label: 'View Dashboard' },
+                    { key: 'view_cashflow',  label: 'View Cash Flow' },
+                    { key: 'view_low_stock', label: 'View Low Stock Alerts' },
+                    { key: 'view_expiring',  label: 'View Expiring Products' },
+                ],
+            },
+            {
+                label: 'Sales',
+                features: [
+                    { key: 'view_sales',    label: 'View Sales' },
+                    { key: 'record_sales',  label: 'Record Sales' },
+                    { key: 'edit_sales',    label: 'Edit Sales' },
+                    { key: 'delete_sales',  label: 'Delete Sales' },
+                ],
+            },
+            {
+                label: 'Purchases',
+                features: [
+                    { key: 'record_purchases', label: 'Record Purchases' },
+                    { key: 'edit_purchases',   label: 'Edit Purchases' },
+                    { key: 'delete_purchases', label: 'Delete Purchases' },
+                ],
+            },
+            {
+                label: 'Inventory',
+                features: [
+                    { key: 'manage_inventory', label: 'Manage Inventory' },
+                ],
+            },
+            {
+                label: 'Debtors',
+                features: [
+                    { key: 'view_debtors', label: 'View Debtors' },
+                    { key: 'edit_debtors', label: 'Edit Debtors' },
+                ],
+            },
+            {
+                label: 'Discounts',
+                features: [
+                    { key: 'request_discount', label: 'Request Discount' },
+                    { key: 'approve_discount',  label: 'Approve / Reject Discount' },
+                ],
+            },
+            {
+                label: 'Expenses',
+                features: [
+                    { key: 'view_expenses',    label: 'View Expenses' },
+                    { key: 'manage_expenses',  label: 'Submit Expenses' },
+                    { key: 'approve_expenses', label: 'Approve / Reject Expenses' },
+                ],
+            },
+            {
+                label: 'Opening Stock',
+                features: [
+                    { key: 'view_opening_stock',    label: 'View Opening Stock' },
+                    { key: 'submit_opening_stock',  label: 'Submit Opening Stock' },
+                    { key: 'approve_opening_stock', label: 'Approve Opening Stock' },
+                ],
+            },
+        ],
+    },
+    {
+        key: 'admin',
+        label: 'Admin',
+        color: 'purple',
+        categories: [
+            {
+                label: 'Dashboard',
+                features: [
+                    { key: 'view_dashboard', label: 'View Dashboard' },
+                    { key: 'view_audit',     label: 'View Audit Trail' },
+                ],
+            },
+            {
+                label: 'Users',
+                features: [
+                    { key: 'manage_users',    label: 'Manage Users' },
+                    { key: 'reset_passwords', label: 'Reset Passwords' },
+                ],
+            },
+            {
+                label: 'Data Management',
+                features: [
+                    { key: 'manage_products',  label: 'Manage Products' },
+                    { key: 'manage_customers', label: 'Manage Customers' },
+                    { key: 'manage_locations', label: 'Manage Locations' },
+                ],
+            },
+            {
+                label: 'System',
+                features: [
+                    { key: 'manage_config',            label: 'System Configuration' },
+                    { key: 'manage_role_permissions',   label: 'Manage Role Permissions' },
+                ],
+            },
+        ],
+    },
 ];
 
-const PERMISSION_LEVELS = [
-    { key: 'read', label: 'Read', color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200' },
-    { key: 'write', label: 'Write', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' },
-    { key: 'admin', label: 'Admin', color: 'text-purple-600', bg: 'bg-purple-50 border-purple-200' },
-];
+// ─── Color helpers ────────────────────────────────────────────────────────────
 
-type PermissionsMap = Record<string, Record<string, string[]>>;
-
-const emptyPermissions = (): PermissionsMap => {
-    const map: PermissionsMap = {};
-    for (const role of ROLES) {
-        map[role.key] = {};
-        for (const mod of MODULES) {
-            map[role.key][mod.key] = [];
-        }
-    }
-    return map;
+const MODULE_COLORS: Record<string, { header: string; badge: string; check: string; border: string }> = {
+    distribution: {
+        header: 'bg-indigo-600',
+        badge:  'bg-indigo-50 text-indigo-700 border-indigo-200',
+        check:  'text-indigo-600 bg-indigo-50 border-indigo-400',
+        border: 'border-indigo-200',
+    },
+    transport: {
+        header: 'bg-amber-500',
+        badge:  'bg-amber-50 text-amber-700 border-amber-200',
+        check:  'text-amber-600 bg-amber-50 border-amber-400',
+        border: 'border-amber-200',
+    },
+    warehouse: {
+        header: 'bg-green-600',
+        badge:  'bg-green-50 text-green-700 border-green-200',
+        check:  'text-green-600 bg-green-50 border-green-400',
+        border: 'border-green-200',
+    },
+    admin: {
+        header: 'bg-purple-600',
+        badge:  'bg-purple-50 text-purple-700 border-purple-200',
+        check:  'text-purple-600 bg-purple-50 border-purple-400',
+        border: 'border-purple-200',
+    },
 };
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type PermissionsMap = Record<string, Record<string, Record<string, boolean>>>;
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export const RolePermissions: React.FC = () => {
     const { user } = useAuthStore();
+    const { loadPermissions } = usePermissionsStore();
     const queryClient = useQueryClient();
     const isMD = user?.role === UserRole.MANAGING_DIRECTOR;
 
-    const [draft, setDraft] = useState<PermissionsMap>(emptyPermissions());
+    const [draft, setDraft] = useState<PermissionsMap>({});
     const [hasChanges, setHasChanges] = useState(false);
+    const [collapsedModules, setCollapsedModules] = useState<Record<string, boolean>>({});
 
     const { data, isLoading } = useQuery({
         queryKey: ['role-permissions'],
@@ -64,45 +290,61 @@ export const RolePermissions: React.FC = () => {
     }, [data]);
 
     const saveMutation = useMutation({
-        mutationFn: (permissions: PermissionsMap) => adminService.updateRolePermissions(permissions),
-        onSuccess: () => {
+        mutationFn: (p: PermissionsMap) => adminService.updateRolePermissions(p),
+        onSuccess: (res) => {
             queryClient.invalidateQueries({ queryKey: ['role-permissions'] });
-            globalToast.success('Role permissions saved successfully!');
+            loadPermissions(); // refresh the store used by UI checks
+            globalToast.success('Permissions saved successfully!');
             setHasChanges(false);
+            if (res.data?.permissions) {
+                setDraft(JSON.parse(JSON.stringify(res.data.permissions)));
+            }
         },
         onError: (error: any) => {
             globalToast.error(error.response?.data?.message || 'Failed to save permissions');
         },
     });
 
-    const hasPermission = (role: string, module: string, perm: string) => {
-        return (draft[role]?.[module] || []).includes(perm);
+    const isGranted = (role: string, mod: string, feature: string) =>
+        draft[role]?.[mod]?.[feature] === true;
+
+    const toggle = (role: string, mod: string, feature: string) => {
+        if (!isMD) return;
+        setDraft(prev => {
+            const next = JSON.parse(JSON.stringify(prev)) as PermissionsMap;
+            if (!next[role]) next[role] = {};
+            if (!next[role][mod]) next[role][mod] = {};
+            next[role][mod][feature] = !next[role][mod][feature];
+            return next;
+        });
+        setHasChanges(true);
     };
 
-    const toggle = (role: string, module: string, perm: string) => {
-        if (!isMD) return; // GM can view but not edit
-
+    // Toggle every feature in a category for a given role
+    const toggleCategory = (role: string, mod: string, features: Feature[]) => {
+        if (!isMD) return;
+        const allOn = features.every(f => isGranted(role, mod, f.key));
         setDraft(prev => {
-            const updated = JSON.parse(JSON.stringify(prev)) as PermissionsMap;
-            const current = updated[role][module] || [];
+            const next = JSON.parse(JSON.stringify(prev)) as PermissionsMap;
+            if (!next[role]) next[role] = {};
+            if (!next[role][mod]) next[role][mod] = {};
+            features.forEach(f => { next[role][mod][f.key] = !allOn; });
+            return next;
+        });
+        setHasChanges(true);
+    };
 
-            if (current.includes(perm)) {
-                // Remove the permission — also remove higher-level permissions that depend on it
-                // (removing 'read' also removes 'write' and 'admin'; removing 'write' also removes 'admin')
-                const permOrder = ['read', 'write', 'admin'];
-                const permIdx = permOrder.indexOf(perm);
-                updated[role][module] = current.filter(p => permOrder.indexOf(p) < permIdx);
-            } else {
-                // Add the permission — also add all lower-level permissions required
-                // (adding 'write' requires 'read'; adding 'admin' requires 'read' and 'write')
-                const permOrder = ['read', 'write', 'admin'];
-                const permIdx = permOrder.indexOf(perm);
-                const required = permOrder.slice(0, permIdx + 1);
-                const merged = Array.from(new Set([...current, ...required]));
-                updated[role][module] = merged;
-            }
-
-            return updated;
+    // Toggle every feature in a module for a given role
+    const toggleModule = (role: string, mod: ModuleDef) => {
+        if (!isMD) return;
+        const allFeatures = mod.categories.flatMap(c => c.features);
+        const allOn = allFeatures.every(f => isGranted(role, mod.key, f.key));
+        setDraft(prev => {
+            const next = JSON.parse(JSON.stringify(prev)) as PermissionsMap;
+            if (!next[role]) next[role] = {};
+            if (!next[role][mod.key]) next[role][mod.key] = {};
+            allFeatures.forEach(f => { next[role][mod.key][f.key] = !allOn; });
+            return next;
         });
         setHasChanges(true);
     };
@@ -114,200 +356,208 @@ export const RolePermissions: React.FC = () => {
         }
     };
 
-    const handleSave = () => {
-        saveMutation.mutate(draft);
+    const toggleModuleCollapse = (modKey: string) => {
+        setCollapsedModules(prev => ({ ...prev, [modKey]: !prev[modKey] }));
     };
+
+    // Count granted features per role per module
+    const grantedCount = (role: string, mod: ModuleDef) =>
+        mod.categories.flatMap(c => c.features).filter(f => isGranted(role, mod.key, f.key)).length;
+    const totalCount = (mod: ModuleDef) =>
+        mod.categories.flatMap(c => c.features).length;
 
     if (isLoading) return <LoadingSpinner />;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-24">
             {/* Header */}
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start flex-wrap gap-4">
                 <div>
                     <div className="flex items-center gap-2">
                         <Shield className="h-6 w-6 text-indigo-600" />
                         <h1 className="text-2xl font-bold text-gray-900">Role Permissions</h1>
                     </div>
-                    <p className="text-gray-600 mt-1">
+                    <p className="text-gray-500 mt-1 text-sm">
                         {isMD
-                            ? 'Assign or remove module-level permissions for each role.'
-                            : 'View current role permissions. Only the Managing Director can make changes.'}
+                            ? 'Click any checkbox to grant or revoke a feature for a role.'
+                            : 'View-only. Only the Managing Director can edit permissions.'}
                     </p>
                 </div>
-
                 {isMD && (
                     <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={handleReset}
-                            disabled={!hasChanges}
-                        >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Reset
+                        <Button variant="outline" onClick={handleReset} disabled={!hasChanges}>
+                            <RotateCcw className="h-4 w-4 mr-1.5" /> Reset
                         </Button>
-                        <Button
-                            onClick={handleSave}
-                            disabled={!hasChanges || saveMutation.isPending}
-                        >
-                            <Save className="h-4 w-4 mr-2" />
-                            {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
+                        <Button onClick={() => saveMutation.mutate(draft)} disabled={!hasChanges || saveMutation.isPending}>
+                            <Save className="h-4 w-4 mr-1.5" />
+                            {saveMutation.isPending ? 'Saving…' : 'Save Changes'}
                         </Button>
                     </div>
                 )}
             </div>
 
-            {/* Legend */}
-            <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <Info className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                <div className="flex items-center gap-4 text-sm">
-                    {PERMISSION_LEVELS.map(p => (
-                        <span key={p.key} className="flex items-center gap-1.5">
-                            <span className={`inline-block w-3 h-3 rounded-sm border ${p.bg}`} />
-                            <span className={`font-medium ${p.color}`}>{p.label}</span>
-                        </span>
-                    ))}
-                    <span className="text-gray-500 ml-2">
-                        Enabling Write auto-enables Read. Enabling Admin auto-enables Read + Write.
-                    </span>
-                </div>
-            </div>
+            {/* One card per module */}
+            {MODULES.map(mod => {
+                const colors = MODULE_COLORS[mod.key];
+                const collapsed = collapsedModules[mod.key];
 
-            {/* Permissions Matrix */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200">
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-40">
-                                    Module
-                                </th>
-                                {ROLES.map(role => (
-                                    <th
-                                        key={role.key}
-                                        className="px-4 py-3 text-center text-sm font-semibold text-gray-700"
-                                        colSpan={3}
-                                    >
-                                        {role.label}
-                                    </th>
-                                ))}
-                            </tr>
-                            <tr className="bg-gray-50 border-b-2 border-gray-200">
-                                <th className="px-4 py-2" />
-                                {ROLES.map(role =>
-                                    PERMISSION_LEVELS.map(perm => (
-                                        <th
-                                            key={`${role.key}-${perm.key}`}
-                                            className={`px-2 py-2 text-center text-xs font-medium w-16 ${perm.color}`}
-                                        >
-                                            {perm.label}
-                                        </th>
-                                    ))
-                                )}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {MODULES.map((mod, modIdx) => (
-                                <tr
-                                    key={mod.key}
-                                    className={modIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
-                                >
-                                    <td className="px-4 py-4 font-medium text-gray-800 text-sm capitalize">
-                                        {mod.label}
-                                    </td>
-                                    {ROLES.map(role =>
-                                        PERMISSION_LEVELS.map(perm => {
-                                            const active = hasPermission(role.key, mod.key, perm.key);
-                                            return (
-                                                <td
-                                                    key={`${role.key}-${mod.key}-${perm.key}`}
-                                                    className="px-2 py-4 text-center"
-                                                >
-                                                    <button
-                                                        onClick={() => toggle(role.key, mod.key, perm.key)}
-                                                        disabled={!isMD}
-                                                        title={
-                                                            isMD
-                                                                ? `${active ? 'Remove' : 'Grant'} ${perm.label} on ${mod.label} for ${role.label}`
-                                                                : `${role.label} — ${mod.label} ${perm.label}: ${active ? 'Granted' : 'Not granted'}`
-                                                        }
-                                                        className={`
-                                                            w-7 h-7 rounded border-2 flex items-center justify-center mx-auto transition-all
-                                                            ${active
-                                                                ? `${perm.bg} border-current ${perm.color}`
-                                                                : 'bg-white border-gray-200 text-gray-300'
-                                                            }
-                                                            ${isMD ? 'cursor-pointer hover:scale-110' : 'cursor-default'}
-                                                        `}
-                                                    >
-                                                        {active && (
-                                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                        )}
-                                                    </button>
-                                                </td>
-                                            );
-                                        })
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* Role summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {ROLES.map(role => {
-                    const rolePerms = draft[role.key] || {};
-                    const grantedModules = MODULES.filter(m => (rolePerms[m.key] || []).length > 0);
-
-                    return (
-                        <div key={role.key} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                            <h3 className="font-semibold text-gray-900 text-sm mb-3">{role.label}</h3>
-                            {grantedModules.length === 0 ? (
-                                <p className="text-xs text-gray-400 italic">No module access</p>
-                            ) : (
-                                <ul className="space-y-1">
-                                    {grantedModules.map(mod => {
-                                        const perms = rolePerms[mod.key] || [];
-                                        return (
-                                            <li key={mod.key} className="flex items-center justify-between text-xs">
-                                                <span className="text-gray-600 capitalize">{mod.label}</span>
-                                                <span className="flex gap-0.5">
-                                                    {PERMISSION_LEVELS.map(p => (
-                                                        <span
-                                                            key={p.key}
-                                                            className={`px-1 py-0.5 rounded text-xs font-medium ${
-                                                                perms.includes(p.key)
-                                                                    ? `${p.bg} ${p.color}`
-                                                                    : 'opacity-0'
-                                                            }`}
-                                                        >
-                                                            {p.label[0]}
-                                                        </span>
-                                                    ))}
-                                                </span>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            )}
+                return (
+                    <div key={mod.key} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        {/* Module header */}
+                        <div
+                            className={`${colors.header} px-5 py-3 flex items-center justify-between cursor-pointer select-none`}
+                            onClick={() => toggleModuleCollapse(mod.key)}
+                        >
+                            <span className="text-white font-semibold text-base">{mod.label}</span>
+                            <div className="flex items-center gap-4">
+                                {/* Per-role granted counts */}
+                                <div className="hidden md:flex gap-3">
+                                    {ROLES.map(role => (
+                                        <span key={role.key} className="text-white/80 text-xs">
+                                            {role.label.split(' ')[0]}: {grantedCount(role.key, mod)}/{totalCount(mod)}
+                                        </span>
+                                    ))}
+                                </div>
+                                {collapsed
+                                    ? <ChevronRight className="h-5 w-5 text-white" />
+                                    : <ChevronDown className="h-5 w-5 text-white" />}
+                            </div>
                         </div>
-                    );
-                })}
-            </div>
 
+                        {!collapsed && (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full">
+                                    {/* Role column headers */}
+                                    <thead>
+                                        <tr className="border-b border-gray-100 bg-gray-50">
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-56">
+                                                Feature
+                                            </th>
+                                            {ROLES.map(role => {
+                                                const allOn = mod.categories.flatMap(c => c.features).every(f => isGranted(role.key, mod.key, f.key));
+                                                return (
+                                                    <th key={role.key} className="px-3 py-3 text-center min-w-[120px]">
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <span className="text-xs font-semibold text-gray-700">{role.label}</span>
+                                                            {isMD && (
+                                                                <button
+                                                                    onClick={() => toggleModule(role.key, mod)}
+                                                                    className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                                                                        allOn
+                                                                            ? `${colors.badge} border-current`
+                                                                            : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                                                                    }`}
+                                                                >
+                                                                    {allOn ? 'All on' : 'All off'}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </th>
+                                                );
+                                            })}
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        {mod.categories.map((cat, catIdx) => (
+                                            <React.Fragment key={cat.label}>
+                                                {/* Category sub-header */}
+                                                <tr className="bg-gray-50/60 border-t border-gray-100">
+                                                    <td className="px-4 py-1.5">
+                                                        <span className={`text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${colors.badge}`}>
+                                                            {cat.label}
+                                                        </span>
+                                                    </td>
+                                                    {ROLES.map(role => {
+                                                        const allOn = cat.features.every(f => isGranted(role.key, mod.key, f.key));
+                                                        const someOn = cat.features.some(f => isGranted(role.key, mod.key, f.key));
+                                                        return (
+                                                            <td key={role.key} className="px-3 py-1.5 text-center">
+                                                                {isMD && (
+                                                                    <button
+                                                                        onClick={() => toggleCategory(role.key, mod.key, cat.features)}
+                                                                        title={`${allOn ? 'Disable' : 'Enable'} all in ${cat.label} for ${role.label}`}
+                                                                        className={`text-xs px-1.5 py-0.5 rounded border transition-colors ${
+                                                                            allOn
+                                                                                ? `${colors.badge} border-current`
+                                                                                : someOn
+                                                                                    ? 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                                                                                    : 'bg-white text-gray-300 border-gray-200 hover:text-gray-500'
+                                                                        }`}
+                                                                    >
+                                                                        {allOn ? '✓ all' : someOn ? '~ some' : '— none'}
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+
+                                                {/* Feature rows */}
+                                                {cat.features.map((feat, featIdx) => (
+                                                    <tr
+                                                        key={feat.key}
+                                                        className={`border-t border-gray-50 transition-colors hover:bg-gray-50/40 ${
+                                                            catIdx === mod.categories.length - 1 && featIdx === cat.features.length - 1
+                                                                ? ''
+                                                                : ''
+                                                        }`}
+                                                    >
+                                                        <td className="px-4 py-2.5 text-sm text-gray-700 pl-8">
+                                                            {feat.label}
+                                                        </td>
+                                                        {ROLES.map(role => {
+                                                            const granted = isGranted(role.key, mod.key, feat.key);
+                                                            return (
+                                                                <td key={role.key} className="px-3 py-2.5 text-center">
+                                                                    <button
+                                                                        onClick={() => toggle(role.key, mod.key, feat.key)}
+                                                                        disabled={!isMD}
+                                                                        title={
+                                                                            isMD
+                                                                                ? `${granted ? 'Revoke' : 'Grant'} "${feat.label}" for ${role.label}`
+                                                                                : `${role.label}: ${feat.label} — ${granted ? 'Granted' : 'Not granted'}`
+                                                                        }
+                                                                        className={`
+                                                                            w-6 h-6 rounded border-2 flex items-center justify-center mx-auto transition-all duration-150
+                                                                            ${granted
+                                                                                ? `${colors.check} border-current`
+                                                                                : 'bg-white border-gray-200 text-transparent'
+                                                                            }
+                                                                            ${isMD ? 'cursor-pointer hover:scale-110 active:scale-95' : 'cursor-default'}
+                                                                        `}
+                                                                    >
+                                                                        {granted && (
+                                                                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.5}>
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                            </svg>
+                                                                        )}
+                                                                    </button>
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+
+            {/* Floating save bar when there are unsaved changes */}
             {hasChanges && isMD && (
-                <div className="fixed bottom-6 right-6 flex gap-2 shadow-lg">
-                    <Button variant="outline" onClick={handleReset} className="bg-white">
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Reset
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-full shadow-xl z-50">
+                    <span className="text-sm">You have unsaved changes</span>
+                    <Button size="sm" variant="outline" onClick={handleReset} className="border-white/30 text-white hover:bg-white/10">
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reset
                     </Button>
-                    <Button onClick={handleSave} disabled={saveMutation.isPending}>
-                        <Save className="h-4 w-4 mr-2" />
-                        {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
+                    <Button size="sm" onClick={() => saveMutation.mutate(draft)} disabled={saveMutation.isPending} className="bg-white text-gray-900 hover:bg-gray-100">
+                        <Save className="h-3.5 w-3.5 mr-1" />
+                        {saveMutation.isPending ? 'Saving…' : 'Save'}
                     </Button>
                 </div>
             )}

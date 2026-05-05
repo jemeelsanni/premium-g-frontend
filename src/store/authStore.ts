@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authService } from '../services/authService';
 import { User, UserRole } from '../types';
+import { usePermissionsStore } from './permissionsStore';
 
 interface AuthState {
   user: User | null;
@@ -42,6 +43,8 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
+          // Load feature permissions in the background after login
+          usePermissionsStore.getState().loadPermissions();
         } catch (error: any) {
           set({
             user: null,
@@ -68,6 +71,7 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
+          usePermissionsStore.getState().reset();
         }
       },
 
@@ -89,6 +93,7 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           });
+          usePermissionsStore.getState().loadPermissions();
         } catch (error) {
           // Token is invalid, clear it
           await authService.logout();
@@ -125,24 +130,19 @@ export const canAccessModule = (module: 'distribution' | 'transport' | 'warehous
   const { user } = useAuthStore.getState();
   if (!user) return false;
 
-  const modulePermissions = {
-    distribution: [
-      UserRole.MANAGING_DIRECTOR,
-      UserRole.GENERAL_MANAGER,
-      UserRole.ACCOUNTANT,
-      UserRole.DISTRIBUTORSHIP_SALES_REP,
-    ],
-    transport: [
-      UserRole.MANAGING_DIRECTOR,
-      UserRole.ACCOUNTANT,
-    ],
-    warehouse: [
-      UserRole.MANAGING_DIRECTOR,
-      UserRole.GENERAL_MANAGER,
-      UserRole.ACCOUNTANT,
-      UserRole.CASHIER,
-    ],
-  };
+  const { permissions } = usePermissionsStore.getState();
 
-  return modulePermissions[module].includes(user.role);
+  // Use live permissions from store if loaded; fall back to hardcoded defaults
+  if (permissions) {
+    const moduleFeatures = permissions[user.role]?.[module] ?? {};
+    return Object.values(moduleFeatures).some(Boolean);
+  }
+
+  // Fallback while permissions are loading
+  const fallback: Record<string, string[]> = {
+    distribution: [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT, UserRole.DISTRIBUTORSHIP_SALES_REP],
+    transport:    [UserRole.MANAGING_DIRECTOR, UserRole.ACCOUNTANT],
+    warehouse:    [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT, UserRole.CASHIER],
+  };
+  return (fallback[module] ?? []).includes(user.role);
 };
