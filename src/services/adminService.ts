@@ -307,6 +307,18 @@ export class AdminService extends BaseApiService {
   }
 
   // ================================
+  // ROLE PERMISSIONS
+  // ================================
+
+  async getRolePermissions(): Promise<ApiResponse<{ permissions: Record<string, Record<string, string[]>> }>> {
+    return this.get<ApiResponse<{ permissions: Record<string, Record<string, string[]>> }>>('/admin/role-permissions');
+  }
+
+  async updateRolePermissions(permissions: Record<string, Record<string, string[]>>): Promise<ApiResponse<{ permissions: Record<string, Record<string, string[]>> }>> {
+    return this.put<ApiResponse<{ permissions: Record<string, Record<string, string[]>> }>>({ permissions }, '/admin/role-permissions');
+  }
+
+  // ================================
   // SYSTEM CONFIGURATION
   // ================================
 

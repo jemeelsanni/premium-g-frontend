@@ -12,6 +12,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { globalToast } from '../../components/ui/Toast';
 import { UserRole } from '../../types';
 import { useAuthStore } from '../../store/authStore';
+import { PasswordRequirements, allPasswordRulesPassed } from '../../components/ui/PasswordRequirements';
 
 interface UserFormData {
     username: string;
@@ -32,7 +33,6 @@ export const UserManagement: React.FC = () => {
     const [passwordResetTarget, setPasswordResetTarget] = useState<PasswordResetTarget | null>(null);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [passwordError, setPasswordError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [formData, setFormData] = useState<UserFormData>({
@@ -123,7 +123,6 @@ export const UserManagement: React.FC = () => {
         setPasswordResetTarget(user);
         setNewPassword('');
         setConfirmPassword('');
-        setPasswordError('');
         setIsPasswordModalOpen(true);
     };
 
@@ -132,36 +131,15 @@ export const UserManagement: React.FC = () => {
         setPasswordResetTarget(null);
         setNewPassword('');
         setConfirmPassword('');
-        setPasswordError('');
     };
 
     const handlePasswordReset = (e: React.FormEvent) => {
         e.preventDefault();
-        setPasswordError('');
-
-        if (newPassword !== confirmPassword) {
-            setPasswordError('Passwords do not match');
-            return;
-        }
-        if (newPassword.length < 8) {
-            setPasswordError('Password must be at least 8 characters');
-            return;
-        }
-        if (!/[A-Z]/.test(newPassword)) {
-            setPasswordError('Password must contain at least one uppercase letter');
-            return;
-        }
-        if (!/[a-z]/.test(newPassword)) {
-            setPasswordError('Password must contain at least one lowercase letter');
-            return;
-        }
-        if (!/[0-9]/.test(newPassword)) {
-            setPasswordError('Password must contain at least one number');
-            return;
-        }
-
         resetPasswordMutation.mutate({ id: passwordResetTarget!.id, newPassword });
     };
+
+    const passwordResetValid = allPasswordRulesPassed(newPassword) && newPassword === confirmPassword;
+    const createPasswordValid = allPasswordRulesPassed(formData.password);
 
     const formatLastLogin = (lastLoginAt?: string) => {
         if (!lastLoginAt) return 'Never';
@@ -376,9 +354,9 @@ export const UserManagement: React.FC = () => {
                             type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Min 8 chars, uppercase, lowercase, number"
                             required
                         />
+                        <PasswordRequirements password={newPassword} />
                     </div>
 
                     <div>
@@ -391,17 +369,18 @@ export const UserManagement: React.FC = () => {
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             required
                         />
+                        {confirmPassword.length > 0 && (
+                            <p className={`mt-1 text-xs flex items-center gap-1 ${newPassword === confirmPassword ? 'text-green-600' : 'text-red-500'}`}>
+                                {newPassword === confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
+                            </p>
+                        )}
                     </div>
-
-                    {passwordError && (
-                        <p className="text-sm text-red-600">{passwordError}</p>
-                    )}
 
                     <div className="flex justify-end gap-3 pt-4">
                         <Button type="button" variant="outline" onClick={handleClosePasswordModal}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={resetPasswordMutation.isPending}>
+                        <Button type="submit" disabled={!passwordResetValid || resetPasswordMutation.isPending}>
                             {resetPasswordMutation.isPending ? 'Resetting...' : 'Reset Password'}
                         </Button>
                     </div>
@@ -455,6 +434,7 @@ export const UserManagement: React.FC = () => {
                             }
                             required
                         />
+                        <PasswordRequirements password={formData.password} />
                     </div>
 
                     <div>
@@ -481,8 +461,8 @@ export const UserManagement: React.FC = () => {
                         <Button type="button" variant="outline" onClick={handleCloseModal}>
                             Cancel
                         </Button>
-                        <Button type="submit">
-                            Create User
+                        <Button type="submit" disabled={!createPasswordValid || createMutation.isPending}>
+                            {createMutation.isPending ? 'Creating...' : 'Create User'}
                         </Button>
                     </div>
                 </form>

@@ -9,6 +9,7 @@ import { AuditTrail } from './AuditTrail';
 import { SystemConfig } from './SystemConfig';
 import { UserActivityDashboard } from './UserActivityDashboard';
 import { UserStatsDashboard } from './UserStatsDashboard';
+import { RolePermissions } from './RolePermissions';
 import { useAuthStore } from '../../store/authStore';
 import { UserRole } from '../../types';
 import { JSX } from 'react';
@@ -42,6 +43,7 @@ export const AdminRoutes = () => {
             {/* System Management - Super Admin only */}
             <Route path="audit" element={<SuperAdminOnly element={<AuditTrail />} />} />
             <Route path="config" element={<SuperAdminOnly element={<SystemConfig />} />} />
+            <Route path="role-permissions" element={<SuperAdminOnly element={<RolePermissions />} />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/admin" replace />} />

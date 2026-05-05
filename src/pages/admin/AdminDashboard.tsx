@@ -13,6 +13,7 @@ import {
     FileText,
     BarChart3,
     TrendingUp,
+    Shield,
     Clock,
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
@@ -89,6 +90,13 @@ export const AdminDashboard: React.FC = () => {
             icon: Settings,
             path: '/admin/config',
             color: 'red',
+        },
+        {
+            title: 'Role Permissions',
+            description: 'Assign module access per role',
+            icon: Shield,
+            path: '/admin/role-permissions',
+            color: 'indigo',
         },
     ];
 
