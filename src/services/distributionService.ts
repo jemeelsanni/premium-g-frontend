@@ -422,6 +422,53 @@ export class DistributionService extends BaseApiService {
     return apiClient.delete(`/supplier-products/${id}`);
   }
 
+  // ==========================================
+  // TRUCK LOAD MANAGEMENT
+  // ==========================================
+
+  async getTruckLoads(filters?: { status?: string; supplierCompanyId?: string; page?: number; limit?: number }): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') params.append(k, String(v));
+      });
+    }
+    return apiClient.get(`/distribution/truck-loads?${params.toString()}`);
+  }
+
+  async createTruckLoad(data: {
+    supplierCompanyId: string;
+    orderIds: string[];
+    notes?: string;
+    transporterCompany?: string;
+    driverNumber?: string;
+    truckNumber?: string;
+  }): Promise<any> {
+    return apiClient.post('/distribution/truck-loads', data);
+  }
+
+  async getTruckLoad(id: string): Promise<any> {
+    return apiClient.get(`/distribution/truck-loads/${id}`);
+  }
+
+  async updateTruckLoad(id: string, data: {
+    status?: string;
+    transporterCompany?: string;
+    driverNumber?: string;
+    truckNumber?: string;
+    notes?: string;
+  }): Promise<any> {
+    return apiClient.put(`/distribution/truck-loads/${id}`, data);
+  }
+
+  async addOrderToTruckLoad(truckLoadId: string, orderId: string): Promise<any> {
+    return apiClient.post(`/distribution/truck-loads/${truckLoadId}/orders`, { orderId });
+  }
+
+  async removeOrderFromTruckLoad(truckLoadId: string, orderId: string): Promise<any> {
+    return apiClient.delete(`/distribution/truck-loads/${truckLoadId}/orders/${orderId}`);
+  }
+
   // Bulk add/update products for a supplier
   async bulkCreateSupplierProducts(data: {
     supplierCompanyId: string;

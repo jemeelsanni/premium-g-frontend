@@ -21,6 +21,7 @@ import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 // import { TransportOrder } from '../../types/transport';
 import { useAuthStore } from '@/store/authStore';
+import { canViewTransportStat, TransportStat } from '../../utils/warehousePermissions';
 
 type FilterType = 'all' | 'month' | 'range';
 
@@ -119,8 +120,9 @@ export const TransportDashboard: React.FC = () => {
     console.log('💰 Total Revenue:', dashboardData.totalRevenue);
     console.log('📈 Profit Margin:', dashboardData.profitMargin);
 
-    const statCards = [
+    const allStatCards = [
         {
+            stat: TransportStat.ACTIVE_TRIPS,
             title: 'Active Trips',
             value: dashboardData.activeTrips || 0,
             icon: Truck,
@@ -128,6 +130,7 @@ export const TransportDashboard: React.FC = () => {
             change: '+15%'
         },
         {
+            stat: TransportStat.TOTAL_REVENUE,
             title: 'Total Revenue',
             value: `₦${(dashboardData.totalRevenue || 0).toLocaleString()}`,
             icon: DollarSign,
@@ -135,6 +138,7 @@ export const TransportDashboard: React.FC = () => {
             change: '+12%'
         },
         {
+            stat: TransportStat.FLEET_SIZE,
             title: 'Fleet Size',
             value: trucks?.length || 0,
             icon: Package,
@@ -142,14 +146,16 @@ export const TransportDashboard: React.FC = () => {
             change: '+2%'
         },
         {
+            stat: TransportStat.PROFIT_MARGIN,
             title: 'Profit Margin',
-            // ✅ FIX: Show profit margin instead of monthly growth
             value: `${(dashboardData.profitMargin || 0).toFixed(1)}%`,
             icon: TrendingUp,
             color: 'orange',
             change: '+3%'
         }
     ];
+
+    const statCards = allStatCards.filter(card => canViewTransportStat(card.stat));
 
     // ✅ FIX: Map order columns with correct field names from schema
     const orderColumns = [

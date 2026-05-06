@@ -127,6 +127,19 @@ export enum DashboardStat {
   ACTIVE_CUSTOMERS = 'ACTIVE_CUSTOMERS',
 }
 
+// Maps DashboardStat enum → rolePermissions.json key in the warehouse module
+const STAT_PERMISSION_KEY: Record<DashboardStat, string> = {
+  [DashboardStat.PACKS_SOLD]:       'stat_packs_sold',
+  [DashboardStat.REVENUE]:          'stat_revenue',
+  [DashboardStat.NET_PROFIT]:       'stat_net_profit',
+  [DashboardStat.GROSS_MARGIN]:     'stat_gross_margin',
+  [DashboardStat.EXPENSES]:         'stat_expenses',
+  [DashboardStat.DEBT]:             'stat_debt',
+  [DashboardStat.INVENTORY_ITEMS]:  'stat_inventory_items',
+  [DashboardStat.ACTIVE_CUSTOMERS]: 'stat_active_customers',
+};
+
+// Fallback visibility when permissions store hasn't loaded yet
 const RESTRICTED_STATS: DashboardStat[] = [
   DashboardStat.PACKS_SOLD,
   DashboardStat.DEBT,
@@ -142,15 +155,65 @@ export const canViewDashboardStat = (stat: DashboardStat): boolean => {
 
   if (permissions) {
     const w = permissions[user.role]?.warehouse ?? {};
-    // Full stats if user has approve-level or view_cashflow warehouse access
+    const permKey = STAT_PERMISSION_KEY[stat];
+    // If the explicit stat key is present in permissions, use it
+    if (permKey in w) return w[permKey] === true;
+    // Legacy fallback: full access if user has approve-level warehouse access
     const hasFullAccess = w.approve_expenses || w.approve_discount || w.view_cashflow;
     if (hasFullAccess) return true;
-    // Otherwise only restricted stats
     return RESTRICTED_STATS.includes(stat);
   }
 
-  // Fallback
+  // Fallback while permissions store is loading
   if ([UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER, UserRole.ACCOUNTANT].includes(user.role)) return true;
   if (hasRestrictedWarehouseAccess()) return RESTRICTED_STATS.includes(stat);
   return false;
+};
+
+// ─── Distribution dashboard stat helpers ─────────────────────────────────────
+
+export enum DistributionStat {
+  TOTAL_REVENUE    = 'stat_total_revenue',
+  TOTAL_ORDERS     = 'stat_total_orders',
+  TOTAL_PACKS      = 'stat_total_packs',
+  ACTIVE_CUSTOMERS = 'stat_active_customers',
+}
+
+export const canViewDistributionStat = (stat: DistributionStat): boolean => {
+  const { user } = useAuthStore.getState();
+  if (!user) return false;
+
+  const { permissions } = usePermissionsStore.getState();
+
+  if (permissions) {
+    const d = permissions[user.role]?.distribution ?? {};
+    // Default to true if key not present (graceful for old permission configs)
+    return d[stat] !== false;
+  }
+
+  // Fallback while loading — show all stats
+  return true;
+};
+
+// ─── Transport dashboard stat helpers ────────────────────────────────────────
+
+export enum TransportStat {
+  ACTIVE_TRIPS   = 'stat_active_trips',
+  TOTAL_REVENUE  = 'stat_total_revenue',
+  FLEET_SIZE     = 'stat_fleet_size',
+  PROFIT_MARGIN  = 'stat_profit_margin',
+}
+
+export const canViewTransportStat = (stat: TransportStat): boolean => {
+  const { user } = useAuthStore.getState();
+  if (!user) return false;
+
+  const { permissions } = usePermissionsStore.getState();
+
+  if (permissions) {
+    const t = permissions[user.role]?.transport ?? {};
+    return t[stat] !== false;
+  }
+
+  return true;
 };

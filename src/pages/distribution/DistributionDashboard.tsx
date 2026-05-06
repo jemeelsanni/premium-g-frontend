@@ -14,11 +14,13 @@ import {
     Target,
     Building2,
     Calendar,
+    Truck,
 } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
+import { canViewDistributionStat, DistributionStat } from '../../utils/warehousePermissions';
 
 type FilterType = 'all' | 'month' | 'range';
 
@@ -105,8 +107,9 @@ export const DistributionDashboard: React.FC = () => {
 
     const targetSummary = targetData?.summary;
 
-    const statCards = [
+    const allStatCards = [
         {
+            stat: DistributionStat.TOTAL_REVENUE,
             title: 'Total Revenue',
             value: `₦${(stats.totalRevenue || 0).toLocaleString()}`,
             icon: DollarSign,
@@ -114,6 +117,7 @@ export const DistributionDashboard: React.FC = () => {
             change: '+12.5%',
         },
         {
+            stat: DistributionStat.TOTAL_ORDERS,
             title: 'Total Orders',
             value: stats.totalOrders || 0,
             icon: Package,
@@ -121,6 +125,7 @@ export const DistributionDashboard: React.FC = () => {
             change: '+8.2%',
         },
         {
+            stat: DistributionStat.TOTAL_PACKS,
             title: 'Total Packs',
             value: (stats.totalPacks || 0).toLocaleString(),
             icon: TrendingUp,
@@ -128,6 +133,7 @@ export const DistributionDashboard: React.FC = () => {
             change: '+15.3%',
         },
         {
+            stat: DistributionStat.ACTIVE_CUSTOMERS,
             title: 'Active Customers',
             value: stats.activeCustomers || 0,
             icon: Users,
@@ -135,6 +141,8 @@ export const DistributionDashboard: React.FC = () => {
             change: '+3.1%',
         },
     ];
+
+    const statCards = allStatCards.filter(card => canViewDistributionStat(card.stat));
 
     const orderColumns = [
         {
@@ -383,6 +391,21 @@ export const DistributionDashboard: React.FC = () => {
                             <p className="text-sm text-gray-600 mb-3">View and manage supplier companies</p>
                             <div className="flex items-center text-orange-600 text-sm font-medium">
                                 View All <ArrowRight className="h-4 w-4 ml-1" />
+                            </div>
+                        </div>
+                    </div>
+                </Link>
+
+                <Link to="/distribution/truck-loads" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+                    <div className="flex items-start">
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                            <Truck className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div className="ml-4 flex-1">
+                            <h3 className="text-lg font-semibold mb-1">Truck Loads</h3>
+                            <p className="text-sm text-gray-600 mb-3">Group multiple orders onto one truck to fill capacity</p>
+                            <div className="flex items-center text-blue-600 text-sm font-medium">
+                                Manage Loads <ArrowRight className="h-4 w-4 ml-1" />
                             </div>
                         </div>
                     </div>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Filter, X, Eye, Download, FileText } from 'lucide-react';
+import { Plus, Search, Filter, X, Eye, Download, FileText, Truck } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -13,8 +13,6 @@ import { formatDate } from '../../utils/dateUtils';
 import { globalToast } from '../../components/ui/Toast';
 import { apiClient } from '../../services/api';
 import { ExportOptionsModal, ExportOptions } from '../../components/distribution/ExportOptionsModal';
-
-
 export const OrdersList: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [currentPage, setCurrentPage] = useState(1);
@@ -292,12 +290,25 @@ export const OrdersList: React.FC = () => {
             key: 'actions',
             title: 'Actions',
             render: (_value: any, record: any) => (
-                <Link to={`/distribution/orders/${record?.id || ''}`}>
-                    <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                    </Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                    <Link to={`/distribution/orders/${record?.id || ''}`}>
+                        <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                        </Button>
+                    </Link>
+                    {record.truckLoadId && (
+                        <Link to={`/distribution/truck-loads/${record.truckLoadId}`}>
+                            <span
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                                title="Part of a truck load"
+                            >
+                                <Truck className="h-3 w-3" />
+                                {record.truckLoad?.loadNumber ?? 'Load'}
+                            </span>
+                        </Link>
+                    )}
+                </div>
             )
         }
     ];
@@ -620,6 +631,7 @@ export const OrdersList: React.FC = () => {
                 onClose={() => setShowExportModal(false)}
                 onExport={handleExport}
             />
+
         </div>
     );
 };

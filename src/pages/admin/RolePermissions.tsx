@@ -79,6 +79,23 @@ const MODULES: ModuleDef[] = [
                     { key: 'manage_targets', label: 'Manage Targets' },
                 ],
             },
+            {
+                label: 'Truck Loads',
+                features: [
+                    { key: 'view_truck_loads',   label: 'View Truck Loads' },
+                    { key: 'create_truck_load',  label: 'Create Truck Load' },
+                    { key: 'manage_truck_loads', label: 'Manage Truck Loads (add/remove orders, update status)' },
+                ],
+            },
+            {
+                label: 'Dashboard Stat Cards',
+                features: [
+                    { key: 'stat_total_revenue',    label: 'Show Total Revenue Card' },
+                    { key: 'stat_total_orders',     label: 'Show Total Orders Card' },
+                    { key: 'stat_total_packs',      label: 'Show Total Packs Card' },
+                    { key: 'stat_active_customers', label: 'Show Active Customers Card' },
+                ],
+            },
         ],
     },
     {
@@ -121,6 +138,15 @@ const MODULES: ModuleDef[] = [
                 features: [
                     { key: 'view_locations',   label: 'View Locations' },
                     { key: 'manage_locations', label: 'Manage Locations' },
+                ],
+            },
+            {
+                label: 'Dashboard Stat Cards',
+                features: [
+                    { key: 'stat_active_trips',   label: 'Show Active Trips Card' },
+                    { key: 'stat_total_revenue',  label: 'Show Total Revenue Card' },
+                    { key: 'stat_fleet_size',     label: 'Show Fleet Size Card' },
+                    { key: 'stat_profit_margin',  label: 'Show Profit Margin Card' },
                 ],
             },
         ],
@@ -190,6 +216,19 @@ const MODULES: ModuleDef[] = [
                     { key: 'view_opening_stock',    label: 'View Opening Stock' },
                     { key: 'submit_opening_stock',  label: 'Submit Opening Stock' },
                     { key: 'approve_opening_stock', label: 'Approve Opening Stock' },
+                ],
+            },
+            {
+                label: 'Dashboard Stat Cards',
+                features: [
+                    { key: 'stat_packs_sold',       label: 'Show Packs Sold Card' },
+                    { key: 'stat_revenue',          label: 'Show Total Revenue Card' },
+                    { key: 'stat_net_profit',       label: 'Show Net Profit Card' },
+                    { key: 'stat_gross_margin',     label: 'Show Gross Margin Card' },
+                    { key: 'stat_expenses',         label: 'Show Total Expenses Card' },
+                    { key: 'stat_debt',             label: 'Show Outstanding Debt Card' },
+                    { key: 'stat_inventory_items',  label: 'Show Inventory Items Card' },
+                    { key: 'stat_active_customers', label: 'Show Active Customers Card' },
                 ],
             },
         ],

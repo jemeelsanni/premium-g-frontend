@@ -10,6 +10,8 @@ import SupplierCompanies from './SupplierCompanies';
 import SupplierProducts from './SupplierProducts';
 import SupplierDetail from './SupplierDetail';
 import { SupplierTargets } from './SupplierTargets';
+import { TruckLoads } from './TruckLoads';
+import { TruckLoadDetail } from './TruckLoadDetail';
 
 export const DistributionRoutes = () => {
     return (
@@ -27,6 +29,8 @@ export const DistributionRoutes = () => {
             <Route path="suppliers" element={<SupplierCompanies />} />
             <Route path="suppliers/:id" element={<SupplierDetail />} />
             <Route path="supplier-products" element={<SupplierProducts />} />
+            <Route path="truck-loads" element={<TruckLoads />} />
+            <Route path="truck-loads/:id" element={<TruckLoadDetail />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
     );
