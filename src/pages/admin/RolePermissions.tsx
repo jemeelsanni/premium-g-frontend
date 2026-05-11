@@ -67,9 +67,17 @@ const MODULES: ModuleDef[] = [
             {
                 label: 'Customers & Suppliers',
                 features: [
-                    { key: 'view_customers',  label: 'View Customers' },
-                    { key: 'view_suppliers',  label: 'View Suppliers' },
-                    { key: 'manage_suppliers', label: 'Manage Suppliers' },
+                    { key: 'view_customers',   label: 'View Customers' },
+                    { key: 'view_suppliers',   label: 'View Suppliers' },
+                    { key: 'edit_supplier',    label: 'Edit Supplier Details' },
+                    { key: 'manage_suppliers', label: 'Create / Delete Suppliers' },
+                ],
+            },
+            {
+                label: 'Supplier Products',
+                features: [
+                    { key: 'view_supplier_products',   label: 'View Supplier Products' },
+                    { key: 'manage_supplier_products', label: 'Add / Edit Supplier Products' },
                 ],
             },
             {
@@ -77,6 +85,13 @@ const MODULES: ModuleDef[] = [
                 features: [
                     { key: 'view_targets',   label: 'View Targets' },
                     { key: 'manage_targets', label: 'Manage Targets' },
+                ],
+            },
+            {
+                label: 'Profitability',
+                features: [
+                    { key: 'view_profitability',   label: 'View Profit Analysis' },
+                    { key: 'manage_profitability', label: 'Recalculate Profitability' },
                 ],
             },
             {
