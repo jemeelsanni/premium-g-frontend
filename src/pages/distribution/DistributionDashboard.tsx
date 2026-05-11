@@ -114,7 +114,6 @@ export const DistributionDashboard: React.FC = () => {
             value: `₦${(stats.totalRevenue || 0).toLocaleString()}`,
             icon: DollarSign,
             color: 'blue',
-            change: '+12.5%',
         },
         {
             stat: DistributionStat.TOTAL_ORDERS,
@@ -122,7 +121,6 @@ export const DistributionDashboard: React.FC = () => {
             value: stats.totalOrders || 0,
             icon: Package,
             color: 'green',
-            change: '+8.2%',
         },
         {
             stat: DistributionStat.TOTAL_PACKS,
@@ -130,7 +128,6 @@ export const DistributionDashboard: React.FC = () => {
             value: (stats.totalPacks || 0).toLocaleString(),
             icon: TrendingUp,
             color: 'purple',
-            change: '+15.3%',
         },
         {
             stat: DistributionStat.ACTIVE_CUSTOMERS,
@@ -138,7 +135,6 @@ export const DistributionDashboard: React.FC = () => {
             value: stats.activeCustomers || 0,
             icon: Users,
             color: 'orange',
-            change: '+3.1%',
         },
     ];
 
@@ -288,7 +284,6 @@ export const DistributionDashboard: React.FC = () => {
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">{card.title}</p>
                                 <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-                                <p className="text-sm text-green-600 mt-1">{card.change}</p>
                             </div>
                             <div className={`p-3 rounded-lg bg-${card.color}-50`}>
                                 <card.icon className={`h-6 w-6 text-${card.color}-600`} />

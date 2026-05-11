@@ -433,7 +433,7 @@ export class DistributionService extends BaseApiService {
         if (v !== undefined && v !== null && v !== '') params.append(k, String(v));
       });
     }
-    return apiClient.get(`/distribution/truck-loads?${params.toString()}`);
+    return this.get(`/truck-loads?${params.toString()}`);
   }
 
   async createTruckLoad(data: {
@@ -444,11 +444,11 @@ export class DistributionService extends BaseApiService {
     driverNumber?: string;
     truckNumber?: string;
   }): Promise<any> {
-    return apiClient.post('/distribution/truck-loads', data);
+    return this.post(data, '/truck-loads');
   }
 
   async getTruckLoad(id: string): Promise<any> {
-    return apiClient.get(`/distribution/truck-loads/${id}`);
+    return this.get(`/truck-loads/${id}`);
   }
 
   async updateTruckLoad(id: string, data: {
@@ -458,15 +458,15 @@ export class DistributionService extends BaseApiService {
     truckNumber?: string;
     notes?: string;
   }): Promise<any> {
-    return apiClient.put(`/distribution/truck-loads/${id}`, data);
+    return this.put(data, `/truck-loads/${id}`);
   }
 
   async addOrderToTruckLoad(truckLoadId: string, orderId: string): Promise<any> {
-    return apiClient.post(`/distribution/truck-loads/${truckLoadId}/orders`, { orderId });
+    return this.post({ orderId }, `/truck-loads/${truckLoadId}/orders`);
   }
 
   async removeOrderFromTruckLoad(truckLoadId: string, orderId: string): Promise<any> {
-    return apiClient.delete(`/distribution/truck-loads/${truckLoadId}/orders/${orderId}`);
+    return this.delete(`/truck-loads/${truckLoadId}/orders/${orderId}`);
   }
 
   // Bulk add/update products for a supplier
