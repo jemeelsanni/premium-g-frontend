@@ -217,14 +217,15 @@ export const TruckLoads: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const limit = 12;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['truck-loads', statusFilter, page],
     queryFn: () => distributionService.getTruckLoads({ status: statusFilter || undefined, page, limit }),
-    staleTime: 15000,
+    staleTime: 0,
+    retry: 1,
   });
 
-  const truckLoads: any[] = data?.data?.truckLoads ?? [];
-  const pagination = data?.data?.pagination;
+  const truckLoads: any[] = (data as any)?.data?.truckLoads ?? [];
+  const pagination = (data as any)?.data?.pagination;
 
   return (
     <div className="space-y-6">
@@ -261,6 +262,12 @@ export const TruckLoads: React.FC = () => {
       {/* Grid */}
       {isLoading ? (
         <LoadingSpinner />
+      ) : error ? (
+        <div className="text-center py-16 text-red-400">
+          <Truck className="h-12 w-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Failed to load truck loads</p>
+          <p className="text-sm mt-1">{(error as any)?.response?.data?.message || (error as any)?.message || 'Unknown error'}</p>
+        </div>
       ) : truckLoads.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Truck className="h-12 w-12 mx-auto mb-3 opacity-30" />
