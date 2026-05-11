@@ -22,6 +22,7 @@ import { Table } from '../../components/ui/Table';
 // import { TransportOrder } from '../../types/transport';
 import { useAuthStore } from '@/store/authStore';
 import { canViewTransportStat, TransportStat } from '../../utils/warehousePermissions';
+import { usePermissionsStore } from '../../store/permissionsStore';
 
 type FilterType = 'all' | 'month' | 'range';
 
@@ -36,6 +37,8 @@ function getMonthRange() {
 }
 
 export const TransportDashboard: React.FC = () => {
+    // Subscribe so stat cards re-render when permissions load after refresh
+    usePermissionsStore(s => s.permissions);
 
     const { user } = useAuthStore();
     const isAdmin = user?.role === 'MANAGING_DIRECTOR' || user?.role === 'ACCOUNTANT';

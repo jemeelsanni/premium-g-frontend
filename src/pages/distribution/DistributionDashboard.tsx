@@ -21,6 +21,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 import { canViewDistributionStat, DistributionStat } from '../../utils/warehousePermissions';
+import { usePermissionsStore } from '../../store/permissionsStore';
 
 type FilterType = 'all' | 'month' | 'range';
 
@@ -35,6 +36,9 @@ function getMonthRange() {
 }
 
 export const DistributionDashboard: React.FC = () => {
+    // Subscribe to permissions store so stat cards re-render when permissions load after refresh
+    usePermissionsStore(s => s.permissions);
+
     const [filterType, setFilterType] = useState<FilterType>('month');
     const [rangeStart, setRangeStart] = useState('');
     const [rangeEnd, setRangeEnd] = useState('');

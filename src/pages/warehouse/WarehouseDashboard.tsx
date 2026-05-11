@@ -33,8 +33,12 @@ import {
     canAccessWarehouseFeature,
     WarehouseFeature
 } from '../../utils/warehousePermissions';
+import { usePermissionsStore } from '../../store/permissionsStore';
 
 export const WarehouseDashboard: React.FC = () => {
+    // Subscribe so stat cards re-render when permissions load after refresh
+    usePermissionsStore(s => s.permissions);
+
     const currentDate = new Date();
     const [filterMonth, setFilterMonth] = useState(currentDate.getMonth() + 1);
     const [filterYear, setFilterYear] = useState(currentDate.getFullYear());
