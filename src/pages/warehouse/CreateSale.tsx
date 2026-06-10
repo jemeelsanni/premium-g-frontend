@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/warehouse/CreateSale.tsx
 // ✅ UPDATED VERSION with Price Range Enforcement & Debt Calculation Fix
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -342,6 +342,10 @@ export const CreateSale: React.FC = () => {
     );
 
     // ✅ FIXED: Create sale mutation with correct debt calculation
+    // Guards against double-submission from rapid double-clicks before
+    // createSaleMutation.isPending flips to true
+    const isSubmittingRef = useRef(false);
+
     const createSaleMutation = useMutation({
         mutationFn: async (saleData: SaleFormData) => {
             const receiptNumber = await generateReceiptNumber();
@@ -425,10 +429,17 @@ export const CreateSale: React.FC = () => {
             } else {
                 globalToast.error(message);
             }
+        },
+        onSettled: () => {
+            isSubmittingRef.current = false;
         }
     });
 
     const onSubmit = (data: SaleFormData) => {
+        if (isSubmittingRef.current || createSaleMutation.isPending) {
+            return;
+        }
+
         if (cart.length === 0) {
             globalToast.error('Please add at least one product to the cart');
             return;
@@ -465,6 +476,7 @@ export const CreateSale: React.FC = () => {
             }
         }
 
+        isSubmittingRef.current = true;
         createSaleMutation.mutate(data);
     };
 

@@ -18,7 +18,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
 
     // Check role-based access
     if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-        return <Navigate to="/unauthorized" replace />;
+        return <Navigate to="/login" replace />;
     }
 
     return <>{children}</>;
