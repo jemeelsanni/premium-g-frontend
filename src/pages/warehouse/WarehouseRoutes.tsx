@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { WarehouseDashboard } from './WarehouseDashboard';
-import { InventoryList } from './InventoryList';
+import InventoryManagement from './inventory/InventoryManagement';
+import InventoryProductPage from './inventory/InventoryProductPage';
 import { SalesList } from './SalesList';
 import { CreateSale } from './CreateSale';
 import { SaleDetails } from './SaleDetails';
@@ -10,7 +11,6 @@ import { CashFlowList } from './CashFlowList';
 import { ExpensesList } from './ExpensesList';
 import { CustomerDetail } from './CustomerDetail';
 import DebtorsDashboard from './DebtorsDashboard';
-import OffloadPurchase from './OffloadPurchase';
 import DailyOpeningStock from './DailyOpeningStock';
 import ManualDailyOpeningStock from './ManualDailyOpeningStock';
 import ExpiringProducts from './ExpiringProducts';
@@ -24,9 +24,9 @@ const ProtectedWarehouseRoute = ({
     feature
 }: {
     element: JSX.Element;
-    feature: WarehouseFeature;
+    feature: WarehouseFeature | WarehouseFeature[];
 }) => {
-    const hasAccess = canAccessWarehouseFeature(feature);
+    const hasAccess = (Array.isArray(feature) ? feature : [feature]).some(canAccessWarehouseFeature);
 
     if (!hasAccess) {
         return <Navigate to="/warehouse/dashboard" replace />;
@@ -41,13 +41,22 @@ export const WarehouseRoutes = () => {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<WarehouseDashboard />} />
 
-            {/* Inventory - Restricted */}
+            {/* Inventory Management - products, stock and purchases */}
             <Route
                 path="inventory"
                 element={
                     <ProtectedWarehouseRoute
-                        element={<InventoryList />}
-                        feature={WarehouseFeature.MANAGE_INVENTORY}
+                        element={<InventoryManagement />}
+                        feature={[WarehouseFeature.MANAGE_INVENTORY, WarehouseFeature.PURCHASES]}
+                    />
+                }
+            />
+            <Route
+                path="inventory/:productId"
+                element={
+                    <ProtectedWarehouseRoute
+                        element={<InventoryProductPage />}
+                        feature={[WarehouseFeature.MANAGE_INVENTORY, WarehouseFeature.PURCHASES]}
                     />
                 }
             />
@@ -145,16 +154,8 @@ export const WarehouseRoutes = () => {
                 }
             />
 
-            {/* Purchases - Restricted */}
-            <Route
-                path="offload-purchases"
-                element={
-                    <ProtectedWarehouseRoute
-                        element={<OffloadPurchase />}
-                        feature={WarehouseFeature.PURCHASES}
-                    />
-                }
-            />
+            {/* Purchases now live in Inventory Management */}
+            <Route path="offload-purchases" element={<Navigate to="/warehouse/inventory" replace />} />
 
             {/* Daily Opening Stock - Always accessible */}
             <Route

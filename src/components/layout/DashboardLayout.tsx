@@ -2,6 +2,8 @@ import { ReactNode, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import logo from '../../assets/logo.jpeg';
+import { WarehouseStockBell } from './WarehouseStockBell';
+import { canAccessWarehouseFeature, WarehouseFeature } from '../../utils/warehousePermissions';
 import { UserRole } from '../../types';
 import {
     LayoutDashboard,
@@ -234,6 +236,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                             </p>
                         </div>
                         <div className="flex items-center space-x-4">
+                            {location.pathname.startsWith('/warehouse') &&
+                                (canAccessWarehouseFeature(WarehouseFeature.PURCHASES) || canAccessWarehouseFeature(WarehouseFeature.MANAGE_INVENTORY)) && (
+                                <WarehouseStockBell />
+                            )}
                             <div className="hidden sm:block">
                                 <span className="text-sm text-gray-500">{user?.email}</span>
                             </div>

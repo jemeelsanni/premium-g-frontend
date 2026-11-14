@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
     Users,
-    Package,
     MapPin,
     UserCheck,
     Activity,
@@ -55,13 +54,6 @@ export const AdminDashboard: React.FC = () => {
             icon: Activity,
             path: '/admin/users/activity',
             color: 'purple',
-        },
-        {
-            title: 'Product Management',
-            description: 'Manage products and inventory',
-            icon: Package,
-            path: '/admin/products',
-            color: 'orange',
         },
         {
             title: 'Customer Management',

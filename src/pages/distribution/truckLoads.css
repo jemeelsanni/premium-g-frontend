@@ -1,0 +1,73 @@
+/* Truck Loads list — styles taken from the approved redesign.
+   Every class is prefixed tl- so nothing leaks into the rest of the app. */
+
+.tl { display: flex; flex-direction: column; gap: 24px; color: #101828; min-width: 0; }
+.tl *, .tl *::before, .tl *::after { box-sizing: border-box; }
+.tl button, .tl input { font-family: inherit; }
+
+.tl-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.tl-h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; color: #101828; }
+.tl-sub { margin: 4px 0 0; font-size: 14px; color: #4A5565; }
+
+.tl-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1); }
+.tl-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 24px; }
+
+.tl-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 6px; border: 1px solid transparent; font-size: 14px; font-weight: 500; line-height: 1; cursor: pointer; white-space: nowrap; text-decoration: none; }
+.tl-btn svg { width: 16px; height: 16px; flex: none; }
+.tl-btn-blue { background: #155DFC; color: #fff; }
+.tl-btn-blue:hover { background: #1447E6; }
+.tl-btn-white { background: #fff; color: #364153; border-color: #D1D5DC; }
+.tl-btn-white:hover { background: #F9FAFB; }
+.tl-btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+
+.tl-search { position: relative; flex: 1 1 280px; max-width: 492px; }
+.tl-search svg { position: absolute; left: 12px; top: 12px; width: 16px; height: 16px; color: #99A1AF; pointer-events: none; }
+.tl-inp { display: block; width: 100%; height: 40px; border: 1px solid #D1D5DC; border-radius: 6px; padding: 0 12px 0 38px; font-size: 14px; color: #101828; background: #fff; }
+.tl-inp::placeholder { color: #99A1AF; }
+.tl-inp:focus { outline: 2px solid #155DFC; outline-offset: -1px; border-color: #155DFC; }
+
+.tl-stabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: auto; }
+.tl-stabs-label { font-size: 14px; color: #364153; margin-right: 4px; }
+.tl-stab { height: 32px; padding: 0 12px; border: 0; border-radius: 9999px; background: transparent; font-size: 14px; font-weight: 500; color: #364153; cursor: pointer; }
+.tl-stab:hover { background: #F3F4F6; }
+.tl-stab-on, .tl-stab-on:hover { background: #155DFC; color: #fff; }
+.tl-stab-n { margin-left: 4px; font-weight: 400; opacity: .75; }
+
+.tl-scroll { overflow-x: auto; }
+.tl-table { min-width: 1000px; }
+.tl-grid { display: grid; grid-template-columns: 1fr .8fr .9fr 1.7fr .6fr 1.5fr 128px; align-items: center; column-gap: 16px; padding: 0 24px; }
+.tl-thead { height: 40px; background: #F9FAFB; border-bottom: 1px solid #E5E7EB; }
+.tl-th { font-size: 12px; font-weight: 500; color: #6A7282; text-transform: uppercase; letter-spacing: .05em; }
+.tl-row { min-height: 60px; border-bottom: 1px solid #E5E7EB; font-size: 14px; cursor: pointer; }
+.tl-row:hover { background: #F9FAFB; }
+.tl-id { border: 0; background: transparent; padding: 0; font-size: 14px; font-weight: 600; color: #155DFC; cursor: pointer; text-align: left; }
+.tl-id:hover { text-decoration: underline; }
+.tl-muted { color: #4A5565; }
+
+.tl-pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap; }
+.tl-p-gray { background: #F3F4F6; color: #364153; }
+.tl-p-blue { background: #DBEAFE; color: #193CB8; }
+.tl-p-green { background: #DCFCE7; color: #016630; }
+.tl-p-red { background: #FFE2E2; color: #9F0712; }
+
+.tl-cap { display: flex; align-items: center; gap: 12px; }
+.tl-bar { flex: 1 1 auto; height: 8px; border-radius: 9999px; background: #E5E7EB; overflow: hidden; }
+.tl-bar span { display: block; height: 100%; border-radius: 9999px; }
+.tl-cap-text { font-size: 13px; color: #364153; white-space: nowrap; width: 92px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+
+.tl-empty { padding: 48px 24px; text-align: center; font-size: 14px; color: #4A5565; }
+.tl-error { color: #9F0712; }
+
+.tl-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; border-top: 1px solid #E5E7EB; font-size: 14px; color: #364153; background: #fff; }
+.tl-pager-nav { display: flex; align-items: center; gap: 8px; }
+.tl-pg-btn { width: 40px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #E5E7EB; border-radius: 6px; background: #fff; color: #364153; cursor: pointer; }
+.tl-pg-btn:hover:not(:disabled) { background: #F9FAFB; }
+.tl-pg-btn:disabled { opacity: .4; cursor: not-allowed; }
+.tl-pg-btn svg { width: 16px; height: 16px; }
+
+.tl-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .tl-filters { padding: 16px; }
+  .tl-stabs { margin-left: 0; }
+}

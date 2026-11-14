@@ -2,7 +2,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AdminDashboard } from './AdminDashboard';
 import { UserManagement } from './UserManagement';
-import { ProductManagement } from './ProductManagement';
 import { CustomerManagement } from './CustomerManagement';
 import { LocationManagement } from './LocationManagement';
 import { AuditTrail } from './AuditTrail';
@@ -33,8 +32,8 @@ export const AdminRoutes = () => {
             <Route path="users/activity" element={<SuperAdminOnly element={<UserActivityDashboard />} />} />
             <Route path="users/statistics" element={<SuperAdminOnly element={<UserStatsDashboard />} />} />
 
-            {/* Product Management - Warehouse Admin allowed */}
-            <Route path="products" element={<ProductManagement />} />
+            {/* Warehouse products are managed in Warehouse > Inventory Management */}
+            <Route path="products" element={<Navigate to="/warehouse/inventory" replace />} />
 
             {/* Resource Management - Super Admin only */}
             <Route path="customers" element={<SuperAdminOnly element={<CustomerManagement />} />} />

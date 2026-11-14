@@ -1,0 +1,187 @@
+/* Inventory Management — styles taken from the approved redesign.
+   Every class is prefixed ivm- so nothing leaks into the rest of the app. */
+
+.ivm { display: flex; flex-direction: column; gap: 24px; color: #101828; min-width: 0; }
+.ivm *, .ivm-overlay * { box-sizing: border-box; }
+.ivm button, .ivm-overlay button, .ivm-np button { font-family: inherit; }
+
+.ivm-h1 { margin: 0; font-size: 30px; line-height: 36px; font-weight: 700; color: #101828; }
+.ivm-sub { margin: 4px 0 0; font-size: 14px; color: #6A7282; }
+.ivm-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ivm-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.ivm-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1); }
+
+/* Buttons */
+.ivm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 6px; border: 1px solid transparent; font-size: 14px; font-weight: 500; line-height: 1; cursor: pointer; white-space: nowrap; }
+.ivm-btn svg { width: 16px; height: 16px; flex: none; }
+.ivm-btn:disabled { opacity: .5; cursor: not-allowed; }
+.ivm-btn-blue { background: #155DFC; color: #fff; }
+.ivm-btn-blue:hover:not(:disabled) { background: #1447E6; }
+.ivm-btn-white { background: #fff; color: #364153; border-color: #D1D5DC; }
+.ivm-btn-white:hover:not(:disabled) { background: #F9FAFB; }
+.ivm-btn-gray { background: #E5E7EB; color: #101828; }
+.ivm-btn-gray:hover:not(:disabled) { background: #D1D5DC; }
+.ivm-btn-red { background: #E7000B; color: #fff; }
+.ivm-btn-red:hover:not(:disabled) { background: #C10007; }
+.ivm-btn-del { background: #fff; color: #E7000B; border-color: #FFC9C9; margin-right: auto; }
+.ivm-btn-del:hover:not(:disabled) { background: #FEF2F2; }
+.ivm-btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+.ivm-spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 9999px; animation: ivm-spin .7s linear infinite; }
+@keyframes ivm-spin { to { transform: rotate(360deg); } }
+
+.ivm-icon-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; color: #155DFC; cursor: pointer; }
+.ivm-icon-btn:hover { background: #EFF6FF; }
+.ivm-icon-btn svg { width: 16px; height: 16px; }
+
+/* KPI cards */
+.ivm-kpis { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1.45fr; gap: 20px; }
+@media (max-width: 1180px) { .ivm-kpis { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); } }
+.ivm-kpi { display: flex; align-items: center; gap: 16px; padding: 24px; min-width: 0; }
+.ivm-kpi > div { min-width: 0; }
+.ivm-kpi-btn { border: 0; text-align: left; cursor: pointer; width: 100%; }
+.ivm-kpi-btn:hover { box-shadow: 0 0 0 1px #FFC9C9, 0 1px 3px 0 rgba(0,0,0,.1); }
+.ivm-kpi-l { font-size: 14px; color: #6A7282; }
+.ivm-kpi-v { font-size: 24px; font-weight: 700; line-height: 32px; color: #101828; overflow-wrap: anywhere; }
+.ivm-dot { width: 32px; height: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex: none; }
+.ivm-page-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; }
+.ivm-page-kpis > .ivm-card { padding: 20px 24px; }
+
+/* Filters */
+.ivm-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 24px; }
+.ivm-search { position: relative; flex: 1 1 280px; max-width: 492px; }
+.ivm-search svg { position: absolute; left: 12px; top: 12px; width: 16px; height: 16px; color: #99A1AF; }
+.ivm-filter-by { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.ivm-filter-by label { font-size: 14px; color: #364153; }
+
+/* Inputs */
+.ivm-inp { display: block; width: 100%; height: 40px; border: 1px solid #D1D5DC; border-radius: 6px; padding: 0 12px; font-family: inherit; font-size: 15px; color: #101828; background: #fff; }
+.ivm-inp::placeholder { color: #99A1AF; }
+.ivm-inp:focus { outline: 2px solid #155DFC; outline-offset: -1px; border-color: #155DFC; }
+.ivm-inp:disabled { background: #F3F4F6; color: #6A7282; }
+textarea.ivm-inp { height: 88px; padding: 10px 12px; resize: vertical; line-height: 1.4; }
+.ivm-lbl { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: #364153; margin-bottom: 6px; }
+.ivm-lbl svg { width: 14px; height: 14px; color: #6A7282; flex: none; }
+.ivm-hint { font-size: 12px; color: #6A7282; margin-top: 4px; }
+.ivm-g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.ivm-g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 640px) { .ivm-g3, .ivm-g2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* Main table */
+.ivm-th { font-size: 12px; font-weight: 500; color: #6A7282; text-transform: uppercase; letter-spacing: .05em; }
+.ivm-grid { display: grid; grid-template-columns: minmax(220px,1.8fr) .9fr .7fr .95fr 1.05fr .95fr 1.15fr 48px; align-items: center; column-gap: 16px; padding: 0 24px; }
+.ivm-grid-head { height: 40px; background: #F9FAFB; border-bottom: 1px solid #E5E7EB; }
+.ivm-row { min-height: 57px; border-bottom: 1px solid #E5E7EB; font-size: 14px; }
+.ivm-row-open { background: #F9FAFB; }
+.ivm-pcell { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; color: #101828; font-size: 14px; }
+.ivm-chev-btn { width: 28px; height: 28px; margin-left: -6px; display: inline-flex; align-items: center; justify-content: center; flex: none; border: 0; border-radius: 6px; background: transparent; cursor: pointer; padding: 0; }
+.ivm-chev-btn:hover { background: #E5E7EB; }
+.ivm-chev { width: 16px; height: 16px; color: #6A7282; flex: none; transition: transform .15s; }
+.ivm-chev-open { transform: rotate(90deg); color: #155DFC; }
+.ivm-pkg { width: 16px; height: 16px; color: #155DFC; flex: none; }
+.ivm-pname-link { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 500; color: #101828; cursor: pointer; text-align: left; }
+.ivm-pname-link:hover { color: #155DFC; text-decoration: underline; }
+.ivm-pnum { font-size: 12px; color: #6A7282; margin-top: 1px; }
+.ivm-qty-ok { color: #00A63E; font-weight: 600; }
+.ivm-qty-low { color: #E7000B; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.ivm-qty-low svg { width: 16px; height: 16px; color: #FB2C36; }
+.ivm-foot { padding: 12px 24px; font-size: 14px; color: #364153; }
+.ivm-empty { padding: 48px 24px; text-align: center; font-size: 14px; color: #6A7282; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+/* Pills and inline alerts */
+.ivm-pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap; }
+.ivm-pill-up { font-weight: 500; text-transform: uppercase; }
+.ivm-p-green { background: #DCFCE7; color: #016630; }
+.ivm-p-red { background: #FFE2E2; color: #9F0712; }
+.ivm-p-yellow { background: #FEF9C2; color: #894B00; }
+.ivm-p-gray { background: #F3F4F6; color: #364153; }
+.ivm-p-blue { background: #DBEAFE; color: #193CB8; }
+.ivm-p-purple { background: #F3E8FF; color: #6E11B0; }
+.ivm-warn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #D08700; margin-top: 2px; }
+.ivm-warn svg { width: 12px; height: 12px; }
+.ivm-bad { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #E7000B; margin-top: 2px; font-weight: 500; }
+.ivm-stack { display: flex; flex-direction: column; align-items: flex-start; }
+.ivm-muted { color: #6A7282; }
+
+/* Quick look panel */
+.ivm-panel { background: #F9FAFB; border-bottom: 1px solid #E5E7EB; padding: 4px 24px 24px 50px; }
+@media (max-width: 640px) { .ivm-panel { padding-left: 16px; padding-right: 16px; } }
+.ivm-peek-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; }
+
+/* Sub tables */
+.ivm-subt { background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; overflow: hidden; }
+.ivm-sub-row { display: grid; align-items: center; column-gap: 12px; padding: 12px 16px; border-bottom: 1px solid #F3F4F6; font-size: 14px; }
+.ivm-sub-row:last-child { border-bottom: 0; }
+.ivm-sub-head { background: #F9FAFB; padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid #E5E7EB; }
+.ivm-g-peek { grid-template-columns: 1.1fr .9fr .9fr 1.2fr .9fr .9fr; }
+.ivm-g-pur { grid-template-columns: 1fr .9fr .85fr 1.1fr .9fr 1fr .8fr .9fr 196px; }
+.ivm-g-his { grid-template-columns: .8fr 1fr .7fr 2.4fr 1fr .7fr; }
+.ivm-sub-empty { padding: 32px 16px; text-align: center; font-size: 14px; color: #6A7282; }
+
+/* Product page */
+.ivm-back { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 0; font-size: 14px; font-weight: 500; color: #4A5565; cursor: pointer; }
+.ivm-back:hover { color: #155DFC; }
+.ivm-back svg { width: 16px; height: 16px; }
+.ivm-tabs { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; border-bottom: 1px solid #E5E7EB; margin-bottom: 16px; }
+.ivm-tab { height: 44px; padding: 0 2px; margin-right: 24px; border: 0; border-bottom: 2px solid transparent; background: transparent; font-size: 14px; font-weight: 500; color: #6A7282; cursor: pointer; }
+.ivm-tab:hover { color: #364153; }
+.ivm-tab-on, .ivm-tab-on:hover { color: #155DFC; border-bottom-color: #155DFC; }
+.ivm-seg-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.ivm-segs { display: inline-flex; flex-wrap: wrap; gap: 4px; background: #E5E7EB; border-radius: 8px; padding: 4px; }
+.ivm-seg { height: 30px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; font-size: 13px; font-weight: 500; color: #4A5565; cursor: pointer; }
+.ivm-seg:hover { color: #101828; }
+.ivm-seg-on { background: #fff; color: #101828; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.ivm-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid #E5E7EB; font-size: 14px; color: #364153; background: #fff; }
+.ivm-pg-btn { width: 40px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #E5E7EB; border-radius: 6px; background: #fff; color: #364153; cursor: pointer; }
+.ivm-pg-btn:hover:not(:disabled) { background: #F9FAFB; }
+.ivm-pg-btn:disabled { opacity: .4; cursor: not-allowed; }
+.ivm-pg-btn svg { width: 16px; height: 16px; }
+.ivm-note { margin: 12px 0 0; font-size: 12px; color: #6A7282; }
+.ivm-dt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.ivm-dt { background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 14px 16px; }
+.ivm-dt-l { font-size: 12px; color: #6A7282; }
+.ivm-dt-v { font-size: 14px; font-weight: 500; margin-top: 4px; color: #101828; }
+.ivm-qty-plus { color: #00A63E; font-weight: 600; }
+.ivm-qty-minus { color: #E7000B; font-weight: 600; }
+
+/* Modals */
+.ivm-overlay { position: fixed; inset: 0; background: rgba(106,114,130,.75); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; color: #101828; }
+.ivm-modal { background: #fff; border-radius: 8px; width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1); }
+.ivm-m-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.ivm-m-title { margin: 0; font-size: 18px; font-weight: 600; color: #101828; }
+.ivm-m-x { width: 42px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #D1D5DC; border-radius: 6px; background: #fff; color: #364153; cursor: pointer; }
+.ivm-m-x:hover { background: #F9FAFB; }
+.ivm-m-x svg { width: 16px; height: 16px; }
+.ivm-m-body { display: flex; flex-direction: column; gap: 16px; font-size: 14px; }
+.ivm-m-body p { margin: 0; line-height: 1.5; color: #364153; }
+.ivm-m-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #101828; }
+.ivm-err { background: #FEF2F2; border: 1px solid #FFC9C9; color: #C10007; border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+.ivm-caution { background: #FEFCE8; border: 1px solid #FFF085; color: #894B00; border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+.ivm-total { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: #F9FAFB; border-radius: 6px; padding: 14px 16px; font-size: 14px; color: #364153; }
+.ivm-total b { font-size: 15px; color: #101828; }
+
+/* Header bell */
+.ivm-bell-wrap { position: relative; }
+.ivm-bell { position: relative; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: transparent; color: #4A5565; cursor: pointer; }
+.ivm-bell:hover, .ivm-bell-on { background: #F3F4F6; color: #101828; }
+.ivm-bell svg { width: 20px; height: 20px; }
+.ivm-bell-n { position: absolute; top: 2px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9999px; background: #E7000B; color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px #fff; }
+.ivm-np-scrim { position: fixed; inset: 0; z-index: 40; background: transparent; }
+.ivm-np { position: absolute; top: 44px; right: 0; z-index: 41; width: 380px; max-width: calc(100vw - 32px); background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1); overflow: hidden; color: #101828; }
+@media (max-width: 640px) { .ivm-np { position: fixed; top: 72px; left: 16px; right: 16px; width: auto; max-width: none; } }
+.ivm-np-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #E5E7EB; font-size: 14px; font-weight: 600; }
+.ivm-np-head span + span { font-weight: 400; color: #6A7282; font-size: 13px; }
+.ivm-np-item { display: flex; gap: 12px; width: 100%; padding: 14px 16px; border: 0; border-bottom: 1px solid #F3F4F6; background: #fff; text-align: left; cursor: pointer; }
+.ivm-np-item:hover { background: #F9FAFB; }
+.ivm-np-item:last-child { border-bottom: 0; }
+.ivm-np-ic { width: 32px; height: 32px; flex: none; border-radius: 9999px; display: flex; align-items: center; justify-content: center; }
+.ivm-np-ic svg { width: 16px; height: 16px; }
+.ivm-np-red { background: #FFE2E2; color: #E7000B; }
+.ivm-np-yel { background: #FEF9C2; color: #D08700; }
+.ivm-np-gray { background: #F3F4F6; color: #4A5565; }
+.ivm-np-t { display: block; font-size: 14px; font-weight: 600; color: #101828; }
+.ivm-np-d { display: block; font-size: 13px; color: #4A5565; margin-top: 2px; line-height: 18px; }
+.ivm-np-a { display: block; font-size: 13px; font-weight: 500; color: #155DFC; margin-top: 6px; }
+.ivm-np-none { padding: 24px 16px; text-align: center; font-size: 14px; color: #4A5565; }
+
+.ivm-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

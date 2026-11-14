@@ -426,7 +426,7 @@ export class DistributionService extends BaseApiService {
   // TRUCK LOAD MANAGEMENT
   // ==========================================
 
-  async getTruckLoads(filters?: { status?: string; supplierCompanyId?: string; page?: number; limit?: number }): Promise<any> {
+  async getTruckLoads(filters?: { status?: string; supplierCompanyId?: string; search?: string; page?: number; limit?: number }): Promise<any> {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([k, v]) => {

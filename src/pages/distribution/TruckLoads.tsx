@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { Plus, Truck, Eye, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Truck, Eye, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { distributionService } from '../../services/distributionService';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { globalToast } from '../../components/ui/Toast';
+import './truckLoads.css';
 
 const MAX_PALLETS = 12;
 
@@ -16,15 +17,6 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   IN_TRANSIT: { label: 'In Transit', cls: 'bg-blue-100 text-blue-800' },
   COMPLETED:  { label: 'Completed',  cls: 'bg-green-100 text-green-800' },
   CANCELLED:  { label: 'Cancelled',  cls: 'bg-red-100 text-red-700' },
-};
-
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, cls: 'bg-gray-100 text-gray-700' };
-  return (
-    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${cfg.cls}`}>
-      {cfg.label}
-    </span>
-  );
 };
 
 // ── Pallet fill bar ───────────────────────────────────────────────────────────
@@ -211,135 +203,182 @@ const CreateTruckLoadModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 };
 
 // ── Main list component ───────────────────────────────────────────────────────
+const STATUS_TABS: { key: string; label: string }[] = [
+  { key: '', label: 'All' },
+  { key: 'PLANNED', label: 'Planned' },
+  { key: 'IN_TRANSIT', label: 'In Transit' },
+  { key: 'COMPLETED', label: 'Completed' },
+  { key: 'CANCELLED', label: 'Cancelled' },
+];
+
+const PILL_CLS: Record<string, string> = {
+  PLANNED: 'tl-p-gray',
+  IN_TRANSIT: 'tl-p-blue',
+  COMPLETED: 'tl-p-green',
+  CANCELLED: 'tl-p-red',
+};
+
 export const TruckLoads: React.FC = () => {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
-  const limit = 12;
+  const limit = 10;
+
+  // Wait for typing to pause before searching
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['truck-loads', statusFilter, page],
-    queryFn: () => distributionService.getTruckLoads({ status: statusFilter || undefined, page, limit }),
+    queryKey: ['truck-loads', statusFilter, search, page],
+    queryFn: () => distributionService.getTruckLoads({ status: statusFilter || undefined, search: search || undefined, page, limit }),
     staleTime: 0,
     retry: 1,
+    placeholderData: keepPreviousData,
   });
 
   const truckLoads: any[] = (data as any)?.data?.truckLoads ?? [];
   const pagination = (data as any)?.data?.pagination;
+  const counts: Record<string, number> | undefined = (data as any)?.data?.statusCounts;
+
+  const total: number = pagination?.total ?? 0;
+  const totalPages = Math.max(1, pagination?.totalPages ?? 1);
+  const from = total ? (page - 1) * limit + 1 : 0;
+  const to = Math.min(page * limit, total);
+  const open = (id: string) => navigate(`/distribution/truck-loads/${id}`);
 
   return (
-    <div className="space-y-6">
+    <div className="tl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="tl-head">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Truck Loads</h1>
-          <p className="text-sm text-gray-500 mt-1">Group orders from multiple customers onto one truck</p>
+          <h1 className="tl-h1">Truck Loads</h1>
+          <p className="tl-sub">Group orders from multiple customers onto one truck</p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+        <button type="button" className="tl-btn tl-btn-blue" onClick={() => setShowCreate(true)}>
+          <Plus aria-hidden="true" />
           New Truck Load
-        </Button>
+        </button>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-gray-600">Status:</label>
-        {['', 'PLANNED', 'IN_TRANSIT', 'COMPLETED', 'CANCELLED'].map(s => (
-          <button
-            key={s}
-            onClick={() => { setStatusFilter(s); setPage(1); }}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              statusFilter === s
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {s === '' ? 'All' : STATUS_CONFIG[s]?.label ?? s}
-          </button>
-        ))}
-      </div>
-
-      {/* Grid */}
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : error ? (
-        <div className="text-center py-16 text-red-400">
-          <Truck className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">Failed to load truck loads</p>
-          <p className="text-sm mt-1">{(error as any)?.response?.data?.message || (error as any)?.message || 'Unknown error'}</p>
+      {/* Search and status filter */}
+      <div className="tl-card tl-filters">
+        <div className="tl-search">
+          <label htmlFor="tl-search" className="tl-sr">Search truck loads</label>
+          <Search aria-hidden="true" />
+          <input
+            id="tl-search"
+            className="tl-inp"
+            type="search"
+            placeholder="Search load number or customer..."
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+          />
         </div>
-      ) : truckLoads.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <Truck className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No truck loads yet</p>
-          <p className="text-sm mt-1">Create one to group orders for the same truck run</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {truckLoads.map((load: any) => {
-            const customers = Array.from(
-              new Set((load.orders ?? []).map((o: any) => o.customer?.name).filter(Boolean))
-            ) as string[];
-
+        <div className="tl-stabs" role="group" aria-label="Filter by status">
+          <span className="tl-stabs-label">Status:</span>
+          {STATUS_TABS.map(t => {
+            const on = statusFilter === t.key;
+            const n = counts?.[t.key || 'ALL'];
             return (
-              <div key={load.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col gap-3">
-                {/* Title row */}
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-gray-900">{load.loadNumber}</span>
-                  <StatusBadge status={load.status} />
-                </div>
-
-                {/* Supplier */}
-                <p className="text-sm text-gray-500">{load.supplierCompany?.name}</p>
-
-                {/* Pallet bar */}
-                <PalletBar pallets={load.totalPallets || 0} />
-
-                {/* Orders count + customers */}
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">{load.orders?.length ?? 0} order(s)</span>
-                  {customers.length > 0 && (
-                    <span className="text-gray-400"> · {customers.slice(0, 2).join(', ')}{customers.length > 2 ? ` +${customers.length - 2}` : ''}</span>
-                  )}
-                </div>
-
-                {/* Transport info */}
-                {(load.truckNumber || load.transporterCompany) && (
-                  <div className="text-xs text-gray-400 flex gap-2">
-                    {load.truckNumber && <span>🚛 {load.truckNumber}</span>}
-                    {load.transporterCompany && <span>{load.transporterCompany}</span>}
-                  </div>
-                )}
-
-                {/* View button */}
-                <Link to={`/distribution/truck-loads/${load.id}`} className="mt-auto">
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Eye className="h-4 w-4 mr-1" />
-                    View Details
-                  </Button>
-                </Link>
-              </div>
+              <button
+                key={t.key || 'all'}
+                type="button"
+                className={`tl-stab${on ? ' tl-stab-on' : ''}`}
+                aria-pressed={on}
+                onClick={() => { setStatusFilter(t.key); setPage(1); }}
+              >
+                {t.label}
+                {n !== undefined && <span className="tl-stab-n">{n}</span>}
+              </button>
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600">
-            Page {pagination.page} of {pagination.totalPages} · {pagination.total} loads
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+      {/* List */}
+      <div className="tl-card" style={{ overflow: 'hidden' }}>
+        <div className="tl-scroll">
+          <div className="tl-table">
+            <div className="tl-grid tl-thead">
+              <span className="tl-th">Load No.</span>
+              <span className="tl-th">Status</span>
+              <span className="tl-th">Supplier</span>
+              <span className="tl-th">Truck Capacity</span>
+              <span className="tl-th" style={{ textAlign: 'center' }}>Orders</span>
+              <span className="tl-th">Customers</span>
+              <span className="tl-sr">Actions</span>
+            </div>
+
+            {isLoading ? (
+              <div className="tl-empty"><LoadingSpinner /></div>
+            ) : error ? (
+              <div className="tl-empty tl-error">
+                Failed to load truck loads: {(error as any)?.response?.data?.message || (error as any)?.message || 'Unknown error'}
+              </div>
+            ) : truckLoads.length === 0 ? (
+              <div className="tl-empty">
+                {search || statusFilter
+                  ? 'No truck loads match this search or status.'
+                  : 'No truck loads yet. Create one to group orders for the same truck run.'}
+              </div>
+            ) : (
+              truckLoads.map((load: any) => {
+                const customers = Array.from(
+                  new Set((load.orders ?? []).map((o: any) => o.customer?.name).filter(Boolean))
+                ) as string[];
+                const pallets: number = load.totalPallets || 0;
+                const full = pallets >= MAX_PALLETS;
+                const pct = Math.min(Math.round((pallets / MAX_PALLETS) * 100), 100);
+                const status = STATUS_CONFIG[load.status]?.label ?? load.status;
+                return (
+                  <div key={load.id} className="tl-grid tl-row" onClick={() => open(load.id)}>
+                    <span>
+                      <button type="button" className="tl-id" onClick={e => { e.stopPropagation(); open(load.id); }}>
+                        {load.loadNumber}
+                      </button>
+                    </span>
+                    <span><span className={`tl-pill ${PILL_CLS[load.status] ?? 'tl-p-gray'}`}>{status}</span></span>
+                    <span>{load.supplierCompany?.name ?? '—'}</span>
+                    <span className="tl-cap">
+                      <span className="tl-bar" role="img" aria-label={`${pallets} of ${MAX_PALLETS} pallets loaded`}>
+                        <span style={{ width: `${pct}%`, background: full ? '#00C950' : '#51A2FF' }} />
+                      </span>
+                      <span className="tl-cap-text">{pallets} / {MAX_PALLETS} pallets</span>
+                    </span>
+                    <span style={{ textAlign: 'center' }}>{load.orders?.length ?? 0}</span>
+                    <span className="tl-muted">{customers.length ? customers.join(', ') : '—'}</span>
+                    <span style={{ textAlign: 'right' }}>
+                      <button type="button" className="tl-btn tl-btn-white tl-btn-sm" onClick={e => { e.stopPropagation(); open(load.id); }}>
+                        <Eye aria-hidden="true" />
+                        View Details
+                      </button>
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
-      )}
+
+        {/* Pagination */}
+        <div className="tl-pager">
+          <span>{total ? `Showing ${from}–${to} of ${total} ${total === 1 ? 'load' : 'loads'}` : 'Showing 0 loads'}</span>
+          <div className="tl-pager-nav">
+            <span>Page {Math.min(page, totalPages)} of {totalPages}</span>
+            <button type="button" className="tl-pg-btn" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft aria-hidden="true" />
+            </button>
+            <button type="button" className="tl-pg-btn" aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+              <ChevronRight aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {showCreate && <CreateTruckLoadModal onClose={() => setShowCreate(false)} />}
     </div>
