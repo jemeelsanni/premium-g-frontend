@@ -426,6 +426,12 @@ export const WarehouseDashboard: React.FC = () => {
     return current <= minimum;
   });
 
+  // Dashboard card shows a short preview, most urgent first; the full list is on the inventory page
+  const LOW_STOCK_PREVIEW = 5;
+  const lowStockPreview = [...lowStock]
+    .sort((a, b) => parseNumber(a.currentStock) - parseNumber(b.currentStock))
+    .slice(0, LOW_STOCK_PREVIEW);
+
   const recentExpenses: WarehouseExpense[] = expensesData?.data?.expenses || [];
 
   const expenseColumns = [
@@ -1148,16 +1154,18 @@ export const WarehouseDashboard: React.FC = () => {
                 Low Stock Items
               </h3>
               <Link
-                to="/warehouse/inventory"
+                to="/warehouse/inventory?view=low"
                 className="text-sm text-blue-600 hover:text-blue-800 font-medium"
               >
-                View inventory
+                {lowStock.length > LOW_STOCK_PREVIEW
+                  ? `View all ${lowStock.length}`
+                  : "View inventory"}
               </Link>
             </div>
           </div>
           <div className="p-6">
             <Table
-              data={lowStock}
+              data={lowStockPreview}
               columns={lowStockColumns}
               loading={!lowStockItems}
               emptyMessage="All items are well stocked"
