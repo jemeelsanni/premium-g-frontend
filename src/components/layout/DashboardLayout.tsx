@@ -5,6 +5,8 @@ import logo from '../../assets/logo.jpeg';
 import { WarehouseStockBell } from './WarehouseStockBell';
 import { canAccessWarehouseFeature, WarehouseFeature } from '../../utils/warehousePermissions';
 import { UserRole } from '../../types';
+import { AppModule, useModuleAccess } from '../../utils/permissions';
+import { usePermissionsStore } from '../../store/permissionsStore';
 import {
     LayoutDashboard,
     Package,
@@ -25,7 +27,7 @@ interface NavigationItem {
     name: string;
     href: string;
     icon: React.ComponentType<{ className?: string }>;
-    roles: UserRole[];
+    module: AppModule;
 }
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
@@ -33,34 +35,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const { canAccess, homeRoute } = useModuleAccess();
+    // Re-render when the permissions config loads so warehouse checks update.
+    usePermissionsStore((s) => s.permissions);
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
-    // Get default home route based on user role
-    const getDefaultRoute = (): string => {
-        const role = user?.role;
-        switch (role) {
-            case UserRole.MANAGING_DIRECTOR:
-            case UserRole.GENERAL_MANAGER:
-                return '/dashboard';
-            case UserRole.ACCOUNTANT:
-                return '/transport';
-            case UserRole.DISTRIBUTORSHIP_SALES_REP:
-                return '/distribution';
-            case UserRole.CASHIER:
-                return '/warehouse';
-            default:
-                return '/dashboard';
-        }
-    };
 
-    // Helper function to check if user has access to navigation item
-    const hasAccess = (roles: UserRole[]): boolean => {
-        return user?.role ? roles.includes(user.role) : false;
-    };
 
     // Navigation items configuration
     const navigationItems: NavigationItem[] = [
@@ -68,49 +52,36 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             name: 'Dashboard',
             href: '/dashboard',
             icon: LayoutDashboard,
-            roles: [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER],
+            module: 'dashboard',
         },
         {
             name: 'Distributorship',
             href: '/distribution',
             icon: Package,
-            roles: [
-                UserRole.MANAGING_DIRECTOR,
-                UserRole.GENERAL_MANAGER,
-                UserRole.ACCOUNTANT,
-                UserRole.DISTRIBUTORSHIP_SALES_REP,
-            ],
+            module: 'distribution',
         },
         {
             name: 'Transport',
             href: '/transport',
             icon: Truck,
-            roles: [
-                UserRole.MANAGING_DIRECTOR,
-                UserRole.ACCOUNTANT,
-            ],
+            module: 'transport',
         },
         {
             name: 'Warehouse',
             href: '/warehouse',
             icon: Warehouse,
-            roles: [
-                UserRole.MANAGING_DIRECTOR,
-                UserRole.GENERAL_MANAGER,
-                UserRole.ACCOUNTANT,
-                UserRole.CASHIER,
-            ],
+            module: 'warehouse',
         },
         {
             name: 'Admin',
             href: '/admin',
             icon: Settings,
-            roles: [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER],
+            module: 'admin',
         },
     ];
 
     // Filter navigation items based on user role
-    const accessibleNavItems = navigationItems.filter(item => hasAccess(item.roles));
+    const accessibleNavItems = navigationItems.filter(item => canAccess(item.module));
 
     // Format role name for display
     const formatRoleName = (role: UserRole): string => {
@@ -145,7 +116,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <div className="flex flex-col h-full">
                     {/* Logo */}
                     <div className="flex items-center justify-between h-16 px-4 border-b">
-                        <Link to={getDefaultRoute()} className="flex items-center">
+                        <Link to={homeRoute} className="flex items-center">
                             <img src={logo} alt="Logo" className="h-8 w-8" />
                             <h1 className="text-xl font-bold text-indigo-600">Premium G</h1>
                         </Link>

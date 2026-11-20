@@ -1,11 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 
 // Layout Components
 import { DashboardLayout } from './components/layout/DashboardLayout';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import { ProtectedRoute, HomeRedirect } from './components/ProtectedRoute';
 
 // Auth Pages
 import { Login } from './pages/auth/Login';
@@ -24,7 +24,6 @@ import { MainDashboard } from './pages/dashboard/MainDashboard';
 
 // Store
 import { useAuthStore } from './store/authStore';
-import { UserRole } from './types';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,9 +57,7 @@ function App() {
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute
-                allowedRoles={[UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER]}
-              >
+              <ProtectedRoute module="dashboard">
                 <DashboardLayout>
                   <MainDashboard />
                 </DashboardLayout>
@@ -72,14 +69,7 @@ function App() {
           <Route
             path="/distribution/*"
             element={
-              <ProtectedRoute
-                allowedRoles={[
-                  UserRole.MANAGING_DIRECTOR,
-                  UserRole.GENERAL_MANAGER,
-                  UserRole.ACCOUNTANT,
-                  UserRole.DISTRIBUTORSHIP_SALES_REP,
-                ]}
-              >
+              <ProtectedRoute module="distribution">
                 <DashboardLayout>
                   <DistributionRoutes />
                 </DashboardLayout>
@@ -91,12 +81,7 @@ function App() {
           <Route
             path="/transport/*"
             element={
-              <ProtectedRoute
-                allowedRoles={[
-                  UserRole.MANAGING_DIRECTOR,
-                  UserRole.ACCOUNTANT
-                ]}
-              >
+              <ProtectedRoute module="transport">
                 <DashboardLayout>
                   <TransportRoutes />
                 </DashboardLayout>
@@ -108,14 +93,7 @@ function App() {
           <Route
             path="/warehouse/*"
             element={
-              <ProtectedRoute
-                allowedRoles={[
-                  UserRole.MANAGING_DIRECTOR,
-                  UserRole.GENERAL_MANAGER,
-                  UserRole.ACCOUNTANT,
-                  UserRole.CASHIER
-                ]}
-              >
+              <ProtectedRoute module="warehouse">
                 <DashboardLayout>
                   <WarehouseRoutes />
                 </DashboardLayout>
@@ -126,9 +104,7 @@ function App() {
           <Route
             path="/admin/*"
             element={
-              <ProtectedRoute
-                allowedRoles={[UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER]}
-              >
+              <ProtectedRoute module="admin">
                 <DashboardLayout>
                   <AdminRoutes />
                 </DashboardLayout>
@@ -140,13 +116,7 @@ function App() {
           <Route
             path="/targets"
             element={
-              <ProtectedRoute
-                allowedRoles={[
-                  UserRole.MANAGING_DIRECTOR,
-                  UserRole.GENERAL_MANAGER,
-                  UserRole.DISTRIBUTORSHIP_SALES_REP
-                ]}
-              >
+              <ProtectedRoute module="distribution">
                 <DashboardLayout>
                   <div className="p-6">
                     <h1 className="text-2xl font-bold">Targets & Performance</h1>
@@ -158,8 +128,8 @@ function App() {
           />
 
           {/* Default redirects */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="*" element={<HomeRedirect />} />
         </Routes>
 
         {/* React Hot Toast component for notifications */}

@@ -17,6 +17,7 @@ import ExpiringProducts from './ExpiringProducts';
 import AuditLogs from './AuditLogs';
 import { canAccessWarehouseFeature, WarehouseFeature } from '../../utils/warehousePermissions';
 import { JSX } from 'react';
+import { usePermissionsStore } from '../../store/permissionsStore';
 
 // Protected route wrapper component
 const ProtectedWarehouseRoute = ({
@@ -26,6 +27,8 @@ const ProtectedWarehouseRoute = ({
     element: JSX.Element;
     feature: WarehouseFeature | WarehouseFeature[];
 }) => {
+    // Subscribe so the guard re-evaluates when the permissions config changes.
+    usePermissionsStore((s) => s.permissions);
     const hasAccess = (Array.isArray(feature) ? feature : [feature]).some(canAccessWarehouseFeature);
 
     if (!hasAccess) {

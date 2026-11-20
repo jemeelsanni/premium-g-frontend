@@ -41,7 +41,7 @@ export function Table<T extends Record<string, any>>({
 
     return (
         <>
-            <div className={clsx('overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg', className)}>
+            <div className={clsx('overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg', className)}>
                 <table className="min-w-full divide-y divide-gray-300">
                     <thead className="bg-gray-50">
                         <tr>

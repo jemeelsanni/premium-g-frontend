@@ -9,15 +9,30 @@ import { SystemConfig } from './SystemConfig';
 import { UserActivityDashboard } from './UserActivityDashboard';
 import { UserStatsDashboard } from './UserStatsDashboard';
 import { RolePermissions } from './RolePermissions';
-import { useAuthStore } from '../../store/authStore';
+import { useFeatureAccess } from '../../utils/permissions';
 import { UserRole } from '../../types';
 import { JSX } from 'react';
 
-// Only MANAGING_DIRECTOR and GENERAL_MANAGER can access this route
-const SuperAdminOnly = ({ element }: { element: JSX.Element }) => {
-    const { user } = useAuthStore();
-    if (user?.role !== UserRole.MANAGING_DIRECTOR && user?.role !== UserRole.GENERAL_MANAGER) {
-        return <Navigate to="/admin/products" replace />;
+const ADMIN_FALLBACK = [UserRole.MANAGING_DIRECTOR, UserRole.GENERAL_MANAGER];
+
+const ADMIN_PAGES = [
+    { feature: 'view_dashboard', path: '/admin' },
+    { feature: 'manage_users', path: '/admin/users' },
+    { feature: 'manage_customers', path: '/admin/customers' },
+    { feature: 'manage_locations', path: '/admin/locations' },
+    { feature: 'view_audit', path: '/admin/audit' },
+    { feature: 'manage_config', path: '/admin/config' },
+    { feature: 'manage_role_permissions', path: '/admin/role-permissions' },
+    { feature: 'manage_products', path: '/warehouse/inventory' },
+];
+
+// Each admin page is gated by its own feature toggle in Role Permissions.
+const AdminFeatureRoute = ({ element, feature }: { element: JSX.Element; feature: string }) => {
+    const hasFeature = useFeatureAccess();
+    if (!hasFeature('admin', feature, ADMIN_FALLBACK)) {
+        // Go to the first admin page they *can* open (avoids "/" -> "/admin" loops).
+        const fallback = ADMIN_PAGES.find(p => p.feature !== feature && hasFeature('admin', p.feature, ADMIN_FALLBACK));
+        return <Navigate to={fallback?.path ?? '/unauthorized'} replace />;
     }
     return element;
 };
@@ -25,24 +40,24 @@ const SuperAdminOnly = ({ element }: { element: JSX.Element }) => {
 export const AdminRoutes = () => {
     return (
         <Routes>
-            <Route index element={<SuperAdminOnly element={<AdminDashboard />} />} />
+            <Route index element={<AdminFeatureRoute feature="view_dashboard" element={<AdminDashboard />} />} />
 
             {/* User Management - Super Admin only */}
-            <Route path="users" element={<SuperAdminOnly element={<UserManagement />} />} />
-            <Route path="users/activity" element={<SuperAdminOnly element={<UserActivityDashboard />} />} />
-            <Route path="users/statistics" element={<SuperAdminOnly element={<UserStatsDashboard />} />} />
+            <Route path="users" element={<AdminFeatureRoute feature="manage_users" element={<UserManagement />} />} />
+            <Route path="users/activity" element={<AdminFeatureRoute feature="manage_users" element={<UserActivityDashboard />} />} />
+            <Route path="users/statistics" element={<AdminFeatureRoute feature="manage_users" element={<UserStatsDashboard />} />} />
 
             {/* Warehouse products are managed in Warehouse > Inventory Management */}
             <Route path="products" element={<Navigate to="/warehouse/inventory" replace />} />
 
             {/* Resource Management - Super Admin only */}
-            <Route path="customers" element={<SuperAdminOnly element={<CustomerManagement />} />} />
-            <Route path="locations" element={<SuperAdminOnly element={<LocationManagement />} />} />
+            <Route path="customers" element={<AdminFeatureRoute feature="manage_customers" element={<CustomerManagement />} />} />
+            <Route path="locations" element={<AdminFeatureRoute feature="manage_locations" element={<LocationManagement />} />} />
 
             {/* System Management - Super Admin only */}
-            <Route path="audit" element={<SuperAdminOnly element={<AuditTrail />} />} />
-            <Route path="config" element={<SuperAdminOnly element={<SystemConfig />} />} />
-            <Route path="role-permissions" element={<SuperAdminOnly element={<RolePermissions />} />} />
+            <Route path="audit" element={<AdminFeatureRoute feature="view_audit" element={<AuditTrail />} />} />
+            <Route path="config" element={<AdminFeatureRoute feature="manage_config" element={<SystemConfig />} />} />
+            <Route path="role-permissions" element={<AdminFeatureRoute feature="manage_role_permissions" element={<RolePermissions />} />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/admin" replace />} />
