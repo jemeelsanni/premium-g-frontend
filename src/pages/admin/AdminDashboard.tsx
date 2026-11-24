@@ -16,6 +16,8 @@ import {
     Clock,
 } from 'lucide-react';
 import { adminService } from '../../services/adminService';
+import { useAuthStore } from '../../store/authStore';
+import { UserRole } from '../../types';
 
 export const AdminDashboard: React.FC = () => {
     // Fetch user statistics
@@ -32,6 +34,8 @@ export const AdminDashboard: React.FC = () => {
 
     const stats = statsData?.data;
     const recentUsers = usersData?.data?.users || [];
+
+    const isMD = useAuthStore((s) => s.user?.role) === UserRole.MANAGING_DIRECTOR;
 
     const quickLinks = [
         {
@@ -164,7 +168,9 @@ export const AdminDashboard: React.FC = () => {
             <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Links</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {quickLinks.map((link) => (
+                    {quickLinks
+                        .filter((link) => link.path !== '/admin/role-permissions' || isMD)
+                        .map((link) => (
                         <Link
                             key={link.path}
                             to={link.path}

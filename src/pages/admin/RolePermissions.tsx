@@ -296,12 +296,6 @@ const MODULES: ModuleDef[] = [
           { key: "manage_locations", label: "Manage Locations" },
         ],
       },
-      {
-        label: "System",
-        features: [
-          { key: "manage_role_permissions", label: "Manage Role Permissions" },
-        ],
-      },
     ],
   },
 ];

@@ -9,6 +9,7 @@ import { UserActivityDashboard } from './UserActivityDashboard';
 import { UserStatsDashboard } from './UserStatsDashboard';
 import { RolePermissions } from './RolePermissions';
 import { useFeatureAccess } from '../../utils/permissions';
+import { useAuthStore } from '../../store/authStore';
 import { UserRole } from '../../types';
 import { JSX } from 'react';
 
@@ -20,7 +21,6 @@ const ADMIN_PAGES = [
     { feature: 'manage_customers', path: '/admin/customers' },
     { feature: 'manage_locations', path: '/admin/locations' },
     { feature: 'view_audit', path: '/admin/audit' },
-    { feature: 'manage_role_permissions', path: '/admin/role-permissions' },
     { feature: 'manage_products', path: '/warehouse/inventory' },
 ];
 
@@ -32,6 +32,13 @@ const AdminFeatureRoute = ({ element, feature }: { element: JSX.Element; feature
         const fallback = ADMIN_PAGES.find(p => p.feature !== feature && hasFeature('admin', p.feature, ADMIN_FALLBACK));
         return <Navigate to={fallback?.path ?? '/unauthorized'} replace />;
     }
+    return element;
+};
+
+// Only the Managing Director can edit role permissions, so hide the page from everyone else.
+const ManagingDirectorOnly = ({ element }: { element: JSX.Element }) => {
+    const role = useAuthStore((s) => s.user?.role);
+    if (role !== UserRole.MANAGING_DIRECTOR) return <Navigate to="/admin" replace />;
     return element;
 };
 
@@ -55,7 +62,7 @@ export const AdminRoutes = () => {
             {/* System Management - Super Admin only */}
             <Route path="audit" element={<AdminFeatureRoute feature="view_audit" element={<AuditTrail />} />} />
             {/* System Config is hidden for now — /admin/config falls through to /admin */}
-            <Route path="role-permissions" element={<AdminFeatureRoute feature="manage_role_permissions" element={<RolePermissions />} />} />
+            <Route path="role-permissions" element={<ManagingDirectorOnly element={<RolePermissions />} />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/admin" replace />} />
