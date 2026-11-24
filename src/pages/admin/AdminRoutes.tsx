@@ -5,7 +5,6 @@ import { UserManagement } from './UserManagement';
 import { CustomerManagement } from './CustomerManagement';
 import { LocationManagement } from './LocationManagement';
 import { AuditTrail } from './AuditTrail';
-import { SystemConfig } from './SystemConfig';
 import { UserActivityDashboard } from './UserActivityDashboard';
 import { UserStatsDashboard } from './UserStatsDashboard';
 import { RolePermissions } from './RolePermissions';
@@ -21,7 +20,6 @@ const ADMIN_PAGES = [
     { feature: 'manage_customers', path: '/admin/customers' },
     { feature: 'manage_locations', path: '/admin/locations' },
     { feature: 'view_audit', path: '/admin/audit' },
-    { feature: 'manage_config', path: '/admin/config' },
     { feature: 'manage_role_permissions', path: '/admin/role-permissions' },
     { feature: 'manage_products', path: '/warehouse/inventory' },
 ];
@@ -56,7 +54,7 @@ export const AdminRoutes = () => {
 
             {/* System Management - Super Admin only */}
             <Route path="audit" element={<AdminFeatureRoute feature="view_audit" element={<AuditTrail />} />} />
-            <Route path="config" element={<AdminFeatureRoute feature="manage_config" element={<SystemConfig />} />} />
+            {/* System Config is hidden for now — /admin/config falls through to /admin */}
             <Route path="role-permissions" element={<AdminFeatureRoute feature="manage_role_permissions" element={<RolePermissions />} />} />
 
             {/* Fallback */}

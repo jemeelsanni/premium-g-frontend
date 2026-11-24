@@ -299,7 +299,6 @@ const MODULES: ModuleDef[] = [
       {
         label: "System",
         features: [
-          { key: "manage_config", label: "System Configuration" },
           { key: "manage_role_permissions", label: "Manage Role Permissions" },
         ],
       },
@@ -380,6 +379,7 @@ export const RolePermissions: React.FC = () => {
         setDraft(JSON.parse(JSON.stringify(res.data.permissions)));
       }
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
       globalToast.error(
         error.response?.data?.message || "Failed to save permissions",

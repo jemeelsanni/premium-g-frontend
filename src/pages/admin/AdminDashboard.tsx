@@ -77,13 +77,6 @@ export const AdminDashboard: React.FC = () => {
             color: 'gray',
         },
         {
-            title: 'System Configuration',
-            description: 'Configure system settings',
-            icon: Settings,
-            path: '/admin/config',
-            color: 'red',
-        },
-        {
             title: 'Role Permissions',
             description: 'Assign module access per role',
             icon: Shield,
